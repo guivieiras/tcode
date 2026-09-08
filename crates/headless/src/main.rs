@@ -43,6 +43,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
             print_usage();
             Ok(())
         }
+        Some("import-t3") => import_t3_command(&args[1..]),
         Some("serve") => serve_command(&args[1..]),
         Some("pair") => pair_command(&args[1..]),
         Some("set-password") => set_password_command(&args[1..]),
@@ -52,8 +53,79 @@ fn run(args: Vec<String>) -> Result<(), String> {
 
 fn print_usage() {
     println!(
-        "Usage:\n  tcode-headless serve [--listen ADDR:PORT] [--name NAME] [--data-dir DIR] [--password PASSWORD]\n  tcode-headless set-password [--data-dir DIR] [--password PASSWORD] [--revoke-tokens]\n  tcode-headless pair [--listen ADDR:PORT]\n\nOptions:\n  -h, --help    Print this help"
+        "Usage:\n  tcode-headless import-t3 [--source DIR] [--data-dir DIR] [--profile SOURCE=DESTINATION] [--skip-settled] [--skip-archived] [--dry-run]\n  tcode-headless serve [--listen ADDR:PORT] [--name NAME] [--data-dir DIR] [--password PASSWORD]\n  tcode-headless set-password [--data-dir DIR] [--password PASSWORD] [--revoke-tokens]\n  tcode-headless pair [--listen ADDR:PORT]\n\nOptions:\n  -h, --help    Print this help"
     );
+}
+
+fn import_t3_command(args: &[String]) -> Result<(), String> {
+    use tcode_services::import::t3::{ImportOptions, import};
+    let mut options = ImportOptions::default();
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--dry-run" => options.dry_run = true,
+            "--skip-settled" => options.skip_settled = true,
+            "--skip-archived" => options.skip_archived = true,
+            "--source" | "--data-dir" | "--profile" => {
+                let value = args
+                    .next()
+                    .filter(|value| !value.starts_with("--"))
+                    .ok_or_else(|| format!("{arg} requires a value"))?;
+                match arg.as_str() {
+                    "--source" => options.source = value.into(),
+                    "--data-dir" => options.data_dir = value.into(),
+                    _ => {
+                        let (source, destination) = value
+                            .split_once('=')
+                            .filter(|(source, destination)| {
+                                !source.is_empty() && !destination.is_empty()
+                            })
+                            .ok_or("--profile requires SOURCE=DESTINATION")?;
+                        if options
+                            .profiles
+                            .insert(source.into(), destination.into())
+                            .is_some()
+                        {
+                            return Err(format!("duplicate mapping for {source:?}"));
+                        }
+                    }
+                }
+            }
+            "--help" | "-h" => {
+                print_usage();
+                return Ok(());
+            }
+            _ => return Err(format!("unknown import option {arg:?}")),
+        }
+    }
+    println!("Offline import: close the destination desktop app and headless host first.");
+    let report = import(&options)?;
+    if options.dry_run {
+        println!("Dry-run; destination files unchanged.");
+    }
+    println!(
+        "Projects: {} created, {} reused. Threads: {} created, {} refreshed.",
+        report.projects_created,
+        report.projects_reused,
+        report.threads_created,
+        report.threads_refreshed
+    );
+    for (reason, count) in &report.exclusions {
+        println!("Excluded {count}: {reason}");
+    }
+    println!(
+        "Omitted attachments: {}. Failures: {}.",
+        report.omitted_attachments,
+        report.failures.len()
+    );
+    for failure in &report.failures {
+        eprintln!("{failure}");
+    }
+    if report.failures.is_empty() {
+        Ok(())
+    } else {
+        Err("import failed; see failures above".into())
+    }
 }
 
 fn serve_command(args: &[String]) -> Result<(), String> {
