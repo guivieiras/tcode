@@ -215,3 +215,5 @@ Built with [GPUI](https://gpui.rs) and
 ## License
 
 [MIT](LICENSE)
+
+Import existing T3 Code conversations with the [offline T3 importer](docs/import-t3.md).
