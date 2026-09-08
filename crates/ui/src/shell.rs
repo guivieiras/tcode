@@ -1594,24 +1594,11 @@ impl AppShell {
         };
         let store = attachment.link.store.read(cx);
         let active = store.chat_active_session();
-        let project = active
-            .as_ref()
-            .and_then(|(_, cwd, _)| {
-                store
-                    .projects()
-                    .into_iter()
-                    .find(|project| project.root == *cwd)
-            })
-            .map(|project| project.name);
-        // Over a remote link the project shares its line with the link's state.
-        let subtitle = match (project, store.remote_host_name()) {
-            (Some(project), Some(_)) => Some(format!(
-                "{project} · {}",
-                crate::remote::connection_label(&store.connection_state())
-            )),
-            (None, Some(_)) => Some(crate::remote::connection_label(&store.connection_state())),
-            (project, None) => project,
-        };
+        // The project now leads the title; over a remote link the subtitle
+        // carries the link's state.
+        let subtitle = store
+            .remote_host_name()
+            .map(|_| crate::remote::connection_label(&store.connection_state()));
         let title = active
             .map(|(title, _, draft)| {
                 if draft {
@@ -1627,6 +1614,10 @@ impl AppShell {
                     "new_thread"
                 })
             });
+        let title = match store.chat_project_name() {
+            Some(project) => format!("{project} / {title}"),
+            None => title,
+        };
         let body = if self.pending_navigation_restore.is_some() {
             crate::material::loading_skeleton(cx)
         } else {
