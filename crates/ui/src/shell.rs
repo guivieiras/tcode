@@ -1516,16 +1516,6 @@ impl AppShell {
         };
         let store = attachment.link.store.read(cx);
         let active = store.chat_active_session();
-        let project = active
-            .as_ref()
-            .and_then(|(_, cwd, _)| {
-                store
-                    .projects()
-                    .into_iter()
-                    .find(|project| project.root == *cwd)
-            })
-            .map(|project| project.name)
-            .unwrap_or_default();
         let title = active
             .map(|(title, _, draft)| {
                 if draft {
@@ -1541,6 +1531,10 @@ impl AppShell {
                     "new_thread"
                 })
             });
+        let title = match store.chat_project_name() {
+            Some(project) => format!("{project} / {title}"),
+            None => title,
+        };
         let body = if self.pending_navigation_restore.is_some() {
             crate::material::loading_skeleton(cx)
         } else {
@@ -1553,7 +1547,7 @@ impl AppShell {
             .child(nav_bar(
                 back,
                 title.into(),
-                (!project.is_empty()).then(|| nav_subtitle(project, cx)),
+                None,
                 vec![
                     self.palette_action(cx),
                     nav_icon_button(

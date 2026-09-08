@@ -297,8 +297,8 @@ launch behavior is unchanged.
   New thread starts a draft directly when the machine has one project and
   otherwise opens the command palette, which already owns "new thread in
   ‹project›" and can search. Choosing a project closes the palette and pushes
-  Thread even when reusing the selected draft. The draft page is titled **New
-  thread / 新建对话**, with the project name below it; the composer stays
+  Thread even when reusing the selected draft. The draft page is titled
+  **‹project name› / New thread** (localized); the composer stays
   unfocused until tapped. **Recent** is the default: all unarchived threads
   across projects ordered by the latest activity of each parent and its children,
   with children ordered by their own activity directly below their parent.
@@ -570,10 +570,13 @@ single navigation stack and its Back semantics described above.
 
 52px. The first control is the **sidebar toggle**, immediately left of the
 title: `PanelLeft` + "Collapse sidebar" while expanded, `PanelLeftOpen` +
-"Expand sidebar" while collapsed. Then the thread title 16px medium ("No active
-thread" muted when empty); right: the git/Open actions and the terminal · plan ·
-preview · diff panel toggles. The title stretch is the window-drag handle; the
-toggle is a real button and never arms a drag. Collapsed on macOS (windowed) the
+"Expand sidebar" while collapsed. Then **‹project name› / ‹thread title›** in
+15px medium, truncated to fit. Drafts use "New thread" as the thread title;
+"No active thread" appears muted when empty. Compact uses the same combined
+title in its navigation bar, without a separate project subtitle. The project
+name follows the thread's project even when it runs in a worktree. On the right:
+the git/Open actions and the terminal · plan · preview · diff panel toggles.
+The title stretch is the window-drag handle; the toggle is a real button and never arms a drag. Collapsed on macOS (windowed) the
 row is inset 80px so the toggle clears the native traffic lights; no other
 platform pays that inset.
 
