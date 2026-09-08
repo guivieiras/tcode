@@ -2706,44 +2706,29 @@ impl ChatView {
         // An agent's header leads back to the thread it was reached from.
         let parent_link = self.parent_link(labelled, cx);
 
-        // A draft shows a muted "New thread" label; an open thread its title;
-        // nothing active shows "No active thread". The title stretch carries no
-        // controls, so it doubles as the window's native drag handle where the
-        // platform needs one.
-        let title_el = if is_draft {
-            div()
-                .flex_1()
-                .min_w_0()
-                .overflow_hidden()
-                .text_ellipsis()
-                .text_size(px(15.))
-                .font_medium()
-                .text_color(cx.theme().muted_foreground)
-                .child(crate::tr!("chat.new_thread"))
+        let thread_title = if is_draft {
+            crate::tr!("chat.new_thread").into_owned()
         } else {
-            match &title {
-                Some(title) => div()
-                    .flex_1()
-                    // Keep a few words of the title even when the diff panel and
-                    // the git/Open buttons squeeze the header; without a floor it
-                    // collapses to a lone "I…".
-                    .min_w(px(120.))
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .text_size(px(15.))
-                    .font_medium()
-                    .child(title.clone()),
-                None => div()
-                    .flex_1()
-                    .min_w_0()
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .text_size(px(15.))
-                    .font_medium()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(crate::tr!("chat.no_active_thread")),
-            }
+            title
+                .clone()
+                .unwrap_or_else(|| crate::tr!("chat.no_active_thread").into_owned())
         };
+        let header_title = match self.workspace_store.read(cx).chat_project_name() {
+            Some(project) => format!("{project} / {thread_title}"),
+            None => thread_title,
+        };
+        // The title stretch also carries the window's native drag handle.
+        let title_el = div()
+            .flex_1()
+            .min_w(px(120.))
+            .overflow_hidden()
+            .text_ellipsis()
+            .text_size(px(15.))
+            .font_medium()
+            .when(is_draft || title.is_none(), |title| {
+                title.text_color(cx.theme().muted_foreground)
+            })
+            .child(header_title);
 
         // The right-side cluster (Open split-button + panel toggles) shows for
         // any active thread, including a draft.
@@ -3276,18 +3261,12 @@ impl ChatView {
             .into_any_element()
     }
 
-    fn render_draft_prompt(&self, cwd: &std::path::Path, cx: &mut Context<Self>) -> AnyElement {
-        let store = self.workspace_store.read(cx);
-        let project = store
-            .projects()
-            .into_iter()
-            .find(|project| project.root == cwd)
-            .map(|project| project.name)
-            .unwrap_or_else(|| {
-                cwd.file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-                    .unwrap_or_default()
-            });
+    fn render_draft_prompt(&self, cx: &mut Context<Self>) -> AnyElement {
+        let project = self
+            .workspace_store
+            .read(cx)
+            .chat_project_name()
+            .unwrap_or_default();
         div()
             .w_full()
             .px(px(CONTENT_MIN_PADDING))
@@ -3954,8 +3933,7 @@ impl Render for ChatView {
             .on_action(cx.listener(Self::on_rewind_turn))
             .on_action(cx.listener(Self::on_open_file_diff))
             .when(fresh_draft, |main| {
-                main.justify_center()
-                    .child(self.render_draft_prompt(&cwd, cx))
+                main.justify_center().child(self.render_draft_prompt(cx))
             })
             .when(!fresh_draft, |main| {
                 main.child(
