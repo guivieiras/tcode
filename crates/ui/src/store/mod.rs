@@ -2563,6 +2563,33 @@ impl WorkspaceStore {
             })
     }
 
+    pub(crate) fn chat_project_name(&self) -> Option<String> {
+        let (project_id, cwd) = if let Some(status) = &self.session_status_replica {
+            (status.project_id.as_ref(), &status.cwd)
+        } else {
+            let selected = self.selected_session_id.as_ref()?;
+            let meta = self
+                .index_replica
+                .0
+                .iter()
+                .find(|meta| &meta.id == selected)?;
+            (meta.project_id.as_ref(), &meta.cwd)
+        };
+        // Worktree sessions retain their project's identity even when cwd differs.
+        let project = self.index_replica.1.iter().find(|project| {
+            if let Some(id) = project_id {
+                &project.id == id
+            } else {
+                project.root == *cwd
+            }
+        });
+        Some(
+            project
+                .map(|project| project.name.clone())
+                .unwrap_or_else(|| tcode_core::project::project_name_from_root(cwd)),
+        )
+    }
+
     pub fn chat_requested_model(&self) -> Option<String> {
         self.session_status_replica
             .as_ref()
@@ -3512,6 +3539,30 @@ mod tests {
                 .iter()
                 .any(|meta| meta.id == id && meta.archived_at.is_some())
         })
+    }
+
+    #[gpui::test]
+    fn chat_project_name_uses_project_identity_for_worktree_threads(cx: &mut TestAppContext) {
+        let root = scratch_root("chat-project-name");
+        let disk = SessionStore::open_at(root.clone()).expect("open test store");
+        disk.upsert_project(&project_at("My project", &root))
+            .unwrap();
+        disk.upsert_meta(&thread(&root.join("worktree"), "one", "My project", None))
+            .unwrap();
+        let host = test_host(disk);
+        let workspace = cx.new(|cx| WorkspaceStore::new(host.link(), cx));
+        workspace.update(cx, |store, _| store.select_session("one".into()));
+        wait_until(cx, &workspace, "worktree thread selected", |cx| {
+            selected_status(cx, &workspace, "one")
+        });
+        workspace.update(cx, |store, _| {
+            assert_eq!(store.chat_project_name().as_deref(), Some("My project"));
+            // The cached index supplies the same name before status arrives.
+            store.session_status_replica = None;
+            assert_eq!(store.chat_project_name().as_deref(), Some("My project"));
+        });
+        shutdown_test_host(&host);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     /// An Orchestrate child auto-archived on completion hands the workspace to
