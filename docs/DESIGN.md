@@ -1082,6 +1082,12 @@ dispatch response.
 
 ### Empty state
 
+New-thread drafts center the composer and a 24px semibold heading, "What should
+we build in ‹project name›?", together in the available chat area at both widths.
+The heading wraps on narrow screens. After the first message, the heading goes
+away and the composer returns below the timeline. The same composer entity is
+kept throughout, preserving draft text, attachments and focus.
+
 The workspace does not sit on a blank page. When no conversation is open — at
 launch, or because the thread on screen was archived or deleted — it opens the
 new-thread draft of the project the user last interacted with. In wide layout

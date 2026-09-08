@@ -2233,13 +2233,7 @@ impl ChatView {
             .into_any_element()
     }
 
-    /// The phone's "new thread" empty state: which project the thread
-    /// starts in, and which provider/model the first message reaches.
-    fn render_compact_draft_empty(
-        &self,
-        cwd: &std::path::Path,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    fn render_draft_prompt(&self, cwd: &std::path::Path, cx: &mut Context<Self>) -> AnyElement {
         let store = self.workspace_store.read(cx);
         let project = store
             .projects()
@@ -2251,32 +2245,15 @@ impl ChatView {
                     .map(|name| name.to_string_lossy().into_owned())
                     .unwrap_or_default()
             });
-        let composer = store.composer_state();
-        let model = composer
-            .active_model
-            .as_ref()
-            .map(|active| {
-                let name = composer
-                    .active_model_spec
-                    .as_ref()
-                    .map(|spec| spec.display_name.clone())
-                    .or_else(|| active.model.clone())
-                    .unwrap_or_default();
-                let provider = crate::settings::provider_label(active.provider);
-                if name.is_empty() {
-                    provider.to_string()
-                } else {
-                    format!("{provider} · {name}")
-                }
-            })
-            .unwrap_or_default();
-        crate::material::empty_state(
-            Icon::empty().path("icons/message-square.svg"),
-            crate::tr!("mobile.draft_empty_title", project = project),
-            crate::tr!("mobile.draft_empty_body", model = model),
-            cx,
-        )
-        .into_any_element()
+        div()
+            .w_full()
+            .px(px(CONTENT_MIN_PADDING))
+            .pb_4()
+            .text_center()
+            .text_size(px(24.))
+            .font_semibold()
+            .child(crate::tr!("chat.draft_prompt", project = project))
+            .into_any_element()
     }
 
     fn render_empty_state(&self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -2723,23 +2700,15 @@ impl Render for ChatView {
         .flex_1()
         .min_h_0();
 
-        // A fresh phone draft shows its project/model context above the focused composer.
-        let timeline: AnyElement = if compact && is_draft && item_count == 0 {
-            self.render_compact_draft_empty(&cwd, cx)
-        } else {
-            // GPUI's scrollbar extent excludes List padding, while wheel and
-            // tail-resume calculations include it. Keep the inset outside the
-            // list so every input path shares the same bottom and pixel offset.
-            v_flex()
-                .flex_1()
-                .min_h_0()
-                .py_4()
-                .child(crate::touch_scroll::register(
-                    timeline,
-                    crate::touch_scroll::Handle::List(self.list_state.clone()),
-                ))
-                .into_any_element()
-        };
+        // Keep padding outside the List so scrolling and scrollbar geometry agree.
+        let timeline = v_flex()
+            .flex_1()
+            .min_h_0()
+            .py_4()
+            .child(crate::touch_scroll::register(
+                timeline,
+                crate::touch_scroll::Handle::List(self.list_state.clone()),
+            ));
 
         let composer: AnyElement = if native_subagent_readonly {
             div()
@@ -2838,43 +2807,50 @@ impl Render for ChatView {
             })
             .collect::<Vec<_>>();
 
+        let fresh_draft = is_draft && item_count == 0 && delivery_rows.is_empty();
         let main = v_flex()
             .size_full()
             .min_h_0()
-            .child(
-                div()
-                    .id("timeline")
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_h_0()
-                    .relative()
-                    .child(timeline)
-                    .child(
-                        gpui::canvas(
-                            {
-                                let list = self.list_state.clone();
-                                let view = cx.entity().downgrade();
-                                move |_, window, cx| {
-                                    // List prepaint may change geometry after render
-                                    // (resize, splice, or markdown remeasurement).
-                                    // Reconcile the sibling control after that layout.
-                                    if jump_to_latest_visible(&list) != show_jump_to_latest {
-                                        window.defer(cx, move |_, cx| {
-                                            let _ = view.update(cx, |_, cx| cx.notify());
-                                        });
+            .when(fresh_draft, |main| {
+                main.justify_center()
+                    .child(self.render_draft_prompt(&cwd, cx))
+            })
+            .when(!fresh_draft, |main| {
+                main.child(
+                    div()
+                        .id("timeline")
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_h_0()
+                        .relative()
+                        .child(timeline)
+                        .child(
+                            gpui::canvas(
+                                {
+                                    let list = self.list_state.clone();
+                                    let view = cx.entity().downgrade();
+                                    move |_, window, cx| {
+                                        // List prepaint may change geometry after render
+                                        // (resize, splice, or markdown remeasurement).
+                                        // Reconcile the sibling control after that layout.
+                                        if jump_to_latest_visible(&list) != show_jump_to_latest {
+                                            window.defer(cx, move |_, cx| {
+                                                let _ = view.update(cx, |_, cx| cx.notify());
+                                            });
+                                        }
                                     }
-                                }
-                            },
-                            |_, _, _, _| {},
+                                },
+                                |_, _, _, _| {},
+                            )
+                            .absolute()
+                            .size_full(),
                         )
-                        .absolute()
-                        .size_full(),
-                    )
-                    .when(show_jump_to_latest, |this| {
-                        this.child(self.render_scroll_pill(cx))
-                    }),
-            )
+                        .when(show_jump_to_latest, |this| {
+                            this.child(self.render_scroll_pill(cx))
+                        }),
+                )
+            })
             .child(
                 v_flex()
                     .w_full()
