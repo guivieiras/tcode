@@ -1,6 +1,7 @@
 app:
   name: "Tcode"
 chat:
+  draft_prompt: "What should we build in %{project}?"
   sending: "Sending…"
   waiting_connection: "Waiting for connection…"
   retry_delivery: "Retry"
@@ -1016,8 +1017,6 @@ mobile:
   new_thread: "New thread"
   projects_empty: "This machine has no projects yet"
   projects_help: "Projects added on the machine will appear here automatically."
-  draft_empty_title: "Start a new thread in %{project}"
-  draft_empty_body: "Messages go to %{model} on the machine."
   working: "Working"
   approval: "Needs approval"
   answer: "Needs your answer"

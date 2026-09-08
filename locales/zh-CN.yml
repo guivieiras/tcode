@@ -1,6 +1,7 @@
 app:
   name: "Tcode"
 chat:
+  draft_prompt: "我们要在 %{project} 中构建什么？"
   sending: "正在发送…"
   waiting_connection: "等待连接…"
   retry_delivery: "重试"
@@ -1010,8 +1011,6 @@ mobile:
   new_thread: "新建对话"
   projects_empty: "这台主机上还没有项目"
   projects_help: "在这台主机上添加项目后，会自动出现在这里。"
-  draft_empty_title: "在 %{project} 中开始新对话"
-  draft_empty_body: "消息会发送到这台主机上的 %{model}。"
   working: "工作中"
   approval: "待审批"
   answer: "待回答"
