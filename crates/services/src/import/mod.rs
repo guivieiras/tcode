@@ -3,6 +3,8 @@
 mod claude;
 mod codex;
 mod scan;
+#[cfg(feature = "t3-import")]
+pub mod t3;
 
 use std::collections::HashSet;
 use std::path::PathBuf;

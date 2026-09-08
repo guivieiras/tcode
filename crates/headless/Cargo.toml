@@ -21,4 +21,4 @@ serde_json = "1"
 tcode-protocol = { path = "../protocol" }
 tcode-remote = { path = "../remote" }
 tcode-runtime = { path = "../runtime" }
-tcode-services = { path = "../services" }
+tcode-services = { path = "../services", features = ["t3-import"] }

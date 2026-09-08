@@ -1040,6 +1040,10 @@ settled thread. Opening or searching does not reactivate it. Accepted messages,
 scheduled messages and orchestration input reactivate the recipient and settled
 ancestors. Make active restores the matching settle cascade and its ancestors.
 
+The offline [T3 importer](import-t3.md) preserves explicit settled and archive
+state. It has no project-selection dialog and does not alter Add project's
+existing provider import flow.
+
 ### Session lifetime
 
 Navigating away from a thread must not cancel its running turn, queued messages

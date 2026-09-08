@@ -96,7 +96,7 @@ pub struct SessionMeta {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub pending_fork: bool,
     /// Set when this thread was imported from another tool's local history
-    /// ("claude:<id>" / "codex:<id>"). Used to keep re-imports idempotent.
+    /// ("claude:<id>" / "codex:<id>" / "t3code:<id>"). Used to keep re-imports idempotent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub imported_from: Option<String>,
     /// Chosen values for the selected model's option descriptors (reasoning
