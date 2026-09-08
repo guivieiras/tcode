@@ -234,6 +234,15 @@ composer at the end, including when the keyboard opens or closes.
 
 ## Scrolling contract
 
+Vertical mouse-wheel notches ease over about 125ms in Tcode's registered scroll
+views (chat, sidebars, settings, and diffs). Repeated input accumulates; reversing
+direction discards the previous direction's remaining movement. Trackpad pixels,
+native touch, textareas, and custom horizontal/terminal scrolling retain their
+existing input handling. Reduced motion uses direct scrolling. Pointer presses,
+keyboard input, and direct positioning interrupt wheel animation. Scrolling up
+releases chat tail-following immediately; animation uses relative movement so
+row remeasurement and prepended history preserve the reading anchor.
+
 Potentially unbounded content always has its own resolved-height viewport and a
 separate, non-shrinking content column. Headers, search fields, footers and
 actions stay outside that viewport. This applies to the sidebar project list,
