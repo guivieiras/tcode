@@ -196,12 +196,37 @@ pub(crate) fn composer_destination(
 /// shared [`crate::widgets::input::TextareaState`]. Keeping switching in this
 /// small state machine makes it explicit that the outgoing value is saved before
 /// the incoming one is restored.
-pub(super) struct ComposerTextCache {
+pub(crate) struct ComposerTextCache {
     current: Option<ComposerDestination>,
     drafts: HashMap<ComposerDestination, String>,
 }
 
 impl ComposerTextCache {
+    pub(crate) fn has_thread_draft(&self, session_id: &str) -> bool {
+        self.drafts
+            .get(&ComposerDestination::Thread(session_id.to_string()))
+            .is_some_and(|text| !text.trim().is_empty())
+    }
+
+    /// Keep the live input available to other views. Only presence changes need
+    /// to repaint draft indicators; edits within a nonempty draft do not.
+    pub(super) fn update_current(&mut self, text: &str) -> bool {
+        let Some(current) = self.current.as_ref() else {
+            return false;
+        };
+        let had_text = self
+            .drafts
+            .get(current)
+            .is_some_and(|text| !text.trim().is_empty());
+        let has_text = !text.trim().is_empty();
+        if text.is_empty() {
+            self.drafts.remove(current);
+        } else {
+            self.drafts.insert(current.clone(), text.to_string());
+        }
+        had_text != has_text
+    }
+
     /// Change destinations, returning the text that should replace the shared
     /// input. `None` means the input already represents this destination.
     pub(super) fn switch_to(
@@ -603,6 +628,32 @@ mod tests {
                 Some("text for b".into())
             );
         }
+    }
+
+    #[test]
+    fn draft_presence_tracks_live_text_and_keeps_other_threads_isolated() {
+        let mut cache = ComposerTextCache::default();
+        cache.switch_to(Some(thread("a")), "");
+        assert!(!cache.update_current(" \n"));
+        assert!(!cache.has_thread_draft("a"));
+        assert!(cache.update_current("Unsent prompt"));
+        assert!(cache.has_thread_draft("a"));
+        assert!(!cache.update_current("Unsent prompt, edited"));
+
+        cache.switch_to(Some(thread("b")), "Unsent prompt, edited");
+        assert!(cache.has_thread_draft("a"));
+        assert!(!cache.has_thread_draft("b"));
+        cache.update_current("Another prompt");
+        cache.clear_current();
+        assert!(!cache.has_thread_draft("b"));
+        assert!(cache.has_thread_draft("a"));
+
+        cache.switch_to(Some(thread("a")), "");
+        assert!(cache.update_current(""));
+        assert!(!cache.has_thread_draft("a"));
+        cache.switch_to(Some(project_draft("a")), "");
+        cache.update_current("New thread prompt");
+        assert!(!cache.has_thread_draft("a"));
     }
 
     #[test]

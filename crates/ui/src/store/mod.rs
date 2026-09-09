@@ -2883,7 +2883,12 @@ mod tests {
         let window_state =
             cx.new(|_| crate::window_state::WindowState::new(false).with_compact(true));
         let (_sidebar, cx) = cx.add_window_view(|_, cx| {
-            crate::sidebar::SessionsSidebar::new(store.clone(), window_state, cx)
+            crate::sidebar::SessionsSidebar::new(
+                store.clone(),
+                window_state,
+                cx.new(|_| Default::default()),
+                cx,
+            )
         });
         cx.simulate_resize(size(px(393.), px(852.)));
         cx.update(|window, cx| {
