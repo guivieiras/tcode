@@ -102,6 +102,7 @@ markdown:
   path_copy_relative: "复制相对路径"
 sidebar:
   pending_write: "待发送"
+  unsent_text: "未发送的文字"
   parent_unavailable: "（父对话不可用）"
   collapse: "折叠侧边栏"
   expand: "展开侧边栏"

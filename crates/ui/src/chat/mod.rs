@@ -397,7 +397,6 @@ impl ChatView {
             .update(cx, |composer, cx| composer.focus(window, cx));
     }
 
-    #[cfg(test)]
     pub(crate) fn composer(&self) -> Entity<crate::composer::Composer> {
         self.composer.clone()
     }

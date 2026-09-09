@@ -649,8 +649,10 @@ impl AppShell {
         window.set_window_title(&store.read(cx).shell_window_title());
         let preview =
             cx.new(|cx| PreviewPanel::new(store.clone(), self.window_state.clone(), window, cx));
+        let chat = cx.new(|cx| ChatView::new(store.clone(), self.window_state.clone(), window, cx));
+        let drafts = chat.read(cx).composer().read(cx).drafts();
         let sidebar =
-            cx.new(|cx| SessionsSidebar::new(store.clone(), self.window_state.clone(), cx));
+            cx.new(|cx| SessionsSidebar::new(store.clone(), self.window_state.clone(), drafts, cx));
         let subscriptions = vec![
             cx.observe_in(&store, window, move |this, store, window, cx| {
                 window.set_window_title(&store.read(cx).shell_window_title());
@@ -727,7 +729,7 @@ impl AppShell {
 
         let observed_session_id = store.read(cx).active_session_id();
         self.attachment = Some(ShellAttachment {
-            chat: cx.new(|cx| ChatView::new(store.clone(), self.window_state.clone(), window, cx)),
+            chat,
             diff: cx.new(|cx| DiffPanel::new(store.clone(), self.window_state.clone(), cx)),
             settings_page: cx
                 .new(|cx| SettingsPage::new(store.clone(), self.window_state.clone(), window, cx)),

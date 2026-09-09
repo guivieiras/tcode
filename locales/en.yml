@@ -102,6 +102,7 @@ markdown:
   path_copy_relative: "Copy relative path"
 sidebar:
   pending_write: "Pending"
+  unsent_text: "Unsent text"
   parent_unavailable: "(parent unavailable)"
   collapse: "Collapse sidebar"
   expand: "Expand sidebar"

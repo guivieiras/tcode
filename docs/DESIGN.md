@@ -614,10 +614,20 @@ steering requests, which older logs cannot reliably distinguish from automated
 input. Threads with no timestamped user message use their creation time.
 
 At both widths and in both thread layouts, the former unread marker is
-**Completed / 已完成**, shown as a green success dot. Project headers use the
-same green dot when a non-working top-level thread has that marker. The thread
-context menu offers **Mark completed / 标记为已完成**. The marker retains its
-last-visited behavior: opening the thread clears it, and child threads do not
+**Completed / 已完成**, shown as a green success dot. Thread status dots sit
+immediately left of their time label: green for completed, blue for working.
+Both use a 6px footprint and gently pulse between 35% and 100% opacity over
+1.6 seconds, staying solid when reduced motion is enabled. Wide rows put this
+pair at the trailing edge of the title line; compact rows keep it in the
+metadata line, replacing the leading completed dot or working spinner.
+A muted 12px pencil beside the time indicates unsent prompt text, before any
+status dot. It appears while typing, remains when switching threads, and clears
+when that prompt is sent or erased. Whitespace alone does not show the icon.
+The tooltip and accessible label read **Unsent text / 未发送的文字**. This uses
+the window's existing in-memory composer drafts in wide and compact layouts.
+Project headers keep a green dot when a non-working top-level thread has that
+marker. The thread context menu offers **Mark completed / 标记为已完成**.
+The marker retains its last-visited behavior: opening the thread clears it, and child threads do not
 show it.
 
 All thread titles use the full theme foreground, white in dark mode, except
