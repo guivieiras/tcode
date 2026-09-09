@@ -5269,6 +5269,84 @@ fn park_active_retains_idle_live_provider() {
 }
 
 #[test]
+fn last_user_message_time_ignores_automated_turns_and_background_activity() {
+    for (kind, scheduled) in [
+        (QueuedMessageKind::User, false),
+        (QueuedMessageKind::User, true),
+        (QueuedMessageKind::Automated, false),
+        (QueuedMessageKind::OrchestrateCallback, false),
+    ] {
+        let cx = &mut TestAppContext::default();
+        let test_store = TestStore::new("tcode-user-message-time");
+        let state = cx.new_entity(TestClientState::new((*test_store).clone()));
+        let (commands, actor) = smol::channel::unbounded();
+        let mut session = live_session(ProviderKind::Codex, commands);
+        session.meta.id = "thread".into();
+        session.meta.title = "Existing thread".into();
+        session.meta.last_user_message_at = Some(100);
+        let delivery_id = session.push_queued("message".into(), Vec::new());
+        session.queue[0].kind = kind;
+        session.queue[0].not_before = scheduled.then_some(UNIX_EPOCH);
+        let mut message_time = None;
+        state.update(cx, |state, cx| {
+            state.sessions.push(session.meta.clone());
+            state.install_selected(session);
+            assert_eq!(state.dispatch_next_queued("thread", cx), Ok(true));
+            assert!(matches!(
+                actor.try_recv(),
+                Ok(SessionCommand::SendTurn { .. })
+            ));
+            state.on_event("thread", AgentEvent::TurnAccepted { delivery_id }, cx);
+            message_time = state.selected_session().unwrap().meta.last_user_message_at;
+            if kind == QueuedMessageKind::User && !scheduled {
+                assert!(message_time.unwrap() > 100);
+            } else {
+                assert_eq!(message_time, Some(100));
+            }
+            state.on_event(
+                "thread",
+                AgentEvent::TurnCompleted {
+                    turn_id: "turn".into(),
+                    status: TurnStatus::Completed,
+                    usage: None,
+                },
+                cx,
+            );
+            state.park_active(cx);
+            state.select_session("thread", cx);
+            assert_eq!(
+                state.selected_session().unwrap().meta.last_user_message_at,
+                message_time
+            );
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            test_store.load_index()[0].last_user_message_at,
+            message_time
+        );
+    }
+}
+
+#[test]
+fn startup_recovers_user_message_time_from_legacy_history() {
+    let test_store = TestStore::new("tcode-legacy-user-message-time");
+    let mut meta = SessionMeta::new(ProviderKind::Codex, test_store.root().clone(), None);
+    meta.created_at = 10;
+    meta.updated_at = 900;
+    meta.last_user_message_at = None;
+    test_store.upsert_meta(&meta).unwrap();
+    test_store.write_event_log(&meta.id, concat!(
+        "{\"ts\":100000,\"event\":{\"type\":\"item_completed\",\"id\":\"user\",\"content\":{\"kind\":\"user_message\",\"text\":\"hello\"}}}\n",
+        "{\"ts\":200000,\"event\":{\"type\":\"steer_requested\",\"request_id\":\"steer\",\"text\":\"one more thing\"}}\n",
+        "{\"ts\":900000,\"event\":{\"type\":\"item_completed\",\"id\":\"assistant\",\"content\":{\"kind\":\"assistant_message\",\"text\":\"done\"}}}\n"
+    ).as_bytes()).unwrap();
+    let state = TestClientState::new((*test_store).clone());
+    assert_eq!(state.sessions[0].last_user_message_at, Some(200));
+    assert_eq!(state.sessions[0].updated_at, 900);
+    assert_eq!(test_store.load_index()[0].last_user_message_at, Some(200));
+}
+
+#[test]
 fn select_session_readopts_idle_resident_without_changing_recency_or_shutdown() {
     let cx = &mut TestAppContext::default();
     let test_store = TestStore::new("tcode-idle-resident-readopt-test");

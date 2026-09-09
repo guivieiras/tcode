@@ -243,6 +243,11 @@ settings:
   appearance_section: "外观"
   conversation_section: "对话"
   workspace_section: "工作区"
+  thread_sort:
+    title: "会话排序与时间"
+    description: "保持当前排序，或按最后一条用户消息排序并显示距今时间。"
+    activity: "当前行为（默认）"
+    last_user_message: "最后一条用户消息"
   providers_section: "提供商"
   orchestrate_section: "ORCHESTRATE"
   reset_section: "重置"

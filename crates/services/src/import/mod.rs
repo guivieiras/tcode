@@ -240,6 +240,8 @@ pub fn import_thread(
             return ImportOutcome::Failed(format!("failed to write imported events: {err}"));
         }
     }
+    meta.last_user_message_at = None;
+    store.recover_last_user_message_at(&mut meta);
     if let Err(err) = store.upsert_meta(&meta) {
         return ImportOutcome::Failed(format!("failed to write imported session: {err}"));
     }
@@ -274,6 +276,7 @@ fn import_tcode_thread(
     if let Err(error) = store.write_event_log(&meta.id, &export.event_log) {
         return ImportOutcome::Failed(format!("failed to write imported events: {error}"));
     }
+    store.recover_last_user_message_at(&mut meta);
     if let Err(error) = store.upsert_meta(&meta) {
         return ImportOutcome::Failed(format!("failed to write imported session: {error}"));
     }

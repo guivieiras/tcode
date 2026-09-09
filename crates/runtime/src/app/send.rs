@@ -1,3 +1,4 @@
+use super::active_session::QueuedMessageKind;
 use super::*;
 
 impl AppState {
@@ -432,6 +433,9 @@ impl AppState {
             message.delivery_key.as_deref(),
             cx,
         );
+        if message.kind == QueuedMessageKind::User && message.not_before.is_none() {
+            self.record_user_message_time(session_id, cx);
+        }
         if let Some(window) = message.context_window_changed {
             self.record_event(session_id, &AgentEvent::ContextWindowChanged { window }, cx);
         }
@@ -523,6 +527,14 @@ impl AppState {
         self.record_event(session_id, &user_event, cx);
     }
 
+    fn record_user_message_time(&mut self, session_id: &str, cx: &mut HostCx) {
+        if let Some(meta) = self.meta_mut(session_id) {
+            meta.last_user_message_at = Some(now_secs());
+            let meta = meta.clone();
+            self.persist_meta(&meta, cx);
+        }
+    }
+
     /// Persist a pending steering bubble and return the exact id providers must
     /// echo in `SteerAccepted` after real delivery succeeds.
     pub(super) fn record_steer_request(
@@ -608,6 +620,7 @@ impl AppState {
                 };
                 // Persist the pending request before handing it to the provider.
                 let request_id = self.record_steer_request(&session_id, &text, &attachments, cx);
+                self.record_user_message_time(&session_id, cx);
 
                 let Some(active) = self.resident_mut(target_id) else {
                     return;

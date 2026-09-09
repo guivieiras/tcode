@@ -424,7 +424,10 @@ impl AppState {
 
     pub(crate) fn with_ai_titles(store: SessionStore, ai_title_generation_enabled: bool) -> Self {
         // Load + migrate once and persist so derived project ids stay stable.
-        let file = store.read_file();
+        let mut file = store.read_file();
+        for meta in &mut file.sessions {
+            store.recover_last_user_message_at(meta);
+        }
         if let Err(err) = store.persist_index(&file) {
             log::warn!("failed to persist migrated session index: {err}");
         }

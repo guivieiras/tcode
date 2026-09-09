@@ -243,6 +243,11 @@ settings:
   appearance_section: "APPEARANCE"
   conversation_section: "CONVERSATION"
   workspace_section: "WORKSPACE"
+  thread_sort:
+    title: "Thread ordering and time"
+    description: "Keep the current ordering, or order threads and show their age by the last user message."
+    activity: "Current (default)"
+    last_user_message: "Last user message"
   providers_section: "PROVIDERS"
   orchestrate_section: "ORCHESTRATE"
   reset_section: "RESET"

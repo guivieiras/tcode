@@ -11,7 +11,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
-use agent::{AgentEvent, ModelSpec, ProviderCommand, ProviderKind};
+use agent::{AgentEvent, ItemContent, ModelSpec, ProviderCommand, ProviderKind, ThreadItem};
 use serde::{Deserialize, Serialize};
 
 use tcode_core::project::{IndexFile, Project, SessionMeta, migrate_index};
@@ -266,6 +266,32 @@ impl SessionStore {
         let mut metas = self.read_file().sessions;
         metas.sort_by_key(|b| std::cmp::Reverse(b.updated_at));
         metas
+    }
+
+    /// Recover the missing index timestamp from older or imported transcripts.
+    /// Zero records that no timestamped user message was found, avoiding a
+    /// fresh transcript scan on every startup for an empty thread.
+    pub fn recover_last_user_message_at(&self, meta: &mut SessionMeta) {
+        if meta.last_user_message_at.is_some() {
+            return;
+        }
+        meta.last_user_message_at = Some(
+            self.read_events(&meta.id)
+                .iter()
+                .filter(|record| {
+                    matches!(
+                        record.event,
+                        AgentEvent::ItemCompleted(ThreadItem {
+                            content: ItemContent::UserMessage { .. },
+                            ..
+                        }) | AgentEvent::SteerRequested { .. }
+                    )
+                })
+                .filter_map(|record| record.ts)
+                .max()
+                .unwrap_or(0)
+                / 1000,
+        );
     }
 
     /// Insert or replace a meta in the index (by id), then persist.
