@@ -18,7 +18,7 @@ use tcode_core::{
     session::{EntryContent, ReviewComment, StoredEvent, Timeline},
     settings::{
         BrowserSettings, ProjectSort, ProviderSettings, ResolvedProfile, Settings, SidebarLayout,
-        ThemeMode,
+        ThemeMode, ThreadSort,
     },
     ui::{ConversationDestination, RightTab},
 };
@@ -1582,6 +1582,7 @@ impl WorkspaceStore {
             &self.index_replica.1,
             &visible,
             self.settings_replica.project_sort,
+            self.thread_sort(),
         )
     }
 
@@ -1778,6 +1779,7 @@ impl WorkspaceStore {
             &self.index_replica.1,
             &archived,
             self.settings_replica.project_sort,
+            ThreadSort::Activity,
         );
         for group in &mut groups {
             group
@@ -1796,6 +1798,10 @@ impl WorkspaceStore {
         self.settings_replica.sidebar_layout
     }
 
+    pub fn thread_sort(&self) -> ThreadSort {
+        self.settings_replica.thread_sort
+    }
+
     pub fn flat_sessions(&self) -> Vec<SessionMeta> {
         let visible = self
             .index_replica
@@ -1804,7 +1810,7 @@ impl WorkspaceStore {
             .filter(|meta| meta.archived_at.is_none())
             .cloned()
             .collect();
-        order_sessions_with_children(visible)
+        order_sessions_with_children(visible, self.thread_sort())
     }
 
     pub(crate) fn project(&self, id: &str) -> Option<&Project> {
