@@ -234,6 +234,11 @@ composer at the end, including when the keyboard opens or closes.
 
 ## Scrolling contract
 
+The conversation timeline overlays a vertical scrollbar at its right edge,
+using the shared theme's hover/scroll visibility. Its track follows the list's
+viewport, excluding the timeline padding and composer. Dragging it moves the
+conversation and pauses tail-following when the reader leaves the bottom.
+
 Vertical mouse-wheel notches ease over about 125ms in Tcode's registered scroll
 views (chat, sidebars, settings, and diffs). Repeated input accumulates; reversing
 direction discards the previous direction's remaining movement. Trackpad pixels,
