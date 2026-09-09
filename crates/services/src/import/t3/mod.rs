@@ -1,5 +1,5 @@
-//! Offline import of T3's v2 projections. Source reads share one SQLite snapshot;
-//! all conversion and matching finishes before any destination write.
+//! Import T3's v2 projections from a consistent SQLite snapshot. Conversion is
+//! shared by the offline CLI and the running host; each owns its writes.
 mod history;
 #[cfg(test)]
 mod tests;
@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use agent::{ApprovalMode, InteractionMode, OptionSelection, ProviderKind, ResumeCursor};
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{Value, json};
-use tcode_core::project::{Project, SessionMeta};
+use tcode_core::project::{IndexFile, Project, SessionMeta};
 use tcode_core::settings::Settings;
 
 use crate::store::SessionStore;
@@ -156,8 +156,8 @@ pub(super) fn payloads(
     .collect()
 }
 
-struct PreparedThread {
-    meta: SessionMeta,
+pub struct PreparedThread {
+    pub meta: SessionMeta,
     bytes: Vec<u8>,
     refresh: bool,
 }
@@ -167,7 +167,7 @@ struct PreparedThread {
 pub fn import(options: &ImportOptions) -> Result<ImportReport, String> {
     let store = SessionStore::inspect_at(options.data_dir.clone());
     let inspection_lock = store.lock_exclusive(false).map_err(|e| e.to_string())?;
-    let mut index = store
+    let index = store
         .read_file_strict()
         .map_err(|e| format!("destination index: {e}"))?;
     let original_projects = index.projects.clone();
@@ -175,32 +175,118 @@ pub fn import(options: &ImportOptions) -> Result<ImportReport, String> {
     let settings: Settings =
         serde_json::from_value(read_json(&options.data_dir.join("settings.json"))?)
             .map_err(|e| format!("destination settings: {e}"))?;
-    let profiles = profiles(options, &settings)?;
+    let PreparedImport {
+        mut index,
+        threads: prepared,
+        mut report,
+    } = prepare(options, &settings, index, None)?;
+    if !report.failures.is_empty() {
+        report.projects_created = 0;
+        return Ok(report);
+    }
+    let _write_lock;
+    let store = if options.dry_run {
+        store
+    } else {
+        let store = SessionStore::open_at(options.data_dir.clone()).map_err(|e| e.to_string())?;
+        _write_lock = if inspection_lock.is_none() {
+            store.lock_exclusive(true).map_err(|e| e.to_string())?
+        } else {
+            None
+        };
+        let current = store.read_file_strict().map_err(|e| e.to_string())?;
+        if current.projects != original_projects || current.sessions != original_sessions {
+            return Err(
+                "destination index changed during conversion; close tcode and retry".into(),
+            );
+        }
+        store
+            .persist_index(&index)
+            .map_err(|e| format!("write projects: {e}"))?;
+        store
+    };
+    for mut thread in prepared {
+        if !options.dry_run {
+            let result = (|| -> std::io::Result<()> {
+                let old = store.read_event_log(&thread.meta.id)?;
+                store.write_event_log(&thread.meta.id, &thread.bytes)?;
+                thread.meta.last_user_message_at = None;
+                store.recover_last_user_message_at(&mut thread.meta);
+                let mut next = index.clone();
+                next.sessions.retain(|meta| meta.id != thread.meta.id);
+                next.sessions.push(thread.meta.clone());
+                if let Err(error) = store.persist_index(&next) {
+                    if let Err(rollback) = store.write_event_log(&thread.meta.id, &old) {
+                        return Err(std::io::Error::other(format!(
+                            "index replacement failed: {error}; log rollback failed: {rollback}"
+                        )));
+                    }
+                    return Err(error);
+                }
+                index = next;
+                Ok(())
+            })();
+            if let Err(error) = result {
+                report
+                    .failures
+                    .push(format!("write thread {}: {error}", thread.meta.id));
+                continue;
+            }
+        }
+        if thread.refresh {
+            report.threads_refreshed += 1;
+        } else {
+            report.threads_created += 1;
+        }
+    }
+    Ok(report)
+}
+
+struct PreparedImport {
+    index: IndexFile,
+    threads: Vec<PreparedThread>,
+    report: ImportReport,
+}
+
+/// Convert a single project without touching destination files. The running host
+/// owns persistence and skips already-known native sessions instead of refreshing them.
+pub fn prepare_project(
+    source: PathBuf,
+    project: Project,
+    settings: &Settings,
+    mappings: BTreeMap<String, String>,
+) -> Result<(Vec<PreparedThread>, ImportReport), String> {
+    let root = std::fs::canonicalize(&project.root).map_err(|e| e.to_string())?;
+    let index = IndexFile {
+        projects: vec![project],
+        ..IndexFile::default()
+    };
+    let options = ImportOptions {
+        source,
+        profiles: mappings,
+        ..ImportOptions::default()
+    };
+    let prepared = prepare(&options, settings, index, Some(&root))?;
+    if !prepared.report.failures.is_empty() {
+        return Err(prepared.report.failures.join("\n"));
+    }
+    Ok((prepared.threads, prepared.report))
+}
+
+fn prepare(
+    options: &ImportOptions,
+    settings: &Settings,
+    mut index: IndexFile,
+    selected_root: Option<&Path>,
+) -> Result<PreparedImport, String> {
+    let profiles = profiles(options, settings)?;
     let mut db = Connection::open_with_flags(
         options.source.join("state.sqlite"),
         OpenFlags::SQLITE_OPEN_READ_ONLY,
     )
     .map_err(|e| format!("T3 database: {e}"))?;
     let db = db.transaction().map_err(|e| e.to_string())?;
-    let version: i64 = db.query_row("SELECT schema_version FROM orchestration_v2_projection_metadata WHERE projection_name = 'thread-projections'", [], |row| row.get(0)).map_err(|e| format!("unsupported T3 schema: {e}"))?;
-    if version != 2 {
-        return Err(format!(
-            "unsupported T3 projection schema {version}; expected 2"
-        ));
-    }
-    // Check required projections even if there are no eligible threads.
-    for table in [
-        "threads",
-        "provider_threads",
-        "runs",
-        "messages",
-        "turn_items",
-    ] {
-        db.prepare(&format!(
-            "SELECT thread_id, payload_json FROM orchestration_v2_projection_{table} LIMIT 0"
-        ))
-        .map_err(|e| format!("unsupported T3 schema: {e}"))?;
-    }
+    validate_schema(&db)?;
     let mut report = ImportReport::default();
     let mut project_map = HashMap::new();
     let mut query = db.prepare("SELECT project_id, title, workspace_root, created_at, deleted_at FROM projection_projects ORDER BY created_at, project_id").map_err(|e| format!("unsupported T3 projects: {e}"))?;
@@ -217,6 +303,11 @@ pub fn import(options: &ImportOptions) -> Result<ImportReport, String> {
         .map_err(|e| e.to_string())?;
     for row in projects {
         let (id, title, root, created, deleted) = row.map_err(|e| e.to_string())?;
+        if selected_root.is_some_and(|selected| {
+            !std::fs::canonicalize(&root).is_ok_and(|path| path == selected)
+        }) {
+            continue;
+        }
         if deleted.is_some() {
             report.skip("deleted project");
             continue;
@@ -253,6 +344,9 @@ pub fn import(options: &ImportOptions) -> Result<ImportReport, String> {
         };
         project_map.insert(id, project);
     }
+    if selected_root.is_some() && project_map.is_empty() {
+        return Err("the T3 project is no longer available for this directory".into());
+    }
     let provider_threads = payloads(&db, "provider_threads", None)?;
     let providers: HashMap<_, _> = provider_threads
         .iter()
@@ -263,6 +357,13 @@ pub fn import(options: &ImportOptions) -> Result<ImportReport, String> {
     let mut prepared = Vec::new();
     let mut claimed = HashSet::new();
     for thread in threads {
+        if selected_root.is_some()
+            && !thread["projectId"]
+                .as_str()
+                .is_some_and(|id| project_map.contains_key(id))
+        {
+            continue;
+        }
         let id = required(&thread, "id")?;
         if !thread["deletedAt"].is_null() {
             report.skip("deleted thread");
@@ -435,66 +536,251 @@ pub fn import(options: &ImportOptions) -> Result<ImportReport, String> {
     // Keep the read transaction alive through discovery, then release T3 before writing.
     drop(query);
     db.commit().map_err(|e| e.to_string())?;
-    if !report.failures.is_empty() {
-        report.projects_created = 0;
-        return Ok(report);
+    Ok(PreparedImport {
+        index,
+        threads: prepared,
+        report,
+    })
+}
+
+fn validate_schema(db: &Connection) -> Result<(), String> {
+    let version: i64 = db.query_row("SELECT schema_version FROM orchestration_v2_projection_metadata WHERE projection_name = 'thread-projections'", [], |row| row.get(0)).map_err(|e| format!("unsupported T3 schema: {e}"))?;
+    if version != 2 {
+        return Err(format!(
+            "unsupported T3 projection schema {version}; expected 2"
+        ));
     }
-    let _write_lock;
-    let store = if options.dry_run {
-        store
-    } else {
-        let store = SessionStore::open_at(options.data_dir.clone()).map_err(|e| e.to_string())?;
-        _write_lock = if inspection_lock.is_none() {
-            store.lock_exclusive(true).map_err(|e| e.to_string())?
-        } else {
-            None
+    // Check required projections even if there are no eligible threads.
+    for table in [
+        "threads",
+        "provider_threads",
+        "runs",
+        "messages",
+        "turn_items",
+    ] {
+        db.prepare(&format!(
+            "SELECT thread_id, payload_json FROM orchestration_v2_projection_{table} LIMIT 0"
+        ))
+        .map_err(|e| format!("unsupported T3 schema: {e}"))?;
+    }
+    Ok(())
+}
+
+struct DiscoveredProject {
+    history: tcode_protocol::T3ProjectHistory,
+    threads: Vec<DiscoveredThread>,
+}
+
+struct DiscoveredThread {
+    external_id: String,
+    native_id: String,
+    updated_ms: u64,
+}
+
+/// Read project metadata and eligible thread identities in one SQLite snapshot.
+/// This does not convert history or read destination files.
+fn discover_projects(
+    source: &Path,
+    roots: &HashSet<PathBuf>,
+) -> Result<HashMap<PathBuf, DiscoveredProject>, String> {
+    let path = source.join("state.sqlite");
+    if !path.try_exists().map_err(|e| e.to_string())? {
+        return Ok(HashMap::new());
+    }
+    let mut db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|e| e.to_string())?;
+    let db = db.transaction().map_err(|e| e.to_string())?;
+    validate_schema(&db)?;
+    let mut query = db.prepare("SELECT project_id, title, workspace_root FROM projection_projects WHERE deleted_at IS NULL ORDER BY project_id").map_err(|e| e.to_string())?;
+    let projects = query
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut project_roots = HashMap::new();
+    let mut found = HashMap::new();
+    for project in projects {
+        let (id, title, path) = project.map_err(|e| e.to_string())?;
+        let Ok(root) = std::fs::canonicalize(path) else {
+            continue;
         };
-        let current = store.read_file_strict().map_err(|e| e.to_string())?;
-        if current.projects != original_projects || current.sessions != original_sessions {
-            return Err(
-                "destination index changed during conversion; close tcode and retry".into(),
-            );
+        if !roots.contains(&root) {
+            continue;
         }
-        store
-            .persist_index(&index)
-            .map_err(|e| format!("write projects: {e}"))?;
-        store
-    };
-    for mut thread in prepared {
-        if !options.dry_run {
-            let result = (|| -> std::io::Result<()> {
-                let old = store.read_event_log(&thread.meta.id)?;
-                store.write_event_log(&thread.meta.id, &thread.bytes)?;
-                thread.meta.last_user_message_at = None;
-                store.recover_last_user_message_at(&mut thread.meta);
-                let mut next = index.clone();
-                next.sessions.retain(|meta| meta.id != thread.meta.id);
-                next.sessions.push(thread.meta.clone());
-                if let Err(error) = store.persist_index(&next) {
-                    if let Err(rollback) = store.write_event_log(&thread.meta.id, &old) {
-                        return Err(std::io::Error::other(format!(
-                            "index replacement failed: {error}; log rollback failed: {rollback}"
-                        )));
-                    }
-                    return Err(error);
+        project_roots.insert(id, root.clone());
+        found.entry(root).or_insert_with(|| DiscoveredProject {
+            history: tcode_protocol::T3ProjectHistory {
+                title,
+                profiles: Vec::new(),
+            },
+            threads: Vec::new(),
+        });
+    }
+    if found.is_empty() {
+        return Ok(found);
+    }
+    let provider_threads = payloads(&db, "provider_threads", None)?;
+    let providers: HashMap<_, _> = provider_threads
+        .iter()
+        .map(|p| Ok((required(p, "id")?, p)))
+        .collect::<Result<_, String>>()?;
+    for thread in payloads(&db, "threads", None)? {
+        let Some(root) = thread["projectId"]
+            .as_str()
+            .and_then(|id| project_roots.get(id))
+        else {
+            continue;
+        };
+        if !thread["deletedAt"].is_null()
+            || thread["lineage"]["relationshipToParent"] == "subagent"
+            || thread["worktreePath"]
+                .as_str()
+                .is_some_and(|path| !Path::new(path).is_dir())
+        {
+            continue;
+        }
+        let Some(provider) = thread["activeProviderThreadId"]
+            .as_str()
+            .and_then(|id| providers.get(id))
+        else {
+            continue;
+        };
+        let Some(native_id) = provider["nativeThreadRef"]["nativeId"]
+            .as_str()
+            .filter(|id| valid_native_id(id))
+        else {
+            continue;
+        };
+        let kind = driver(required(provider, "driver")?)?;
+        let prefix = if kind == ProviderKind::Codex {
+            "codex"
+        } else {
+            "claude"
+        };
+        let project = found.get_mut(root).unwrap();
+        project.threads.push(DiscoveredThread {
+            external_id: format!("t3code:{}", required(&thread, "id")?),
+            native_id: format!("{prefix}:{native_id}"),
+            updated_ms: timestamp(required(&thread, "updatedAt")?)?,
+        });
+        let id = required(provider, "providerInstanceId")?;
+        if !matches!(id, "codex" | "claudeAgent")
+            && !project
+                .history
+                .profiles
+                .iter()
+                .any(|profile| profile.id == id)
+        {
+            project
+                .history
+                .profiles
+                .push(tcode_protocol::T3ImportProfile {
+                    id: id.into(),
+                    provider: kind,
+                });
+        }
+    }
+    for project in found.values_mut() {
+        project.history.profiles.sort_by(|a, b| a.id.cmp(&b.id));
+    }
+    Ok(found)
+}
+
+/// Prefer T3 in each recent row's counts without changing the native fallback.
+/// Known destination sessions are excluded just as they are in the native scan.
+pub fn annotate_recent_dirs(
+    source: &Path,
+    recent: &mut [tcode_protocol::RecentDir],
+    existing: &HashSet<String>,
+) -> Result<(), String> {
+    let roots = recent
+        .iter()
+        .filter_map(|dir| std::fs::canonicalize(&dir.path).ok())
+        .collect();
+    let projects = discover_projects(source, &roots)?;
+    for dir in recent {
+        let project = std::fs::canonicalize(&dir.path)
+            .ok()
+            .and_then(|root| projects.get(&root));
+        let mut t3_native_ids = HashSet::new();
+        let mut counts = HashMap::new();
+        if let Some(project) = project {
+            let mut t3_ids = HashSet::new();
+            for thread in &project.threads {
+                // Hide the native representation even if its T3 identity is
+                // already imported with a different current resume cursor.
+                t3_native_ids.insert(thread.native_id.as_str());
+                if existing.contains(&thread.external_id) || existing.contains(&thread.native_id) {
+                    continue;
                 }
-                index = next;
-                Ok(())
-            })();
-            if let Err(error) = result {
-                report
-                    .failures
-                    .push(format!("write thread {}: {error}", thread.meta.id));
-                continue;
+                t3_ids.insert(thread.external_id.as_str());
+                dir.last_active_ms = dir.last_active_ms.max(thread.updated_ms);
+            }
+            counts.insert(tcode_protocol::SourceTool::T3Code, t3_ids.len());
+        }
+        let mut native_ids = HashSet::new();
+        for thread in &dir.threads {
+            if !t3_native_ids.contains(thread.external_id.as_str())
+                && native_ids.insert(&thread.external_id)
+            {
+                *counts.entry(thread.source).or_insert(0) += 1;
             }
         }
-        if thread.refresh {
-            report.threads_refreshed += 1;
-        } else {
-            report.threads_created += 1;
-        }
+        dir.source_counts = counts;
     }
-    Ok(report)
+    Ok(())
+}
+
+/// Recheck the selected host path for current custom-provider requirements.
+pub fn inspect_project(
+    source: &Path,
+    root: &Path,
+) -> Result<Option<tcode_protocol::T3ProjectHistory>, String> {
+    // Missing T3 installations are normal, even for a stale recent directory.
+    if !source
+        .join("state.sqlite")
+        .try_exists()
+        .map_err(|e| e.to_string())?
+    {
+        return Ok(None);
+    }
+    let root = std::fs::canonicalize(root).map_err(|e| e.to_string())?;
+    Ok(discover_projects(source, &HashSet::from([root.clone()]))?
+        .remove(&root)
+        .map(|project| project.history))
+}
+
+/// Called on the host's serialized store writer. Only fresh sessions are added;
+/// existing native histories remain owned by the running host.
+pub fn write_new_threads(
+    store: &SessionStore,
+    threads: Vec<PreparedThread>,
+) -> Result<(Vec<SessionMeta>, usize), String> {
+    let mut index = store.read_file_strict().map_err(|e| e.to_string())?;
+    let mut existing = super::existing_external_ids(&index.sessions);
+    let mut imported = Vec::new();
+    let mut skipped = 0;
+    for mut thread in threads {
+        let identities = super::existing_external_ids(std::slice::from_ref(&thread.meta));
+        if identities.iter().any(|id| existing.contains(id)) {
+            skipped += 1;
+            continue;
+        }
+        store
+            .write_event_log(&thread.meta.id, &thread.bytes)
+            .map_err(|e| e.to_string())?;
+        thread.meta.last_user_message_at = None;
+        store.recover_last_user_message_at(&mut thread.meta);
+        index.sessions.push(thread.meta.clone());
+        imported.push(thread.meta);
+        existing.extend(identities);
+    }
+    store.persist_index(&index).map_err(|e| e.to_string())?;
+    Ok((imported, skipped))
 }
 
 fn valid_native_id(id: &str) -> bool {

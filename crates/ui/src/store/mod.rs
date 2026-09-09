@@ -26,7 +26,7 @@ use tcode_protocol::{AcpMarketplaceItem, RuntimeNotification as RuntimeEvent};
 use tcode_protocol::{
     Command, CommandResponse, EventEnvelope, ExternalImportStatus, ExternalThread, GitDiffResult,
     GitDiffScope, GitStatusStatus, PathEntry, ProtocolError, ProviderVersionStatus,
-    ProvidersStatus, Query, QueryResponse, RecentDir, ServerEvent, SessionSearchHit, SessionStatus,
+    ProvidersStatus, Query, QueryResponse, ServerEvent, SessionSearchHit, SessionStatus,
     Subscription, TerminalFrame, Topic,
 };
 pub(crate) mod terminal;
@@ -2055,7 +2055,10 @@ impl WorkspaceStore {
     /// Scan the *host's* external-agent histories. A failure is returned rather
     /// than logged away: an empty list and a broken host look identical to the
     /// user otherwise.
-    pub fn scan_external_history(&self, cx: &mut App) -> Task<Result<Vec<RecentDir>, String>> {
+    pub fn scan_external_history(
+        &self,
+        cx: &mut App,
+    ) -> Task<Result<tcode_protocol::ExternalHistoryScan, String>> {
         let host = self.host.clone();
         cx.spawn(
             async move |_| match host.query(Query::ScanExternalHistory).await {
@@ -2063,6 +2066,36 @@ impl WorkspaceStore {
                 Ok(other) => Err(format!("unexpected external-history response: {other:?}")),
                 Err(error) => Err(error.message),
             },
+        )
+    }
+
+    pub fn inspect_t3_project(
+        &self,
+        root: PathBuf,
+        cx: &mut App,
+    ) -> Task<Result<Option<tcode_protocol::T3ProjectHistory>, String>> {
+        let host = self.host.clone();
+        cx.spawn(
+            async move |_| match host.query(Query::InspectT3Project { root }).await {
+                Ok(QueryResponse::T3Project(project)) => Ok(project),
+                Ok(other) => Err(format!("unexpected T3 inspection response: {other:?}")),
+                Err(error) => Err(error.message),
+            },
+        )
+    }
+
+    pub fn start_t3_import(
+        &self,
+        project_id: &str,
+        profiles: std::collections::BTreeMap<String, String>,
+        cx: &mut App,
+    ) -> Task<Result<CommandResponse, ProtocolError>> {
+        self.command(
+            tcode_protocol::Command::StartT3Import {
+                project_id: project_id.into(),
+                profiles,
+            },
+            cx,
         )
     }
 

@@ -507,3 +507,215 @@ fn migrated_unassociated_history_keeps_messages_and_completed_turns() {
     assert_eq!(timeline.entries[1].id, "answer");
     assert_eq!(timeline.turns[0].status, Some(TurnStatus::Completed));
 }
+
+#[test]
+fn recent_project_detection_and_live_import_are_scoped_and_preserve_known_sessions() {
+    let f = Fixture::new();
+    f.thread("codex", "codex", NATIVE);
+    f.thread(
+        "custom",
+        "Openrouter",
+        "01900000-0000-7000-8000-000000000002",
+    );
+    f.update("threads", "custom", "settledOverride", json!("settled"));
+    f.update("threads", "custom", "archivedAt", json!(DATE));
+    std::fs::write(
+        f.options.source.join("settings.json"),
+        r#"{"providerInstances":{"Openrouter":{"driver":"codex"}}}"#,
+    )
+    .unwrap();
+    let other = f.root.join("other-project");
+    std::fs::create_dir(&other).unwrap();
+    f.db.execute(
+        "INSERT INTO projection_projects VALUES ('other', 'Other project', ?1, ?2, NULL)",
+        rusqlite::params![other.to_str().unwrap(), DATE],
+    )
+    .unwrap();
+    f.thread("other", "Unmapped", "01900000-0000-7000-8000-000000000003");
+    f.update("threads", "other", "projectId", json!("other"));
+
+    let detected = inspect_project(&f.options.source, &f.root.join("."))
+        .unwrap()
+        .unwrap();
+    assert_eq!(detected.title, "T3 project name");
+    assert_eq!(
+        detected.profiles,
+        vec![tcode_protocol::T3ImportProfile {
+            id: "Openrouter".into(),
+            provider: ProviderKind::Codex
+        }]
+    );
+    assert!(
+        inspect_project(&f.options.source, &f.options.source)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        inspect_project(&f.root.join("missing"), &f.root)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        !f.options.data_dir.exists(),
+        "discovery must not create a destination"
+    );
+
+    let settings: Settings =
+        serde_json::from_value(json!({"profiles":{"openrouter":{"kind":"codex"}}})).unwrap();
+    let mappings = BTreeMap::from([("Openrouter".into(), "openrouter".into())]);
+    let project = Project::from_root(f.root.clone());
+    assert!(
+        prepare_project(
+            f.options.source.clone(),
+            project.clone(),
+            &settings,
+            BTreeMap::new()
+        )
+        .is_err()
+    );
+    let (threads, report) = prepare_project(
+        f.options.source.clone(),
+        project.clone(),
+        &settings,
+        mappings.clone(),
+    )
+    .unwrap();
+    assert_eq!(threads.len(), 2);
+    assert!(
+        report.exclusions.is_empty(),
+        "other projects do not contribute to this import"
+    );
+    assert!(
+        !f.options.data_dir.exists(),
+        "conversion must not write destination files"
+    );
+
+    let store = SessionStore::open_at(f.options.data_dir.clone()).unwrap();
+    let _host_lock = store.lock_exclusive(true).unwrap();
+    store.upsert_project(&project).unwrap();
+    // This native session arrived after conversion. The writer must preserve it.
+    let mut native = SessionMeta::new(ProviderKind::Codex, f.root.clone(), None);
+    native.resume_cursor = Some(ResumeCursor(json!({"thread_id":NATIVE})));
+    native.title = "Live thread".into();
+    store.upsert_meta(&native).unwrap();
+    store.write_event_log(&native.id, b"live log\n").unwrap();
+    let (metas, skipped) = write_new_threads(&store, threads).unwrap();
+    assert_eq!(skipped, 1);
+    assert_eq!(metas.len(), 1);
+    assert_eq!(metas[0].title, "T3 custom");
+    assert_eq!(metas[0].profile_id.as_deref(), Some("openrouter"));
+    assert_eq!(metas[0].project_id.as_deref(), Some(project.id.as_str()));
+    assert!(metas[0].settled_at.is_some() && metas[0].archived_at.is_some());
+    assert_eq!(store.read_event_log(&native.id).unwrap(), b"live log\n");
+    let before = std::fs::read(store.root().join("sessions.json")).unwrap();
+    let (again, _) =
+        prepare_project(f.options.source.clone(), project, &settings, mappings).unwrap();
+    let (metas, skipped) = write_new_threads(&store, again).unwrap();
+    assert!(metas.is_empty());
+    assert_eq!(skipped, 2);
+    assert_eq!(
+        std::fs::read(store.root().join("sessions.json")).unwrap(),
+        before
+    );
+
+    f.db.execute(
+        "UPDATE orchestration_v2_projection_metadata SET schema_version = 99",
+        [],
+    )
+    .unwrap();
+    assert!(
+        inspect_project(&f.options.source, &f.root)
+            .unwrap_err()
+            .contains("unsupported")
+    );
+}
+
+#[test]
+fn recent_rows_count_t3_once_and_retain_the_complete_native_fallback() {
+    use crate::import::{ExternalRoots, SourceTool, scan_recent_dirs};
+    let f = Fixture::new();
+    let claude_id = "01900000-0000-7000-8000-000000000002";
+    f.thread("codex", "codex", NATIVE);
+    f.thread("claude", "claudeAgent", claude_id);
+    f.thread(
+        "t3-only",
+        "Openrouter",
+        "01900000-0000-7000-8000-000000000003",
+    );
+    f.update("threads", "codex", "archivedAt", json!(DATE));
+    f.update("threads", "t3-only", "settledOverride", json!("settled"));
+    f.thread("deleted", "codex", "01900000-0000-7000-8000-000000000004");
+    f.update("threads", "deleted", "deletedAt", json!(DATE));
+    f.thread("subagent", "codex", "01900000-0000-7000-8000-000000000005");
+    f.update(
+        "threads",
+        "subagent",
+        "lineage",
+        json!({"relationshipToParent":"subagent"}),
+    );
+    f.thread("missing-session", "codex", "pending");
+    f.thread(
+        "missing-worktree",
+        "codex",
+        "01900000-0000-7000-8000-000000000006",
+    );
+    f.update(
+        "threads",
+        "missing-worktree",
+        "worktreePath",
+        json!(f.root.join("missing")),
+    );
+    let roots = ExternalRoots {
+        claude_projects: f.root.join("claude"),
+        claude_desktop_meta: f.root.join("desktop"),
+        codex_session_roots: vec![f.root.join("codex")],
+    };
+    std::fs::create_dir_all(roots.claude_projects.join("project")).unwrap();
+    std::fs::create_dir_all(&roots.codex_session_roots[0]).unwrap();
+    // Both native Codex and Claude representations overlap T3. A second file
+    // for the same Codex session must not inflate the recent row's counts.
+    for (file, id) in [
+        ("shared", NATIVE),
+        ("shared-copy", NATIVE),
+        ("native-only", "native-only"),
+    ] {
+        std::fs::write(roots.codex_session_roots[0].join(format!("{file}.jsonl")), json!({"type":"session_meta", "payload":{"id":id, "cwd":f.root.join("."), "originator":"codex_exec"}}).to_string()).unwrap();
+    }
+    std::fs::write(roots.claude_projects.join("project/shared.jsonl"), json!({"sessionId":claude_id,"cwd":f.root.join("."),"type":"user","message":{"content":"question"}}).to_string()).unwrap();
+    let mut recent = scan_recent_dirs(&roots, &[]);
+    assert_eq!(recent.len(), 1);
+    assert_eq!(recent[0].threads.len(), 4);
+    let fallback = recent[0].threads.clone();
+    annotate_recent_dirs(&f.options.source, &mut recent, &HashSet::new()).unwrap();
+    assert_eq!(
+        recent[0].source_counts,
+        HashMap::from([(SourceTool::T3Code, 3), (SourceTool::CodexCli, 1)])
+    );
+    assert_eq!(
+        recent[0].threads, fallback,
+        "declining T3 must still offer all native files"
+    );
+
+    let known = HashSet::from([format!("codex:{NATIVE}"), "t3code:t3-only".into()]);
+    annotate_recent_dirs(&f.options.source, &mut recent, &known).unwrap();
+    assert_eq!(
+        recent[0].source_counts,
+        HashMap::from([(SourceTool::T3Code, 1), (SourceTool::CodexCli, 1)])
+    );
+    assert!(
+        !f.options.data_dir.exists(),
+        "counting must not write destination data"
+    );
+
+    // A failed T3 read leaves the native scan intact for the host to return
+    // with a visible warning, rather than quietly claiming these are Codex.
+    f.db.execute(
+        "UPDATE orchestration_v2_projection_metadata SET schema_version = 99",
+        [],
+    )
+    .unwrap();
+    let mut fallback_scan = scan_recent_dirs(&roots, &[]);
+    assert!(annotate_recent_dirs(&f.options.source, &mut fallback_scan, &HashSet::new()).is_err());
+    assert_eq!(fallback_scan[0].threads, fallback);
+    assert!(fallback_scan[0].source_counts.is_empty());
+}

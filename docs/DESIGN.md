@@ -1149,9 +1149,29 @@ workspace; a remote one types a host path, with the recents list and the import
 run also coming from the host. Failures — a refused path, an unreadable recents
 scan, a refused import — are shown, never swallowed.
 
-Choosing a directory in **Add project** starts an import and opens a modal,
-non-dismissible progress dialog with a bar, the "n of N" line naming the tool
-being read, and — once finished — an imported/skipped summary and an OK button.
+The **Recently active** rows include T3 Code counts read from the host's database.
+T3 appears first; matching native session identities are excluded from the same
+row's Codex/Claude counts. The T3 count includes eligible archived and settled
+threads and excludes known destination sessions. If T3 cannot be read, the scan
+shows a warning and keeps the native histories available.
+
+Selecting a recent directory rechecks its T3 project on the host. If found, a
+confirmation offers T3 history
+with **Yes / 是**, **No / 否**, and **Cancel / 取消**. Custom T3 provider instances
+require an explicit choice of a compatible tcode profile before Yes is enabled.
+No offers the directory's full Codex/Claude history in a second confirmation,
+including native histories represented by T3 in the row counts. Without
+T3, that second confirmation appears directly. It lists every detected source:
+Yes imports those threads; No adds the project without history. Cancel returns
+to the recents list without creating a project or importing anything. A failed
+T3 check is shown and lets the user review the other sources or cancel.
+
+Browsing or typing a directory continues to add a project without importing.
+These rules apply in the shared dialog at both widths and over remote links.
+
+After confirmation, an import opens a modal, non-dismissible progress dialog
+with a bar, the "n of N" line naming the tool being read, and an imported/skipped
+summary or failure message and an OK button when finished.
 
 Import progress is host state, not a client-side job. The host keeps the latest
 run per project and publishes it, so closing the window, disconnecting, or
@@ -1179,9 +1199,10 @@ settled thread. Opening or searching does not reactivate it. Accepted messages,
 scheduled messages and orchestration input reactivate the recipient and settled
 ancestors. Make active restores the matching settle cascade and its ancestors.
 
-The offline [T3 importer](import-t3.md) preserves explicit settled and archive
-state. It has no project-selection dialog and does not alter Add project's
-existing provider import flow.
+The [T3 importer](import-t3.md) preserves explicit settled and archive state.
+The offline CLI imports all eligible projects and can refresh previous imports.
+Add project's T3 option imports only the selected directory's project and skips
+known sessions; it never replaces a conversation owned by the running host.
 
 ### Session lifetime
 
