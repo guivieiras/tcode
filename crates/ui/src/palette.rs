@@ -352,7 +352,7 @@ impl CommandPalette {
                                 label: meta.title.clone(),
                                 subtitle: Some(group.project.name.clone()),
                                 provider: Some(meta.provider),
-                                updated_at: Some(meta.updated_at),
+                                updated_at: Some(store.thread_sort().timestamp(meta)),
                                 action: Action::OpenThread {
                                     session_id: meta.id.clone(),
                                     turn: None,
@@ -382,7 +382,7 @@ impl CommandPalette {
                             label: hit.session_title.clone(),
                             subtitle: Some(hit.snippet.clone()),
                             provider: meta.map(|meta| meta.provider),
-                            updated_at: meta.map(|meta| meta.updated_at),
+                            updated_at: meta.map(|meta| store.thread_sort().timestamp(meta)),
                             action: Action::OpenThread {
                                 session_id: hit.session_id.clone(),
                                 turn: Some(hit.turn),

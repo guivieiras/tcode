@@ -839,6 +839,7 @@ impl AppState {
         fork.project_id = source.project_id.clone();
         fork.acp_agent_id = source.acp_agent_id.clone();
         fork.profile_id = source.profile_id.clone();
+        fork.last_user_message_at = source.last_user_message_at;
         fork.resume_cursor = source.resume_cursor.clone();
         fork.pending_fork = true;
         // `worktree` deliberately stays absent: it is an ownership/cleanup

@@ -8,6 +8,7 @@ use tcode_core::{
     session::ReviewComment,
     settings::{
         ChildApprovalMode, ImageMode, OrchestrateChildModel, ProfileSettingsPatch, SidebarLayout,
+        ThreadSort,
     },
     ui::{TerminalSplitDirection, WorkspaceMode},
 };
@@ -61,6 +62,9 @@ impl WorkspaceStore {
 
     pub fn set_word_wrap_diffs(&mut self, value: bool) {
         self.patch_settings(SettingsPatch::WordWrapDiffs(value));
+    }
+    pub fn set_thread_sort(&mut self, value: ThreadSort) {
+        self.patch_settings(SettingsPatch::ThreadSort(value));
     }
     pub fn set_skip_delete_confirmation(&mut self, value: bool) {
         self.patch_settings(SettingsPatch::SkipDeleteConfirmation(value));

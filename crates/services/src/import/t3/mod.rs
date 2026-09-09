@@ -460,11 +460,13 @@ pub fn import(options: &ImportOptions) -> Result<ImportReport, String> {
             .map_err(|e| format!("write projects: {e}"))?;
         store
     };
-    for thread in prepared {
+    for mut thread in prepared {
         if !options.dry_run {
             let result = (|| -> std::io::Result<()> {
                 let old = store.read_event_log(&thread.meta.id)?;
                 store.write_event_log(&thread.meta.id, &thread.bytes)?;
+                thread.meta.last_user_message_at = None;
+                store.recover_last_user_message_at(&mut thread.meta);
                 let mut next = index.clone();
                 next.sessions.retain(|meta| meta.id != thread.meta.id);
                 next.sessions.push(thread.meta.clone());

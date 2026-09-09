@@ -39,6 +39,15 @@ pub enum SidebarLayout {
     Grouped,
 }
 
+/// Source of thread ordering and relative-time labels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ThreadSort {
+    #[default]
+    Activity,
+    LastUserMessage,
+}
+
 impl ProjectSort {
     /// The next mode in the cycle (RecentActivity → NameAsc → RecentActivity).
     pub fn next(self) -> Self {
@@ -849,6 +858,7 @@ pub enum SettingsPatch {
     FallbackReviewModel(String),
     FallbackReviewProfileId(Option<String>),
     SidebarLayout(SidebarLayout),
+    ThreadSort(ThreadSort),
     RemoteHostingEnabled(bool),
     RemotePort(Option<u16>),
     RemoteHostName(Option<String>),
@@ -974,6 +984,8 @@ pub struct Settings {
     /// Sidebar thread layout (flat by default; grouped keeps the legacy view).
     #[serde(default)]
     pub sidebar_layout: SidebarLayout,
+    #[serde(default)]
+    pub thread_sort: ThreadSort,
     /// Whether this desktop app also serves the remote protocol to other tcode
     /// clients. Absent in legacy files → hosting off.
     #[serde(default)]
@@ -1058,6 +1070,7 @@ impl Default for Settings {
             favorite_models: Vec::new(),
             project_sort: ProjectSort::default(),
             sidebar_layout: SidebarLayout::default(),
+            thread_sort: ThreadSort::default(),
             remote_hosting_enabled: false,
             remote_port: None,
             remote_host_name: None,
@@ -1152,6 +1165,7 @@ impl Settings {
                 self.fallback_review.profile_id = value;
             }
             SettingsPatch::SidebarLayout(value) => self.sidebar_layout = value,
+            SettingsPatch::ThreadSort(value) => self.thread_sort = value,
             SettingsPatch::RemoteHostingEnabled(value) => self.remote_hosting_enabled = value,
             SettingsPatch::RemotePort(value) => self.remote_port = value,
             SettingsPatch::RemoteHostName(value) => self.remote_host_name = value,

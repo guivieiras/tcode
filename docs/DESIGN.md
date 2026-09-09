@@ -590,6 +590,22 @@ in both states.
    by a parent fold do not consume the six-thread limit.
 6. Footer: gear + "Settings" → settings route.
 
+**Settings → General → Workspace → Thread ordering and time** offers
+**Current (default)** and **Last user message**. The default preserves
+activity timestamps and the wide flat list's waiting/working priority. Last user
+message orders threads and displays their relative age using user-authored sends
+and steering, without status priority. Agent replies, orchestration messages,
+scheduled work, and opening a thread do not advance that time. The choice is
+saved on the attached host and applies to both layouts, both window widths, and
+thread timestamps in the command palette. Parent/child groups stay together and
+sort by the parent's last user message; children sort by their own. Project
+recency follows the same parent timestamps. Settled and archive grouping, and
+completion markers, keep their existing behavior.
+
+Existing histories recover their timestamps from stored user-role messages and
+steering requests, which older logs cannot reliably distinguish from automated
+input. Threads with no timestamped user message use their creation time.
+
 At both widths and in both thread layouts, the former unread marker is
 **Completed / 已完成**, shown as a green success dot. Project headers use the
 same green dot when a non-working top-level thread has that marker. The thread

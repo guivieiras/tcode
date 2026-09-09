@@ -33,7 +33,7 @@ use crate::window_drag_area;
 use crate::window_state::WindowState;
 use tcode_core::settings::{
     DEFAULT_AUTO_ARCHIVE_KEEP_COUNT, DEFAULT_AUTO_ARCHIVE_MAX_IDLE_DAYS, FallbackReviewSettings,
-    TitleGenerationSettings,
+    ThreadSort, TitleGenerationSettings,
 };
 
 /// Left inset so branding clears the native macOS 26 traffic lights near x=72.
@@ -1332,6 +1332,7 @@ impl SettingsPage {
             },
         );
         let workspace = vec![
+            self.thread_sort_row(settings.thread_sort, cx),
             self.toggle_row(
                 "word-wrap",
                 crate::tr!("settings.word_wrap.title"),
@@ -2219,6 +2220,53 @@ impl SettingsPage {
                 ),
             )
             .into_any_element()
+    }
+
+    fn thread_sort_row(&self, mode: ThreadSort, cx: &mut Context<Self>) -> AnyElement {
+        let reset = self.reset_action(
+            "reset-thread-sort",
+            mode != ThreadSort::default(),
+            cx,
+            |this, _, cx| {
+                this.dispatch_settings(|store| store.set_thread_sort(ThreadSort::default()), cx);
+            },
+        );
+        let label_key = match mode {
+            ThreadSort::Activity => "settings.thread_sort.activity",
+            ThreadSort::LastUserMessage => "settings.thread_sort.last_user_message",
+        };
+        let option = |value, key: &'static str| SelectRowOption {
+            value,
+            id: key.into(),
+            label: crate::tr!(key).into_owned().into(),
+            description: None,
+            selected: value == mode,
+        };
+        self.select_row(
+            "thread-sort-dropdown",
+            "thread-sort-popover",
+            "thread-sort-menu",
+            240.,
+            crate::tr!("settings.thread_sort.title").into_owned().into(),
+            crate::tr!("settings.thread_sort.description")
+                .into_owned()
+                .into(),
+            crate::tr!(label_key).into_owned().into(),
+            vec![
+                option(ThreadSort::Activity, "settings.thread_sort.activity"),
+                option(
+                    ThreadSort::LastUserMessage,
+                    "settings.thread_sort.last_user_message",
+                ),
+            ],
+            reset,
+            |mode, page, _, cx| {
+                page.update(cx, |this, cx| {
+                    this.dispatch_settings(|store| store.set_thread_sort(mode), cx);
+                });
+            },
+            cx,
+        )
     }
 
     fn image_mode_row(&self, mode: ImageMode, cx: &mut Context<Self>) -> AnyElement {

@@ -28,7 +28,7 @@ use tcode_protocol::ThreadExportFormat;
 
 use tcode_core::{
     project::{ProjectGroup, SessionMeta},
-    settings::SidebarLayout,
+    settings::{SidebarLayout, ThreadSort},
 };
 
 use crate::shortcut::format_secondary_shortcut;
@@ -259,14 +259,15 @@ fn compact_visible_threads<'a>(
     sessions: &'a [SessionMeta],
     collapsed: &HashSet<String>,
     project: Option<&str>,
+    sort: ThreadSort,
 ) -> Vec<&'a SessionMeta> {
     let mut ordered: Vec<_> = sessions
         .iter()
         .filter(|meta| meta.archived_at.is_none())
         .collect();
     ordered.sort_by(|a, b| {
-        b.updated_at
-            .cmp(&a.updated_at)
+        sort.timestamp(b)
+            .cmp(&sort.timestamp(a))
             .then_with(|| a.id.cmp(&b.id))
     });
     let by_id: HashMap<_, _> = ordered
@@ -296,7 +297,11 @@ fn compact_visible_threads<'a>(
             families.push((root, vec![meta]));
         }
     }
-    // Families were encountered in descending maximum activity order.
+    // Activity mode encounters families by their latest activity. User-message
+    // mode orders each family by its parent's message, independent of workers.
+    if sort == ThreadSort::LastUserMessage {
+        families.sort_by_key(|(root, _)| std::cmp::Reverse(sort.timestamp(root)));
+    }
     fn append<'a>(
         meta: &'a SessionMeta,
         members: &[&'a SessionMeta],
@@ -337,6 +342,7 @@ fn flat_visible_threads<'a>(
     collapsed_parents: &HashSet<String>,
     project_filter: Option<&str>,
     flags: &HashMap<String, ThreadFlags>,
+    sort: ThreadSort,
 ) -> Vec<&'a SessionMeta> {
     let ids: HashSet<&str> = sessions.iter().map(|session| session.id.as_str()).collect();
     let mut blocks: Vec<Vec<&SessionMeta>> = Vec::new();
@@ -367,14 +373,17 @@ fn flat_visible_threads<'a>(
             let working = block
                 .iter()
                 .any(|session| flags.get(&session.id).is_some_and(|flags| flags.working));
-            let updated_at = block
-                .iter()
-                .map(|session| session.updated_at)
-                .max()
-                .unwrap_or_default();
+            let updated_at = match sort {
+                ThreadSort::Activity => block
+                    .iter()
+                    .map(|session| session.updated_at)
+                    .max()
+                    .unwrap_or_default(),
+                ThreadSort::LastUserMessage => sort.timestamp(block[0]),
+            };
             FlatThreadBlock {
                 sessions: block,
-                bucket: if waiting {
+                bucket: if sort == ThreadSort::LastUserMessage || waiting {
                     0
                 } else if working {
                     1
@@ -2321,7 +2330,8 @@ impl SessionsSidebar {
         let session_id = meta.id.clone();
         let archive_id = session_id.clone();
         let archive_title = meta.title.clone();
-        let ago = humanize_ago(now_secs().saturating_sub(meta.updated_at));
+        let timestamp = self.store.read(cx).thread_sort().timestamp(meta);
+        let ago = humanize_ago(now_secs().saturating_sub(timestamp));
         let row_key = row_key.to_string();
         div()
             .relative()
@@ -2690,6 +2700,7 @@ impl SessionsSidebar {
     /// measures the visible rows, including project captions of different height.
     fn compact_model(&mut self, cx: &mut Context<Self>) -> Rc<CompactListModel> {
         let now = now_secs();
+        let sort = self.store.read(cx).thread_sort();
         let locale = rust_i18n::locale();
         if self.compact_model_dirty
             || self
@@ -2754,7 +2765,8 @@ impl SessionsSidebar {
                         label: crate::tr!("sidebar.thread", title = meta.title.clone())
                             .into_owned()
                             .into(),
-                        relative_time: humanize_ago(now.saturating_sub(meta.updated_at)).into(),
+                        relative_time: humanize_ago(now.saturating_sub(sort.timestamp(meta)))
+                            .into(),
                         children_id: format!("compact-children-{}", meta.id).into(),
                         children_label: crate::tr!(
                             "sidebar.child_threads",
@@ -2774,8 +2786,10 @@ impl SessionsSidebar {
             };
             let grouped_rows = |project: Option<&str>, recent: bool, key: &str| {
                 let (active, settled) = partition_settled(&sessions);
-                let active = compact_visible_threads(&active, &self.collapsed_parents, project);
-                let settled = compact_visible_threads(&settled, &self.collapsed_parents, project);
+                let active =
+                    compact_visible_threads(&active, &self.collapsed_parents, project, sort);
+                let settled =
+                    compact_visible_threads(&settled, &self.collapsed_parents, project, sort);
                 let mut rows = thread_rows(active, recent);
                 if !settled.is_empty() {
                     rows.push(CompactListRow::Settled {
@@ -2797,6 +2811,7 @@ impl SessionsSidebar {
                         &sessions,
                         &self.collapsed_parents,
                         Some(&group.project.id),
+                        sort,
                     );
                     let count = visible.len();
                     let collapsed =
@@ -2866,7 +2881,7 @@ impl SessionsSidebar {
                 if let CompactListRow::Thread(row) = row {
                     let row = Rc::make_mut(row);
                     row.relative_time =
-                        humanize_ago(now.saturating_sub(row.meta.updated_at)).into();
+                        humanize_ago(now.saturating_sub(sort.timestamp(&row.meta))).into();
                 }
             }
         }
@@ -3461,18 +3476,21 @@ impl Render for SessionsSidebar {
                 )
             }
             SidebarLayout::Flat => {
+                let sort = self.store.read(cx).thread_sort();
                 let (active, settled) = partition_settled(&flat_sessions);
                 let visible = flat_visible_threads(
                     &active,
                     &self.collapsed_parents,
                     self.project_filter.as_deref(),
                     &flags,
+                    sort,
                 );
                 let settled_visible = flat_visible_threads(
                     &settled,
                     &self.collapsed_parents,
                     self.project_filter.as_deref(),
                     &flags,
+                    sort,
                 );
                 let settled_count = settled_visible.len();
                 if visible.is_empty() && settled_count == 0 {
@@ -3889,11 +3907,18 @@ mod tests {
         let collapsed = HashSet::from(["parent".into()]);
         assert_eq!(visible_threads(&settled, &collapsed)[0].id, "settled-child");
         assert_eq!(
-            flat_visible_threads(&settled, &collapsed, None, &HashMap::new())[0].id,
+            flat_visible_threads(
+                &settled,
+                &collapsed,
+                None,
+                &HashMap::new(),
+                ThreadSort::Activity
+            )[0]
+            .id,
             "settled-child"
         );
         assert_eq!(
-            compact_visible_threads(&settled, &collapsed, None)[0].id,
+            compact_visible_threads(&settled, &collapsed, None, ThreadSort::Activity)[0].id,
             "settled-child"
         );
     }
@@ -4990,6 +5015,49 @@ mod tests {
     }
 
     #[test]
+    fn last_user_message_order_ignores_status_and_worker_activity_in_all_layouts() {
+        let mut waiting = session("waiting", None);
+        waiting.updated_at = 900;
+        waiting.last_user_message_at = Some(20);
+        let mut child = session("child", Some("waiting"));
+        child.updated_at = 1000;
+        child.last_user_message_at = Some(1000);
+        let mut working = session("working", None);
+        working.updated_at = 500;
+        working.last_user_message_at = Some(30);
+        let mut idle = session("idle", None);
+        idle.updated_at = 100;
+        idle.last_user_message_at = Some(40);
+        let sessions = vec![waiting, child, working, idle];
+        let flags = thread_flags(&[
+            (
+                "waiting",
+                ThreadFlags {
+                    waiting_for_input: true,
+                    ..Default::default()
+                },
+            ),
+            (
+                "working",
+                ThreadFlags {
+                    working: true,
+                    ..Default::default()
+                },
+            ),
+        ]);
+        let sort = ThreadSort::LastUserMessage;
+        let flat = flat_visible_threads(&sessions, &HashSet::new(), None, &flags, sort);
+        let compact = compact_visible_threads(&sessions, &HashSet::new(), None, sort);
+        let grouped = tcode_core::project::order_sessions_with_children(sessions.clone(), sort);
+        for rows in [flat, compact, grouped.iter().collect()] {
+            assert_eq!(
+                rows.iter().map(|meta| meta.id.as_str()).collect::<Vec<_>>(),
+                ["idle", "working", "waiting", "child"]
+            );
+        }
+    }
+
+    #[test]
     fn flat_blocks_sort_by_attention_then_recency_and_keep_children_adjacent() {
         let mut waiting_root = session("waiting-root", None);
         waiting_root.updated_at = 10;
@@ -5025,7 +5093,13 @@ mod tests {
                 },
             ),
         ]);
-        let visible = flat_visible_threads(&sessions, &HashSet::new(), None, &flags);
+        let visible = flat_visible_threads(
+            &sessions,
+            &HashSet::new(),
+            None,
+            &flags,
+            ThreadSort::Activity,
+        );
         let ids: Vec<&str> = visible.iter().map(|meta| meta.id.as_str()).collect();
 
         assert_eq!(
@@ -5096,7 +5170,13 @@ mod tests {
                 },
             ),
         ]);
-        let visible = flat_visible_threads(&sessions, &HashSet::new(), None, &flags);
+        let visible = flat_visible_threads(
+            &sessions,
+            &HashSet::new(),
+            None,
+            &flags,
+            ThreadSort::Activity,
+        );
         let ids: Vec<&str> = visible.iter().map(|meta| meta.id.as_str()).collect();
 
         assert_eq!(ids, vec!["lifted-root", "lifted-child", "working-root"]);
@@ -5111,7 +5191,13 @@ mod tests {
         ];
         let collapsed = HashSet::from(["parent".to_string()]);
 
-        let visible = flat_visible_threads(&sessions, &collapsed, None, &HashMap::new());
+        let visible = flat_visible_threads(
+            &sessions,
+            &collapsed,
+            None,
+            &HashMap::new(),
+            ThreadSort::Activity,
+        );
         let ids: Vec<&str> = visible.iter().map(|meta| meta.id.as_str()).collect();
 
         assert_eq!(ids, vec!["parent", "other"]);
@@ -5132,6 +5218,7 @@ mod tests {
             &HashSet::new(),
             Some("project-a"),
             &HashMap::new(),
+            ThreadSort::Activity,
         );
         let ids: Vec<&str> = visible.iter().map(|meta| meta.id.as_str()).collect();
 

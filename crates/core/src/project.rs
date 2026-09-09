@@ -8,7 +8,7 @@ use std::{
 use agent::{ApprovalMode, InteractionMode, OptionSelection, ProviderKind, ResumeCursor};
 use serde::{Deserialize, Serialize};
 
-use crate::settings::ProjectSort;
+use crate::settings::{ProjectSort, ThreadSort};
 
 /// A project groups sessions (threads) that share a working-directory root.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -133,6 +133,11 @@ pub struct SessionMeta {
     pub result_max_chars: Option<u32>,
     pub created_at: u64,
     pub updated_at: u64,
+    /// Last user-message time in unix seconds. Missing in older indexes;
+    /// the store recovers it from the transcript. Zero means no timestamped
+    /// user message; presentation then falls back to creation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_user_message_at: Option<u64>,
 }
 
 impl SessionMeta {
@@ -164,6 +169,19 @@ impl SessionMeta {
             result_max_chars: None,
             created_at: now,
             updated_at: now,
+            last_user_message_at: Some(0),
+        }
+    }
+}
+
+impl ThreadSort {
+    pub fn timestamp(self, meta: &SessionMeta) -> u64 {
+        match self {
+            Self::Activity => meta.updated_at,
+            Self::LastUserMessage => meta
+                .last_user_message_at
+                .filter(|at| *at != 0)
+                .unwrap_or(meta.created_at),
         }
     }
 }
@@ -336,6 +354,7 @@ pub fn group_sessions(
     projects: &[Project],
     sessions: &[SessionMeta],
     sort: ProjectSort,
+    thread_sort: ThreadSort,
 ) -> Vec<ProjectGroup> {
     let mut groups: Vec<ProjectGroup> = projects
         .iter()
@@ -345,7 +364,7 @@ pub fn group_sessions(
                 .filter(|s| s.project_id.as_deref() == Some(project.id.as_str()))
                 .cloned()
                 .collect();
-            sessions = order_sessions_with_children(sessions);
+            sessions = order_sessions_with_children(sessions, thread_sort);
             ProjectGroup {
                 project: project.clone(),
                 sessions,
@@ -359,7 +378,13 @@ pub fn group_sessions(
             let activity = |g: &ProjectGroup| {
                 g.sessions
                     .iter()
-                    .map(|s| s.updated_at)
+                    .filter(|session| {
+                        thread_sort == ThreadSort::Activity
+                            || session.parent_session_id.as_ref().is_none_or(|parent| {
+                                !g.sessions.iter().any(|candidate| &candidate.id == parent)
+                            })
+                    })
+                    .map(|s| thread_sort.timestamp(s))
                     .max()
                     .unwrap_or(g.project.created_at)
             };
@@ -380,7 +405,10 @@ pub fn group_sessions(
 
 /// Stable parent-first ordering for a session pool. Orphans are roots; each
 /// parent's newest children follow it immediately.
-pub fn order_sessions_with_children(sessions: Vec<SessionMeta>) -> Vec<SessionMeta> {
+pub fn order_sessions_with_children(
+    sessions: Vec<SessionMeta>,
+    sort: ThreadSort,
+) -> Vec<SessionMeta> {
     let ids: std::collections::HashSet<&str> =
         sessions.iter().map(|session| session.id.as_str()).collect();
     let mut roots: Vec<&SessionMeta> = sessions
@@ -392,13 +420,14 @@ pub fn order_sessions_with_children(sessions: Vec<SessionMeta>) -> Vec<SessionMe
                 .is_none_or(|parent| !ids.contains(parent))
         })
         .collect();
-    roots.sort_by_key(|session| std::cmp::Reverse(session.updated_at));
+    roots.sort_by_key(|session| std::cmp::Reverse(sort.timestamp(session)));
 
     fn append(
         parent: &SessionMeta,
         sessions: &[SessionMeta],
         output: &mut Vec<SessionMeta>,
         visited: &mut std::collections::HashSet<String>,
+        sort: ThreadSort,
     ) {
         if !visited.insert(parent.id.clone()) {
             return;
@@ -408,25 +437,25 @@ pub fn order_sessions_with_children(sessions: Vec<SessionMeta>) -> Vec<SessionMe
             .iter()
             .filter(|session| session.parent_session_id.as_deref() == Some(parent.id.as_str()))
             .collect();
-        children.sort_by_key(|session| std::cmp::Reverse(session.updated_at));
+        children.sort_by_key(|session| std::cmp::Reverse(sort.timestamp(session)));
         for child in children {
-            append(child, sessions, output, visited);
+            append(child, sessions, output, visited, sort);
         }
     }
 
     let mut output = Vec::with_capacity(sessions.len());
     let mut visited = std::collections::HashSet::new();
     for root in roots {
-        append(root, &sessions, &mut output, &mut visited);
+        append(root, &sessions, &mut output, &mut visited, sort);
     }
     // Defensive cycle handling: malformed cyclic metadata stays visible.
     let mut remainder: Vec<&SessionMeta> = sessions
         .iter()
         .filter(|session| !visited.contains(&session.id))
         .collect();
-    remainder.sort_by_key(|session| std::cmp::Reverse(session.updated_at));
+    remainder.sort_by_key(|session| std::cmp::Reverse(sort.timestamp(session)));
     for session in remainder {
-        append(session, &sessions, &mut output, &mut visited);
+        append(session, &sessions, &mut output, &mut visited, sort);
     }
     output
 }
@@ -549,7 +578,12 @@ mod tests {
             session_in("p-old", 20),
         ];
 
-        let groups = group_sessions(&projects, &sessions, ProjectSort::RecentActivity);
+        let groups = group_sessions(
+            &projects,
+            &sessions,
+            ProjectSort::RecentActivity,
+            ThreadSort::Activity,
+        );
         // p-new (activity 100), p-old (activity 20), p-empty (created_at 15, no sessions).
         assert_eq!(groups[0].project.id, "p-new");
         assert_eq!(groups[1].project.id, "p-old");
@@ -560,7 +594,12 @@ mod tests {
         assert!(groups[2].sessions.is_empty());
 
         // Name A-Z ordering ignores activity: Empty, New, Old (case-insensitive).
-        let by_name = group_sessions(&projects, &sessions, ProjectSort::NameAsc);
+        let by_name = group_sessions(
+            &projects,
+            &sessions,
+            ProjectSort::NameAsc,
+            ThreadSort::Activity,
+        );
         assert_eq!(by_name[0].project.name, "Empty");
         assert_eq!(by_name[1].project.name, "New");
         assert_eq!(by_name[2].project.name, "Old");
@@ -588,7 +627,12 @@ mod tests {
             make("parent-new", 100, None),
         ];
 
-        let groups = group_sessions(&projects, &sessions, ProjectSort::RecentActivity);
+        let groups = group_sessions(
+            &projects,
+            &sessions,
+            ProjectSort::RecentActivity,
+            ThreadSort::Activity,
+        );
         let ids: Vec<_> = groups[0]
             .sessions
             .iter()
