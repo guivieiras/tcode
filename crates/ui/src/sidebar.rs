@@ -121,7 +121,7 @@ fn collapse_chevron(collapsed: bool, cx: &Context<SessionsSidebar>) -> Icon {
 #[derive(Debug, PartialEq, Eq)]
 struct ThreadRenderState {
     is_child: bool,
-    show_unread: bool,
+    show_completed: bool,
     direct_children: usize,
     active_direct_children: usize,
 }
@@ -145,7 +145,7 @@ struct ThreadRowState {
     background: bool,
     is_worktree: bool,
     is_child: bool,
-    show_unread: bool,
+    show_completed: bool,
     direct_children: usize,
     active_direct_children: usize,
     children_collapsed: bool,
@@ -161,6 +161,17 @@ impl ThreadRowState {
 
     fn waiting(&self) -> bool {
         self.waiting_for_approval || self.waiting_for_input
+    }
+
+    fn title_foreground(&self, meta: &SessionMeta, working: bool, cx: &App) -> gpui::Hsla {
+        let foreground = cx.theme().foreground;
+        if meta.settled_at.is_some() {
+            foreground.opacity(0.35)
+        } else if self.show_completed || (working && !self.waiting()) {
+            foreground
+        } else {
+            foreground.opacity(0.7)
+        }
     }
 }
 
@@ -187,8 +198,8 @@ fn derive_thread_render_state(
     ThreadRenderState {
         is_child,
         // Orphaned child metadata is still child metadata and must not surface
-        // completion unread state as an ordinary-thread blue dot.
-        show_unread: meta.parent_session_id.is_none() && own_flags.unread && !own_flags.working,
+        // completion state as an ordinary-thread green dot.
+        show_completed: meta.parent_session_id.is_none() && own_flags.unread && !own_flags.working,
         direct_children,
         active_direct_children,
     }
@@ -498,7 +509,7 @@ struct ThreadFork(String);
 struct ThreadMergeWorktree(String);
 #[derive(Action, Clone, PartialEq, Eq, Deserialize)]
 #[action(namespace = tcode_thread, no_json)]
-struct ThreadMarkUnread(String);
+struct ThreadMarkCompleted(String);
 #[derive(Action, Clone, PartialEq, Eq, Deserialize)]
 #[action(namespace = tcode_thread, no_json)]
 struct ThreadCopyPath(String);
@@ -941,9 +952,9 @@ impl SessionsSidebar {
         }
     }
 
-    fn on_mark_unread(
+    fn on_mark_completed(
         &mut self,
-        action: &ThreadMarkUnread,
+        action: &ThreadMarkCompleted,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1691,9 +1702,11 @@ impl SessionsSidebar {
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let project_id = group.project.id.clone();
-        let has_unread = group.sessions.iter().any(|meta| {
+        let has_completed = group.sessions.iter().any(|meta| {
             meta.parent_session_id.is_none()
-                && flags.get(&meta.id).is_some_and(|flags| flags.unread)
+                && flags
+                    .get(&meta.id)
+                    .is_some_and(|flags| flags.unread && !flags.working)
         });
         let group_key = format!("group-{project_id}");
 
@@ -1762,14 +1775,14 @@ impl SessionsSidebar {
                 .text_color(cx.theme().sidebar_foreground)
                 .child(group.project.name.clone()),
         )
-        // Unread dot when any child thread is unread (hidden on hover so
+        // Completed dot when a project thread has finished (hidden on hover so
         // the "+" can take the slot).
-        .when(has_unread, |row| {
+        .when(has_completed, |row| {
             row.child(
                 div()
                     .flex_none()
                     .group_hover(group_key.clone(), |s| s.invisible())
-                    .child(div().size(px(6.)).rounded_full().bg(cx.theme().primary)),
+                    .child(div().size(px(6.)).rounded_full().bg(cx.theme().success)),
             )
         })
         .child(
@@ -1947,7 +1960,7 @@ impl SessionsSidebar {
             background: own_flags.background,
             is_worktree: meta.worktree.is_some(),
             is_child: render_state.is_child,
-            show_unread: render_state.show_unread,
+            show_completed: render_state.show_completed,
             direct_children: render_state.direct_children,
             active_direct_children: render_state.active_direct_children,
             menu_can_fork: meta.provider.caps().supports_fork,
@@ -2025,7 +2038,8 @@ impl SessionsSidebar {
         &self,
         meta: &SessionMeta,
         state: &ThreadRowState,
-        emphasize_unread: bool,
+        emphasize_completed: bool,
+        working: bool,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         if let Some(input) = &state.renaming {
@@ -2039,8 +2053,8 @@ impl SessionsSidebar {
             truncated_sidebar_label()
                 .text_size(px(13.))
                 .line_height(px(18.))
-                .text_color(cx.theme().sidebar_foreground)
-                .when(emphasize_unread && state.show_unread, |title| {
+                .text_color(state.title_foreground(meta, working, cx))
+                .when(emphasize_completed && state.show_completed, |title| {
                     title.font_semibold()
                 })
                 .child(meta.title.clone())
@@ -2135,8 +2149,8 @@ impl SessionsSidebar {
                 )
             })
             .menu(
-                crate::tr!("sidebar.ctx_mark_unread").into_owned(),
-                Box::new(ThreadMarkUnread(id.clone())),
+                crate::tr!("sidebar.ctx_mark_completed").into_owned(),
+                Box::new(ThreadMarkCompleted(id.clone())),
             )
             .separator()
             .menu(
@@ -2198,7 +2212,7 @@ impl SessionsSidebar {
         let row_key = state.row_key.clone();
         let is_worktree = state.is_worktree;
         let is_child = state.is_child;
-        let show_unread = state.show_unread;
+        let show_completed = state.show_completed;
         let direct_children = state.direct_children;
         let active_direct_children = state.active_direct_children;
         let has_direct_children = state.has_direct_children();
@@ -2233,11 +2247,11 @@ impl SessionsSidebar {
                 )
             });
 
-        // Row body: rename input, or the (unread dot + worktree glyph + title).
+        // Row body: rename input, or the (completed dot + worktree glyph + title).
         // The fold chevron trails the title, right before the child-count
         // badge, so the title keeps the row's full leading width.
         let row = if state.renaming.is_some() {
-            row.child(self.thread_title_or_input(meta, &state, false, cx))
+            row.child(self.thread_title_or_input(meta, &state, false, working, cx))
                 .when(has_direct_children, |row| {
                     row.child(collapse_chevron(children_collapsed, cx))
                         .child(child_count_badge(
@@ -2248,13 +2262,13 @@ impl SessionsSidebar {
                         ))
                 })
         } else {
-            row.when(show_unread, |row| {
+            row.when(show_completed, |row| {
                 row.child(
                     div()
                         .flex_none()
                         .size(px(6.))
                         .rounded_full()
-                        .bg(cx.theme().primary),
+                        .bg(cx.theme().success),
                 )
             })
             .when(is_worktree, |row| {
@@ -2265,7 +2279,7 @@ impl SessionsSidebar {
                         .text_color(cx.theme().muted_foreground),
                 )
             })
-            .child(self.thread_title_or_input(meta, &state, false, cx))
+            .child(self.thread_title_or_input(meta, &state, false, working, cx))
             .when(has_direct_children, |row| {
                 row.child(collapse_chevron(children_collapsed, cx))
                     .child(child_count_badge(
@@ -2378,7 +2392,7 @@ impl SessionsSidebar {
         let waiting_for_input = state.waiting_for_input;
         let waiting = state.waiting();
         let is_child = state.is_child;
-        let show_unread = state.show_unread;
+        let show_completed = state.show_completed;
         let direct_children = state.direct_children;
         let active_direct_children = state.active_direct_children;
         let has_direct_children = state.has_direct_children();
@@ -2399,7 +2413,7 @@ impl SessionsSidebar {
             .rounded(px(6.));
 
         let row = if is_child {
-            let title_or_input = self.thread_title_or_input(meta, &state, false, cx);
+            let title_or_input = self.thread_title_or_input(meta, &state, false, working, cx);
             row.child(
                 h_flex()
                     .w_full()
@@ -2435,22 +2449,22 @@ impl SessionsSidebar {
                     }),
             )
         } else {
-            let title_or_input = self.thread_title_or_input(meta, &state, true, cx);
+            let title_or_input = self.thread_title_or_input(meta, &state, true, working, cx);
             let line_one = h_flex()
                 .w_full()
                 .min_w_0()
                 .items_center()
                 .gap_2()
-                .when(show_unread, |line| {
+                .when(show_completed, |line| {
                     line.child(
                         div()
                             .flex_none()
                             .size(px(6.))
                             .rounded_full()
-                            .bg(cx.theme().primary),
+                            .bg(cx.theme().success),
                     )
                 })
-                .when(!show_unread && waiting, |line| {
+                .when(!show_completed && waiting, |line| {
                     line.child(
                         div()
                             .flex_none()
@@ -2459,7 +2473,7 @@ impl SessionsSidebar {
                             .bg(cx.theme().warning),
                     )
                 })
-                .when(!show_unread && !waiting && working, |line| {
+                .when(!show_completed && !waiting && working, |line| {
                     line.child(
                         div()
                             .flex_none()
@@ -2979,7 +2993,7 @@ impl SessionsSidebar {
             .on_action(cx.listener(Self::on_regenerate_title))
             .on_action(cx.listener(Self::on_fork))
             .on_action(cx.listener(Self::on_merge_worktree))
-            .on_action(cx.listener(Self::on_mark_unread))
+            .on_action(cx.listener(Self::on_mark_completed))
             .on_action(cx.listener(Self::on_copy_path))
             .on_action(cx.listener(Self::on_copy_id))
             .on_action(cx.listener(Self::on_export_jsonl))
@@ -3178,8 +3192,9 @@ impl SessionsSidebar {
                             .truncate()
                             .text_size(px(16.))
                             .line_height(px(21.))
+                            .text_color(state.title_foreground(meta, working, cx))
                             .when(!state.is_child, |title| title.font_medium())
-                            .when(state.show_unread, |title| title.font_semibold())
+                            .when(state.show_completed, |title| title.font_semibold())
                             .debug_selector({
                                 let id = session_id.clone();
                                 move || format!("compact-title-{id}")
@@ -3303,10 +3318,10 @@ fn compact_status_glyph(state: &ThreadRowState, working: bool, cx: &App) -> gpui
             .child(Spinner::new().small().color(cx.theme().primary))
             .into_any_element();
     }
-    if state.show_unread {
+    if state.show_completed {
         return slot
             .justify_center()
-            .child(div().size(px(8.)).rounded_full().bg(cx.theme().primary))
+            .child(div().size(px(8.)).rounded_full().bg(cx.theme().success))
             .into_any_element();
     }
     slot.into_any_element()
@@ -3324,8 +3339,8 @@ fn compact_status_line(
         Some((crate::tr!("mobile.answer"), cx.theme().primary))
     } else if working {
         Some((crate::tr!("mobile.working"), cx.theme().primary))
-    } else if state.show_unread {
-        Some((crate::tr!("mobile.unread"), cx.theme().primary))
+    } else if state.show_completed {
+        Some((crate::tr!("mobile.completed"), cx.theme().success))
     } else {
         None
     }
@@ -3577,7 +3592,7 @@ impl Render for SessionsSidebar {
             .on_action(cx.listener(Self::on_regenerate_title))
             .on_action(cx.listener(Self::on_fork))
             .on_action(cx.listener(Self::on_merge_worktree))
-            .on_action(cx.listener(Self::on_mark_unread))
+            .on_action(cx.listener(Self::on_mark_completed))
             .on_action(cx.listener(Self::on_copy_path))
             .on_action(cx.listener(Self::on_copy_id))
             .on_action(cx.listener(Self::on_export_jsonl))
@@ -4714,7 +4729,7 @@ mod tests {
     }
 
     #[test]
-    fn child_unread_is_suppressed_by_render_state_derivation() {
+    fn child_completion_is_suppressed_by_render_state_derivation() {
         let parent = session("parent", None);
         let child = session("child", Some("parent"));
         let sessions = vec![parent, child.clone()];
@@ -4729,7 +4744,7 @@ mod tests {
         let state = derive_thread_render_state(&child, &sessions, &flags);
 
         assert!(state.is_child);
-        assert!(!state.show_unread);
+        assert!(!state.show_completed);
 
         let orphan = session("orphan-child", Some("missing-parent"));
         let flags = thread_flags(&[(
@@ -4741,7 +4756,7 @@ mod tests {
         )]);
         let state = derive_thread_render_state(&orphan, std::slice::from_ref(&orphan), &flags);
         assert!(!state.is_child);
-        assert!(!state.show_unread);
+        assert!(!state.show_completed);
     }
 
     #[gpui::test]
