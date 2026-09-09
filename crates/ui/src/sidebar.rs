@@ -1935,7 +1935,7 @@ impl SessionsSidebar {
         )
         .child(
             truncated_sidebar_label()
-                .text_sm()
+                .text_size(px(15.))
                 .font_medium()
                 .text_color(cx.theme().sidebar_foreground)
                 .child(group.project.name.clone()),
@@ -2215,7 +2215,7 @@ impl SessionsSidebar {
                 .into_any_element()
         } else {
             truncated_sidebar_label()
-                .text_size(px(13.))
+                .text_size(px(14.))
                 .line_height(px(18.))
                 .text_color(ThreadRowState::title_foreground(meta, cx))
                 .when(emphasize_completed && state.show_completed, |title| {
@@ -2702,7 +2702,11 @@ impl SessionsSidebar {
                             .size_3()
                             .text_color(cx.theme().muted_foreground),
                     )
-                    .child(truncated_sidebar_label().child(project_name))
+                    .child(
+                        truncated_sidebar_label()
+                            .text_size(px(12.))
+                            .child(project_name),
+                    )
                 })
                 // Without a project label there is no flex-1 element on the
                 // line, so a spacer keeps the chevron and badge bottom-right.
@@ -3293,6 +3297,7 @@ impl SessionsSidebar {
                 .min_w_0()
                 .truncate()
                 .font_medium()
+                .text_size(px(14.))
                 .child(row.name.clone()),
         )
         .child(div().flex_none().child(row.count.clone()))
@@ -3378,7 +3383,7 @@ impl SessionsSidebar {
                             .gap(px(6.))
                             .child(
                                 truncated_sidebar_label()
-                                    .text_size(px(16.))
+                                    .text_size(px(17.))
                                     .line_height(px(21.))
                                     .text_color(ThreadRowState::title_foreground(meta, cx))
                                     .when(!state.is_child, |title| title.font_medium())
@@ -3426,6 +3431,7 @@ impl SessionsSidebar {
                                             let name = name.clone();
                                             move || format!("compact-project-{name}")
                                         })
+                                        .text_size(px(14.))
                                         .child(name),
                                 )
                                 .child(div().flex_none().child("·"))

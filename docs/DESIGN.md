@@ -105,7 +105,7 @@ The material layers are:
 
 | Layer | Use | Treatment |
 | --- | --- | --- |
-| T0 | Sidebar and window edges | Translucent theme canvas over the native window material |
+| T0 | Sidebar and window edges | Translucent theme canvas over the native window material; the wide sidebar has a subtle lighter tint |
 | T1 | Chat, right panel and Settings reading surfaces | Near-opaque warm paper in light mode, blue carbon in dark mode |
 | T2 | Inline fields, hover and selection | Theme-derived tints |
 | T3 | Composer, popovers, dialogs, menus and toasts | Opaque popover fill, hairline border and soft shadow |
@@ -174,7 +174,7 @@ so startup never exposes a default white/black window or decorative backdrop.
   edge to the composer card's top edge when scrolled to the end, in both compact
   and wide layouts, including when the last row has a running status. The timeline
   wrapper owns this gap outside the `List`; the composer adds no top inset.
-- Sidebar thread rows ≈30px, 13px text, 4px-radius hover bg.
+- Sidebar thread rows ≈30px, 14px text, 4px-radius hover bg.
 - Parent thread rows always show a disclosure chevron and total-child badge;
   when children are active, the badge reads active/total in the success color.
 
@@ -578,7 +578,7 @@ in both states.
    persistent features are rows here, not new controls elsewhere.
 4. Project/thread header: sort, grouped/flat layout and add-project controls.
    Sorting and layout choices are persisted.
-5. Project groups: rotating chevron + folder icon + 13px medium name; hover
+5. Project groups: rotating chevron + folder icon + 15px medium name; hover
    shows "+" (new thread in project); collapse state persisted.
    Thread rows: single-line truncated AI-generated title (first-message fallback
    while naming) + relative time (muted 11px); hover = accent bg. Inline rename
@@ -639,6 +639,9 @@ marker. The thread context menu offers **Mark completed / 标记为已完成**.
 The marker retains its last-visited behavior: opening the thread clears it, and child threads do not
 show it.
 
+Thread titles use 14px text in wide layout and 17px in compact layout. Project
+names use 15px in wide group headers and 12px in Recent metadata; compact project
+headers and metadata use 14px. Time labels keep their existing sizes.
 All thread titles use the full theme foreground, white in dark mode, except
 settled titles, which use 35% foreground opacity. Status glyphs and labels keep
 their semantic colors; secondary project and time metadata remain muted. Working
