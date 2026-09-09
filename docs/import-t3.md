@@ -63,3 +63,22 @@ For inspection without changing your normal profile, use a separate `--data-dir`
 and open Tcode with `TCODE_DATA_DIR` pointing to that directory. Continuation
 requires the configured provider's native session history to remain available.
 Opening imported conversations does not start a provider; sending a message does.
+
+## Importing from Add project
+
+The rows in **Add project → Recently active** show T3 Code counts from the host's
+database. Matching native histories count under T3 once in each row; they remain
+available in the Codex/Claude fallback. T3 counts include eligible archived and
+settled conversations and exclude sessions already known to tcode.
+
+Selecting a project rechecks T3 history on the host. Choose **Yes** to import that project's T3 history and choose a
+compatible existing tcode profile for each custom T3 provider. Choose **No** to
+review Codex/Claude history instead. Declining that second prompt adds the
+project without history. **Cancel** returns to the list without adding it.
+Browsing or typing a folder does not import history.
+
+This option runs inside the host and imports only the selected project. It
+preserves titles, native resume information, history, and explicit archive and
+settled state. Existing sessions are skipped, including matching native provider
+histories. Use the offline CLI above when you intentionally want to refresh
+previous imports. T3 may remain open for either path.
