@@ -149,7 +149,10 @@ impl AppState {
 
     /// Scan supported external-agent histories without exposing the import
     /// service or application stores to callers.
-    pub fn scan_external_history(&self, executor: &HostCx) -> HostTask<Vec<RecentDir>> {
+    pub fn scan_external_history(
+        &self,
+        executor: &HostCx,
+    ) -> HostTask<tcode_protocol::ExternalHistoryScan> {
         let exclude: Vec<_> = self
             .projects
             .iter()
@@ -164,8 +167,161 @@ impl AppState {
                     .retain(|thread| !known.contains(&thread.external_id));
             }
             recent.retain(|dir| !dir.threads.is_empty());
-            recent
+            let t3_error = tcode_services::import::t3::annotate_recent_dirs(
+                &tcode_services::import::t3::ImportOptions::default().source,
+                &mut recent,
+                &known,
+            )
+            .err();
+            recent.sort_by_key(|dir| std::cmp::Reverse(dir.last_active_ms));
+            tcode_protocol::ExternalHistoryScan {
+                directories: recent,
+                t3_error,
+            }
         })
+    }
+
+    pub fn inspect_t3_project(
+        &self,
+        root: PathBuf,
+        cx: &HostCx,
+    ) -> HostTask<Result<Option<tcode_protocol::T3ProjectHistory>, String>> {
+        cx.unblock(move || {
+            tcode_services::import::t3::inspect_project(
+                &tcode_services::import::t3::ImportOptions::default().source,
+                &root,
+            )
+        })
+    }
+
+    pub fn start_t3_import(
+        &mut self,
+        project_id: &str,
+        profiles: std::collections::BTreeMap<String, String>,
+        cx: &mut HostCx,
+    ) -> Result<bool, ProtocolError> {
+        let Some(project) = self.projects.iter().find(|p| p.id == project_id).cloned() else {
+            return Ok(false);
+        };
+        if self
+            .external_imports
+            .get(project_id)
+            .is_some_and(|status| matches!(status.state, ExternalImportState::Progress { .. }))
+        {
+            return Err(ProtocolError {
+                code: "import_in_progress".into(),
+                message: format!("an import is already running for project {project_id}"),
+            });
+        }
+        let run_id = self.next_import_run_id;
+        self.next_import_run_id += 1;
+        self.replace_external_import_status(
+            project_id,
+            Some(ExternalImportStatus {
+                run_id,
+                state: ExternalImportState::Progress {
+                    done: 0,
+                    total: 0,
+                    tool: "T3 Code".into(),
+                },
+            }),
+            cx,
+        );
+        let settings = self.settings.clone();
+        let id = project_id.to_owned();
+        let updates = cx.clone();
+        cx.unblock(move || {
+            let result = tcode_services::import::t3::prepare_project(
+                tcode_services::import::t3::ImportOptions::default().source,
+                project,
+                &settings,
+                profiles,
+            );
+            updates.enqueue(move |state, cx| {
+                let (mut threads, report) = match result {
+                    Ok(prepared) => prepared,
+                    Err(message) => {
+                        state.advance_external_import(
+                            &id,
+                            run_id,
+                            ExternalImportState::Failed { message },
+                            cx,
+                        );
+                        return;
+                    }
+                };
+                if !state.projects.iter().any(|p| p.id == id) {
+                    return;
+                }
+                let existing = existing_external_ids(&state.sessions);
+                let mut skipped = report.exclusions.values().sum::<usize>();
+                threads.retain(|thread| {
+                    let duplicate = existing_external_ids(std::slice::from_ref(&thread.meta))
+                        .iter()
+                        .any(|key| existing.contains(key));
+                    if duplicate {
+                        skipped += 1;
+                    }
+                    !duplicate
+                });
+                let total = threads.len();
+                state.advance_external_import(
+                    &id,
+                    run_id,
+                    ExternalImportState::Progress {
+                        done: 0,
+                        total,
+                        tool: "T3 Code".into(),
+                    },
+                    cx,
+                );
+                let (completion, finished) = smol::channel::bounded(1);
+                state.enqueue_store_write(
+                    StoreWrite::ImportT3 {
+                        threads,
+                        completion,
+                    },
+                    cx,
+                );
+                let updates = cx.clone();
+                cx.spawn_background(async move {
+                    let result = finished
+                        .recv()
+                        .await
+                        .map_err(|e| e.to_string())
+                        .and_then(|result| result);
+                    updates.enqueue(move |state, cx| {
+                        if !state.projects.iter().any(|p| p.id == id) {
+                            return;
+                        }
+                        let status = match result {
+                            Ok((metas, duplicates)) => {
+                                let imported = metas.len();
+                                // Another import may have reloaded the index while
+                                // this write completion was waiting in the mailbox.
+                                for meta in metas {
+                                    if !state.sessions.iter().any(|known| known.id == meta.id) {
+                                        state.sessions.push(meta);
+                                    }
+                                }
+                                ExternalImportState::Finished {
+                                    imported,
+                                    skipped: skipped + duplicates,
+                                }
+                            }
+                            Err(message) => ExternalImportState::Failed { message },
+                        };
+                        // Let the new session index reach subscribers before completion.
+                        cx.enqueue(move |state, cx| {
+                            state.advance_external_import(&id, run_id, status, cx)
+                        });
+                    });
+                })
+                .detach();
+            });
+        })
+        .detach();
+        Ok(true)
     }
 
     /// Import selected external threads in the background, publishing progress

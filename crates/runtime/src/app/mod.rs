@@ -48,7 +48,7 @@ use tcode_protocol::{
     AcpMarketplaceItem, EventEnvelope, ExternalImportState, ExternalImportStatus, ExternalThread,
     GitActionRequest, GitStatusStatus, IndexSnapshot, MergeWorktreeFailure, PathEntry,
     ProtocolError, ProviderVersionStatus as ProtocolProviderVersionStatus, ProvidersStatus,
-    QueryResponse, QueuedMessageStatus, RecentDir, RuntimeEffect, RuntimeError, RuntimeNotice,
+    QueryResponse, QueuedMessageStatus, RuntimeEffect, RuntimeError, RuntimeNotice,
     RuntimeNotification as RuntimeEvent, RuntimeOperationId, RuntimeToast, ServerEvent,
     SessionEventRecord, SessionSearchHit, SessionStatus, TcodeUpdateStatus, TerminalStatus,
     ThreadExportFormat, Topic,

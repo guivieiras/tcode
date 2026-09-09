@@ -214,6 +214,10 @@ pub enum Command {
         project_id: String,
         threads: Vec<ExternalThread>,
     },
+    StartT3Import {
+        project_id: String,
+        profiles: std::collections::BTreeMap<String, String>,
+    },
     ToggleProjectCollapsed {
         project_id: String,
     },
