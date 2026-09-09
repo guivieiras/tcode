@@ -1762,6 +1762,73 @@ impl ChatView {
         cx.notify();
     }
 
+    pub(crate) fn render_thread_title(&self, title: String, cx: &mut Context<Self>) -> gpui::Div {
+        let store = self.workspace_store.read(cx);
+        let project = store.chat_project();
+        let project_name = store.chat_project_name();
+        h_flex()
+            .max_w_full()
+            .min_w_0()
+            .items_center()
+            .text_color(cx.theme().foreground)
+            .gap_1()
+            .when_some(project_name, |row, name| {
+                let label = if let Some(project) = project {
+                    crate::material::accessible_clickable(
+                        h_flex(),
+                        "thread-project-link",
+                        Role::Button,
+                        crate::tr!("palette.new_thread", project = name.clone()),
+                        cx,
+                    )
+                    .debug_selector(|| "thread-project-link".into())
+                    .min_w_0()
+                    .flex_shrink_0()
+                    .max_w(gpui::relative(0.5))
+                    .h(px(if self.window_state.read(cx).compact {
+                        44.
+                    } else {
+                        28.
+                    }))
+                    .items_center()
+                    .rounded(px(4.))
+                    .text_color(cx.theme().muted_foreground)
+                    .cursor_pointer()
+                    .hover(|style| style.text_color(cx.theme().foreground))
+                    .occlude()
+                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        if this.window_state.read(cx).compact {
+                            window.blur(cx);
+                        }
+                        this.workspace_store.update(cx, |store, cx| {
+                            store.start_draft(project.id.clone(), project.root.clone(), cx);
+                        });
+                        this.focus_composer(window, cx);
+                    }))
+                    .child(div().min_w_0().truncate().child(name))
+                    .into_any_element()
+                } else {
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .text_color(cx.theme().muted_foreground)
+                        .child(name)
+                        .into_any_element()
+                };
+                row.child(label).child(
+                    div()
+                        .flex_none()
+                        .text_color(cx.theme().muted_foreground)
+                        .child("/"),
+                )
+            })
+            .child(window_caption::drag_region(
+                div().min_w_0().truncate().child(title),
+            ))
+    }
+
     fn render_header(
         &self,
         title: Option<String>,
@@ -1831,22 +1898,15 @@ impl ChatView {
                 .clone()
                 .unwrap_or_else(|| crate::tr!("chat.no_active_thread").into_owned())
         };
-        let header_title = match self.workspace_store.read(cx).chat_project_name() {
-            Some(project) => format!("{project} / {thread_title}"),
-            None => thread_title,
-        };
-        // The title stretch also carries the window's native drag handle.
-        let title_el = div()
+        let title_el = self
+            .render_thread_title(thread_title, cx)
             .flex_1()
             .min_w(px(120.))
-            .overflow_hidden()
-            .text_ellipsis()
             .text_size(px(15.))
             .font_medium()
-            .when(is_draft || title.is_none(), |title| {
+            .when(!is_draft && title.is_none(), |title| {
                 title.text_color(cx.theme().muted_foreground)
-            })
-            .child(header_title);
+            });
 
         // The right-side cluster (Open split-button + panel toggles) shows for
         // any active thread, including a draft.
@@ -1860,7 +1920,7 @@ impl ChatView {
         let diff_showing = right_panel_open && right_tab == RightTab::Diff;
         window_drag_area("chat-header-drag", base, window, cx)
             .child(sidebar_toggle)
-            .child(window_caption::drag_region(title_el))
+            .child(title_el)
             .when(show_actions, |this| {
                 this.children(self.render_git_button(cx))
                     .children(cwd.clone().map(|cwd| self.render_open_button(cwd, cx)))

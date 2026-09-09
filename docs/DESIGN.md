@@ -574,9 +574,14 @@ title: `PanelLeft` + "Collapse sidebar" while expanded, `PanelLeftOpen` +
 15px medium, truncated to fit. Drafts use "New thread" as the thread title;
 "No active thread" appears muted when empty. Compact uses the same combined
 title in its navigation bar, without a separate project subtitle. The project
-name follows the thread's project even when it runs in a worktree. On the right:
+name follows the thread's project even when it runs in a worktree. The project
+name uses muted foreground color and is a keyboard-accessible button that opens
+that project's new-thread draft in its root checkout. Hover restores foreground
+color. Its click target does not drag the window, and compact keeps a 44pt target.
+The project label takes at most half the title width, leaving room for the thread
+title; both truncate as needed. On the right:
 the git/Open actions and the terminal · plan · preview · diff panel toggles.
-The title stretch is the window-drag handle; the toggle is a real button and never arms a drag. Collapsed on macOS (windowed) the
+The thread-title stretch is the window-drag handle; the toggle is a real button and never arms a drag. Collapsed on macOS (windowed) the
 row is inset 80px so the toggle clears the native traffic lights; no other
 platform pays that inset.
 
