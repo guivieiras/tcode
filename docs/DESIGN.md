@@ -580,11 +580,12 @@ in both states.
    list position; a manual rename wins over a late result. Failure preserves the
    title and shows an error.
    Thread rows have a 6px gap. Relative ages omit the suffix ("5m", "2h", "3d").
+   Trailing time labels align to the same right edge regardless of their width.
    On hover, an idle, unsettled thread swaps its time for a circle-check Settle
    action; settled rows keep their time. Active = persistent accent bg. A running
-   session shows its elapsed working time (blue, 11px, e.g. "1m 05s") in place of
-   the Working label, with no second activity-age label; >6 threads →
-   "Show more" / "Show less" toggle row (the row remains available after
+   session shows its elapsed working time (blue, 11px, e.g. "1m 05s") in the
+   trailing timestamp slot, right-aligned with idle ages on the title line.
+   More than six threads add a "Show more" / "Show less" toggle row (available after
    expansion so the list can be collapsed again). Collapsing a project folder
    resets only that project's expanded thread list, including when collapsed
    in compact layout; reopening in wide layout shows at most six visible threads.

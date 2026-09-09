@@ -2111,13 +2111,19 @@ impl SessionsSidebar {
         cx: &Context<Self>,
     ) -> Option<gpui::AnyElement> {
         let (color, label) = if state.waiting_for_approval {
-            (cx.theme().warning, crate::tr!("sidebar.waiting_approval"))
+            (
+                cx.theme().warning,
+                Some(crate::tr!("sidebar.waiting_approval")),
+            )
         } else if state.waiting_for_input {
-            (cx.theme().warning, crate::tr!("sidebar.waiting_input"))
+            (
+                cx.theme().warning,
+                Some(crate::tr!("sidebar.waiting_input")),
+            )
         } else if working && state.background {
-            (cx.theme().muted_foreground, state.working_duration().into())
+            (cx.theme().muted_foreground, None)
         } else if working {
-            (cx.theme().primary, state.working_duration().into())
+            (cx.theme().primary, None)
         } else {
             return None;
         };
@@ -2127,14 +2133,16 @@ impl SessionsSidebar {
                 .items_center()
                 .gap_1()
                 .child(div().size(px(6.)).rounded_full().bg(color))
-                .child(
-                    div()
-                        .whitespace_nowrap()
-                        .text_size(px(11.))
-                        .line_height(px(18.))
-                        .text_color(color)
-                        .child(label),
-                )
+                .when_some(label, |badge, label| {
+                    badge.child(
+                        div()
+                            .whitespace_nowrap()
+                            .text_size(px(11.))
+                            .line_height(px(18.))
+                            .text_color(color)
+                            .child(label),
+                    )
+                })
                 .into_any_element(),
         )
     }
@@ -2238,7 +2246,6 @@ impl SessionsSidebar {
         let working = flags.get(&meta.id).is_some_and(|flags| flags.working);
         let state = self.thread_row_state(meta, sessions, flags, format!("thread-{}", meta.id), cx);
         let session_id = state.session_id.clone();
-        let row_key = state.row_key.clone();
         let is_worktree = state.is_worktree;
         let is_child = state.is_child;
         let show_completed = state.show_completed;
@@ -2319,9 +2326,7 @@ impl SessionsSidebar {
                         cx,
                     ))
             })
-            .when(!working, |row| {
-                row.child(self.render_flat_thread_right_slot(meta, &row_key, false, true, cx))
-            })
+            .child(self.render_flat_thread_right_slot(meta, &state, working, cx))
         };
 
         Self::thread_context_menu(row, &state, working, meta.settled_at.is_some(), false)
@@ -2330,16 +2335,26 @@ impl SessionsSidebar {
     fn render_flat_thread_right_slot(
         &self,
         meta: &SessionMeta,
-        row_key: &str,
-        waiting: bool,
-        settle_on_hover: bool,
+        state: &ThreadRowState,
+        working: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let session_id = meta.id.clone();
-        let settle_on_hover = settle_on_hover && meta.settled_at.is_none();
-        let timestamp = self.store.read(cx).thread_sort().timestamp(meta);
-        let ago = humanize_age(now_secs().saturating_sub(timestamp));
-        let row_key = row_key.to_string();
+        let settle_on_hover = !working && meta.settled_at.is_none();
+        let time = if working {
+            state.working_duration()
+        } else {
+            let timestamp = self.store.read(cx).thread_sort().timestamp(meta);
+            humanize_age(now_secs().saturating_sub(timestamp))
+        };
+        let color = if state.waiting() {
+            cx.theme().warning
+        } else if working && !state.background {
+            cx.theme().primary
+        } else {
+            cx.theme().muted_foreground
+        };
+        let row_key = state.row_key.clone();
         div()
             .relative()
             .flex_none()
@@ -2349,17 +2364,14 @@ impl SessionsSidebar {
                 h_flex()
                     .h_full()
                     .items_center()
+                    .justify_end()
                     .whitespace_nowrap()
                     .text_size(px(11.))
-                    .text_color(if waiting {
-                        cx.theme().warning
-                    } else {
-                        cx.theme().muted_foreground
-                    })
+                    .text_color(color)
                     .when(settle_on_hover, |time| {
                         time.group_hover(row_key.clone(), |time| time.invisible())
                     })
-                    .child(ago),
+                    .child(time),
             )
             .when(settle_on_hover, |slot| {
                 slot.child(
@@ -2421,7 +2433,6 @@ impl SessionsSidebar {
             cx,
         );
         let session_id = state.session_id.clone();
-        let row_key = state.row_key.clone();
         let waiting_for_approval = state.waiting_for_approval;
         let waiting_for_input = state.waiting_for_input;
         let waiting = state.waiting();
@@ -2476,11 +2487,7 @@ impl SessionsSidebar {
                             ),
                         )
                     })
-                    .when(!working, |line| {
-                        line.child(
-                            self.render_flat_thread_right_slot(meta, &row_key, waiting, true, cx),
-                        )
-                    }),
+                    .child(self.render_flat_thread_right_slot(meta, &state, working, cx)),
             )
         } else {
             let title_or_input = self.thread_title_or_input(meta, &state, true, cx);
@@ -2517,11 +2524,7 @@ impl SessionsSidebar {
                     )
                 })
                 .child(title_or_input)
-                .when(!working, |line| {
-                    line.child(
-                        self.render_flat_thread_right_slot(meta, &row_key, waiting, true, cx),
-                    )
-                });
+                .child(self.render_flat_thread_right_slot(meta, &state, working, cx));
 
             let has_project = project_name.is_some();
             let line_two = h_flex()
@@ -2547,15 +2550,7 @@ impl SessionsSidebar {
                             .child(crate::tr!("sidebar.waiting_input")),
                     )
                 })
-                .when(working && !waiting, |line| {
-                    line.child(
-                        div()
-                            .flex_none()
-                            .text_color(cx.theme().primary)
-                            .child(state.working_duration()),
-                    )
-                })
-                .when((waiting || working) && has_project, |line| {
+                .when(waiting && has_project, |line| {
                     line.child(div().flex_none().child("·"))
                 })
                 .when_some(project_name, |line, project_name| {
