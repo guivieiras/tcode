@@ -1899,6 +1899,8 @@ impl ChatView {
         // collapsed sidebar occupies no width at all (`crate::shell`), so a
         // control mounted inside it would have nowhere to be.
         let sidebar_toggle = Button::new("toggle-sidebar")
+            .debug_selector(|| "toggle-sidebar".into())
+            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .ghost()
             .small()
             .compact()
@@ -1958,6 +1960,9 @@ impl ChatView {
                             .gap_1()
                             .child(
                                 Button::new("panel-layout")
+                                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
+                                    })
                                     .ghost()
                                     .small()
                                     .compact()
@@ -1971,6 +1976,9 @@ impl ChatView {
                             )
                             .child(
                                 Button::new("plan-panel")
+                                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
+                                    })
                                     .ghost()
                                     .small()
                                     .compact()
@@ -1987,6 +1995,9 @@ impl ChatView {
                             // where there is no embedded browser to drive.
                             .child(
                                 Button::new("preview-panel")
+                                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
+                                    })
                                     .ghost()
                                     .small()
                                     .compact()
@@ -2000,6 +2011,9 @@ impl ChatView {
                             )
                             .child(
                                 Button::new("diff-panel")
+                                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
+                                    })
                                     .ghost()
                                     .small()
                                     .compact()
@@ -2143,6 +2157,7 @@ impl ChatView {
                 .border_color(border)
                 .overflow_hidden()
                 .child(main)
+                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(div().w_px().h(px(16.)).bg(border))
                 .child(chevron)
                 .into_any_element(),
@@ -2275,6 +2290,7 @@ impl ChatView {
         h_flex()
             .flex_none()
             .h(px(28.))
+            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .items_center()
             .rounded(px(8.))
             .border_1()
