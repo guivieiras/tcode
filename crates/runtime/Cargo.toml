@@ -20,7 +20,7 @@ smol = "2"
 tcode-core = { path = "../core" }
 tcode-client = { path = "../client" }
 tcode-protocol = { path = "../protocol" }
-tcode-services = { path = "../services" }
+tcode-services = { path = "../services", features = ["t3-import"] }
 term = { path = "../term" }
 uuid = { version = "1", features = ["v4"] }
 

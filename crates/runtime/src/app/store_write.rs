@@ -11,6 +11,10 @@ pub(super) enum StoreWrite {
         initial: bool,
     },
     UpsertProject(Project),
+    ImportT3 {
+        threads: Vec<tcode_services::import::t3::PreparedThread>,
+        completion: smol::channel::Sender<Result<(Vec<SessionMeta>, usize), String>>,
+    },
     RemoveSession(String),
     RemoveProject(String),
     CloneEvents {
@@ -65,6 +69,15 @@ pub(super) fn run_store_write(
                 })
             }
         }),
+        StoreWrite::ImportT3 {
+            threads,
+            completion,
+        } => {
+            let _ = completion.try_send(tcode_services::import::t3::write_new_threads(
+                store, threads,
+            ));
+            None
+        }
         StoreWrite::UpsertProject(project) => store.upsert_project(&project).err().map(|err| {
             Ok(RuntimeError::PersistProject {
                 error: err.to_string(),

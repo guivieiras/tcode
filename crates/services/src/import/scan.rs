@@ -60,11 +60,7 @@ pub fn scan_recent_dirs(roots: &ExternalRoots, exclude_roots: &[PathBuf]) -> Vec
             continue;
         };
         let joined = desktop.get(&id);
-        let source = if joined.is_some() {
-            SourceTool::ClaudeDesktop
-        } else if entrypoint.as_deref() == Some("sdk-ts") {
-            SourceTool::T3Code
-        } else if entrypoint.as_deref() == Some("claude-desktop") {
+        let source = if joined.is_some() || entrypoint.as_deref() == Some("claude-desktop") {
             SourceTool::ClaudeDesktop
         } else {
             SourceTool::ClaudeCode
@@ -147,6 +143,7 @@ pub fn scan_recent_dirs(roots: &ExternalRoots, exclude_roots: &[PathBuf]) -> Vec
                 last_active_ms: threads.first().map_or(0, |thread| thread.last_active_ms),
                 path,
                 threads,
+                source_counts: HashMap::new(),
             }
         })
         .collect();

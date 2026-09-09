@@ -153,9 +153,9 @@ fn scanner_groups_attributes_orders_and_excludes() {
         })],
     );
     write_lines(
-        &roots.claude_projects.join("munged/t3-id.jsonl"),
+        &roots.claude_projects.join("munged/sdk-id.jsonl"),
         &[json!({
-            "type":"user","message":{"content":"t3"},"cwd":shared_cwd,"sessionId":"t3-id",
+            "type":"user","message":{"content":"sdk"},"cwd":shared_cwd,"sessionId":"sdk-id",
             "entrypoint":"sdk-ts","timestamp":"2098-01-01T00:00:00Z"
         })],
     );
@@ -221,7 +221,7 @@ fn scanner_groups_attributes_orders_and_excludes() {
         shared
             .threads
             .iter()
-            .any(|thread| thread.source == SourceTool::T3Code)
+            .any(|thread| thread.source == SourceTool::ClaudeCode)
     );
     assert!(
         shared
