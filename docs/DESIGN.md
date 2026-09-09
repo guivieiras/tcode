@@ -578,7 +578,7 @@ in both states.
    on every connected client. The existing title stays visible; a manual rename
    wins over a late result. Failure preserves the title and shows an error.
    On hover, time swaps to the archive icon; active = persistent accent bg; a running
-   session shows "● Working" (green, 11px) left of the title; >6 threads →
+   session shows "● Working" (blue, 11px) left of the title; >6 threads →
    "Show more" / "Show less" toggle row (the row remains available after
    expansion so the list can be collapsed again). Collapsing a project folder
    resets only that project's expanded thread list, including when collapsed
@@ -587,6 +587,19 @@ in both states.
    projects' expansions and parent/child folds stay unchanged. Children hidden
    by a parent fold do not consume the six-thread limit.
 6. Footer: gear + "Settings" → settings route.
+
+At both widths and in both thread layouts, the former unread marker is
+**Completed / 已完成**, shown as a green success dot. Project headers use the
+same green dot when a non-working top-level thread has that marker. The thread
+context menu offers **Mark completed / 标记为已完成**. The marker retains its
+last-visited behavior: opening the thread clears it, and child threads do not
+show it.
+
+Completed and working thread titles use the full theme foreground, white in
+dark mode. Settled titles use 35% foreground opacity, taking precedence over
+other states. Other titles, including threads waiting for approval or input,
+use 70% foreground opacity. Status glyphs and labels keep their semantic colors;
+secondary project and time metadata remain muted.
 
 In wide layout, the sidebar switches the content route directly: Machines
 replaces Chat in the content column, and selecting a thread, starting a draft,
@@ -1076,14 +1089,14 @@ queued.
 
 ### Settled threads
 
-The thread context menu offers **Settle / 标记为已完成** and, for settled threads,
+The thread context menu offers **Settle / 标记为已处理** and, for settled threads,
 **Make active / 恢复为活跃**. Settling applies to a thread and its descendants and
 is refused while any affected thread has running work, pending input or approval,
 or queued messages. It preserves the selected conversation, provider session,
 terminals and worktree. Archive remains a separate, reversible action; automatic
 archiving exempts settled threads.
 
-At both widths, active threads precede a collapsible **Settled / 已完成** group.
+At both widths, active threads precede a collapsible **Settled / 已处理** group.
 By project has one group inside each project; Recent has one group after active
 threads. Existing ordering and parent/child folds apply within each group. A
 settled parent cannot hide active descendants. Settled groups start collapsed,

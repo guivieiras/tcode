@@ -1005,7 +1005,7 @@ impl AppState {
             .count()
     }
 
-    /// Record that a thread has been visited now (clears its unread dot).
+    /// Record that a thread has been visited now (clears its completed marker).
     pub(super) fn mark_visited(&mut self, session_id: &str, cx: &mut HostCx) {
         self.settings
             .last_visited
@@ -1013,8 +1013,8 @@ impl AppState {
         self.persist_settings(cx);
     }
 
-    /// Mark a thread unread (context menu): set its last-visited just below its
-    /// update time so the dot reappears.
+    /// Restore the completed marker (context menu): set its last-visited just
+    /// below its update time so the dot reappears.
     pub fn mark_session_unread(&mut self, session_id: &str, cx: &mut HostCx) {
         let updated = self
             .sessions
@@ -1028,7 +1028,7 @@ impl AppState {
         self.persist_settings(cx);
     }
 
-    /// Whether a thread shows an unread dot: it has been visited before, its
+    /// Whether a thread has an unseen update: it has been visited before, its
     /// update time is newer than that visit, and it is not the active thread.
     pub(crate) fn session_unread(&self, session_id: &str) -> bool {
         if self.residents.live.contains_key(session_id) {
