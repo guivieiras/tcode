@@ -2042,7 +2042,7 @@ impl SessionsSidebar {
         working: bool,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
-        if let Some(input) = &state.renaming {
+        let title = if let Some(input) = &state.renaming {
             div()
                 .flex_1()
                 .min_w_0()
@@ -2070,7 +2070,20 @@ impl SessionsSidebar {
                     },
                 )
                 .into_any_element()
-        }
+        };
+        h_flex()
+            .flex_1()
+            .min_w_0()
+            .gap(px(6.))
+            .child(title)
+            .when(state.title_generating, |row| {
+                row.child(
+                    div()
+                        .flex_none()
+                        .child(Spinner::new().xsmall().color(cx.theme().muted_foreground)),
+                )
+            })
+            .into_any_element()
     }
 
     fn thread_status_badge(
@@ -3186,20 +3199,28 @@ impl SessionsSidebar {
                     .min_w_0()
                     .gap(px(2.))
                     .child(
-                        div()
+                        h_flex()
                             .w_full()
                             .min_w_0()
-                            .truncate()
-                            .text_size(px(16.))
-                            .line_height(px(21.))
-                            .text_color(state.title_foreground(meta, working, cx))
-                            .when(!state.is_child, |title| title.font_medium())
-                            .when(state.show_completed, |title| title.font_semibold())
-                            .debug_selector({
-                                let id = session_id.clone();
-                                move || format!("compact-title-{id}")
-                            })
-                            .child(cached.title.clone()),
+                            .gap(px(6.))
+                            .child(
+                                truncated_sidebar_label()
+                                    .text_size(px(16.))
+                                    .line_height(px(21.))
+                                    .text_color(state.title_foreground(meta, working, cx))
+                                    .when(!state.is_child, |title| title.font_medium())
+                                    .when(state.show_completed, |title| title.font_semibold())
+                                    .debug_selector({
+                                        let id = session_id.clone();
+                                        move || format!("compact-title-{id}")
+                                    })
+                                    .child(cached.title.clone()),
+                            )
+                            .when(state.title_generating, |row| {
+                                row.child(div().flex_none().child(
+                                    Spinner::new().xsmall().color(cx.theme().muted_foreground),
+                                ))
+                            }),
                     )
                     .child(
                         h_flex()
