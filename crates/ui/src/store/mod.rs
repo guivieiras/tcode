@@ -3610,7 +3610,7 @@ impl WorkspaceStore {
             })
     }
 
-    pub(crate) fn chat_project_name(&self) -> Option<String> {
+    pub(crate) fn chat_project(&self) -> Option<Project> {
         let (project_id, cwd) = if let Some(status) = &self.session_status_replica {
             (status.project_id.as_ref(), &status.cwd)
         } else {
@@ -3623,18 +3623,27 @@ impl WorkspaceStore {
             (meta.project_id.as_ref(), &meta.cwd)
         };
         // Worktree sessions retain their project's identity even when cwd differs.
-        let project = self.index_replica.1.iter().find(|project| {
-            if let Some(id) = project_id {
-                &project.id == id
-            } else {
-                project.root == *cwd
-            }
-        });
-        Some(
-            project
-                .map(crate::project_icon::label)
-                .unwrap_or_else(|| tcode_core::project::project_name_from_root(cwd)),
-        )
+        self.index_replica
+            .1
+            .iter()
+            .find(|project| {
+                if let Some(id) = project_id {
+                    &project.id == id
+                } else {
+                    project.root == *cwd
+                }
+            })
+            .cloned()
+    }
+
+    pub(crate) fn chat_project_name(&self) -> Option<String> {
+        self.chat_project()
+            .map(|project| crate::project_icon::label(&project))
+            .or_else(|| {
+                self.chat_active_session()
+                    .filter(|(_, cwd, _)| !cwd.as_os_str().is_empty())
+                    .map(|(_, cwd, _)| tcode_core::project::project_name_from_root(&cwd))
+            })
     }
 
     pub fn chat_requested_model(&self) -> Option<String> {

@@ -1558,7 +1558,7 @@ const NAV_CONTROL_WIDTH: f32 = 104.;
 /// Navigation header with a centered title and at most two trailing actions.
 fn nav_bar(
     back: Option<AnyElement>,
-    title: SharedString,
+    title: impl IntoElement,
     subtitle: Option<AnyElement>,
     actions: Vec<AnyElement>,
     window: &mut Window,
@@ -1591,6 +1591,7 @@ fn nav_bar(
                 .relative()
                 .w_full()
                 .h(px(52.))
+                .child(leading)
                 .child(
                     // Centered in the room the controls leave it: the back
                     // label and the trailing actions each reserve their own
@@ -1614,8 +1615,7 @@ fn nav_bar(
                                 .child(title),
                         )
                         .children(subtitle),
-                )
-                .child(leading),
+                ),
         )
         .child(crate::material::faded_hairline(cx))
 }
@@ -1681,7 +1681,7 @@ fn nav_icon_button(
 }
 
 /// The muted second line under a nav-bar title: how the machine a thread
-/// list belongs to is reached, the project a thread lives in.
+/// list, or an open remote thread, is reached.
 fn nav_subtitle(text: impl Into<SharedString>, cx: &App) -> AnyElement {
     div()
         .max_w_full()
@@ -1763,7 +1763,7 @@ impl AppShell {
             .debug_selector(|| "hosts-page".into())
             .child(nav_bar(
                 back,
-                crate::tr!("hosts.title").into_owned().into(),
+                crate::tr!("hosts.title").into_owned(),
                 None,
                 self.attachment
                     .as_ref()
@@ -1788,7 +1788,7 @@ impl AppShell {
             .bg(crate::material::content_surface(cx))
             .child(nav_bar(
                 back,
-                crate::tr!("hosts.pair.title").into_owned().into(),
+                crate::tr!("hosts.pair.title").into_owned(),
                 None,
                 vec![],
                 window,
@@ -1872,7 +1872,7 @@ impl AppShell {
             .debug_selector(|| "compact-arrange-page".into())
             .size_full()
             .bg(crate::material::content_surface(cx))
-            .child(nav_bar(None, "".into(), None, vec![done], window, cx))
+            .child(nav_bar(None, "", None, vec![done], window, cx))
             .child(body)
             .into_any_element()
     }
@@ -1995,10 +1995,9 @@ impl AppShell {
                     "new_thread"
                 })
             });
-        let title = match store.chat_project_name() {
-            Some(project) => format!("{project} / {title}"),
-            None => title,
-        };
+        let title = attachment
+            .chat
+            .update(cx, |chat, cx| chat.render_thread_title(title, cx));
         let body = if self.pending_navigation_restore.is_some() {
             crate::material::loading_skeleton(cx)
         } else {
@@ -2010,7 +2009,7 @@ impl AppShell {
             .bg(crate::material::content_surface(cx))
             .child(nav_bar(
                 back,
-                title.into(),
+                title,
                 subtitle.map(|subtitle| nav_subtitle(subtitle, cx)),
                 vec![
                     self.palette_action(cx),
@@ -2150,7 +2149,7 @@ impl AppShell {
             .bg(crate::material::content_surface(cx))
             .child(nav_bar(
                 back,
-                crate::tr!("chat.panels").into_owned().into(),
+                crate::tr!("chat.panels").into_owned(),
                 None,
                 vec![],
                 window,
@@ -5038,6 +5037,88 @@ mod tests {
                 );
             }
             selected_draft = selected;
+        }
+        driver.shutdown(cx, &store, &host);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[gpui::test]
+    fn project_header_click_starts_a_draft_in_the_project_root_at_both_widths(
+        cx: &mut TestAppContext,
+    ) {
+        use tcode_core::project::{Project, SessionMeta};
+        use tcode_runtime::pipe::{HostServices, spawn_host};
+        use tcode_services::store::SessionStore;
+
+        cx.update(crate::theme::init);
+        let root = crate::store::tests::scratch_root("project-link");
+        let disk = SessionStore::open_at(root.clone()).unwrap();
+        let project = Project {
+            id: "project".into(),
+            name: "My project".into(),
+            root: root.join("project"),
+            quick_chat: false,
+            icon_path: None,
+            permission_defaults: Default::default(),
+            created_at: 0,
+        };
+        let mut thread = SessionMeta::new(agent::ProviderKind::Codex, root.join("worktree"), None);
+        thread.project_id = Some(project.id.clone());
+        disk.upsert_project(&project).unwrap();
+        disk.upsert_meta(&thread).unwrap();
+        let host = spawn_host(disk, HostServices::default()).unwrap();
+        let mut driver = crate::store::tests::LocalHostDriver::new(&host);
+        let (shell, _transport, cx) = mount(cx);
+        // Only a mobile build lays a phone-width window out compact.
+        as_mobile(cx);
+        let store = store_of(&shell, cx);
+        store.update(cx, |store, cx| {
+            *store = WorkspaceStore::new_attached(
+                driver.link.clone(),
+                crate::store::WorkspaceAttachment::Local,
+                None,
+                None,
+                false,
+                cx,
+            )
+        });
+        driver.wait_until(cx, &store, "project baseline", |cx| {
+            store.read_with(cx, |store, _| store.baseline_ready())
+        });
+        for (width, compact) in [(1024., false), (393., true)] {
+            store.update(cx, |store, _| store.select_session(thread.id.clone()));
+            driver.wait_until(cx, &store, "worktree thread selected", |cx| {
+                store.read_with(cx, |store, _| {
+                    !store.chat_loading()
+                        && store
+                            .chat_active_session()
+                            .is_some_and(|(_, cwd, draft)| !draft && cwd == thread.cwd)
+                })
+            });
+            resize(cx, width);
+            if compact {
+                shell
+                    .read_with(cx, |shell, _| shell.window_state())
+                    .update(cx, |state, cx| state.open_thread(cx));
+            }
+            cx.executor().advance_clock(Duration::from_millis(250));
+            draw(cx);
+            assert_eq!(shell.read_with(cx, |shell, cx| shell.compact(cx)), compact);
+            let link = cx
+                .debug_bounds("thread-project-link")
+                .expect("project button");
+            cx.simulate_click(link.center(), gpui::Modifiers::default());
+            driver.wait_until(cx, &store, "project draft", |cx| {
+                store.read_with(cx, |store, _| {
+                    store
+                        .chat_active_session()
+                        .is_some_and(|(_, cwd, draft)| draft && cwd == project.root)
+                })
+            });
+            assert_ne!(
+                store.read_with(cx, |store, _| store.active_session_id()),
+                Some(thread.id.clone())
+            );
         }
         driver.shutdown(cx, &store, &host);
         std::fs::remove_dir_all(root).unwrap();
