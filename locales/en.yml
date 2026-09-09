@@ -809,6 +809,9 @@ usage:
     minutes: "%{count} min"
     scoped: "%{window} · %{scope}"
 time:
+  minutes: "%{count}m"
+  hours: "%{count}h"
+  days: "%{count}d"
   just_now: "just now"
   minutes_ago: "%{count}m ago"
   hours_ago: "%{count}h ago"

@@ -159,6 +159,7 @@ pub struct WorkspaceStore {
     /// (working, pending_approval, pending_user_input, background_only) for
     /// parked sessions.
     background_session_flags: HashMap<String, (bool, bool, bool, bool)>,
+    working_started_at: HashMap<String, u64>,
     active_destination: Option<ConversationDestination>,
     /// One-shot turn navigation requested by a cross-session content search.
     pending_chat_turn: Option<(String, usize)>,
@@ -329,6 +330,7 @@ impl WorkspaceStore {
             providers_replica: ProvidersStatus::default(),
             git_status_replica: GitStatusStatus::default(),
             background_session_flags: HashMap::new(),
+            working_started_at: HashMap::new(),
             active_destination: None,
             pending_chat_turn: None,
             native_rewind_prefills: HashMap::new(),
@@ -915,6 +917,7 @@ impl WorkspaceStore {
                         }
                     });
                 self.background_session_flags = snapshot.activity.clone();
+                self.working_started_at = snapshot.working_started_at.clone();
                 if let Some(id) = &self.selected_session_id {
                     self.background_session_flags.remove(id);
                 }
@@ -1697,6 +1700,10 @@ impl WorkspaceStore {
 
     pub fn active_session_id(&self) -> Option<String> {
         self.selected_session_id.clone()
+    }
+
+    pub fn working_started_at_for(&self, session_id: &str) -> Option<u64> {
+        self.working_started_at.get(session_id).copied()
     }
 
     pub fn turn_running_for(&self, session_id: &str) -> bool {
@@ -2901,6 +2908,7 @@ mod tests {
                     request_id: None,
                     topic: Topic::Index,
                     event: ServerEvent::IndexSnapshot(tcode_protocol::IndexSnapshot {
+                        working_started_at: Default::default(),
                         title_generating: Default::default(),
                         sessions: vec![],
                         projects: vec![],
@@ -3409,6 +3417,7 @@ mod tests {
                 (
                     Topic::Index,
                     ServerEvent::IndexSnapshot(tcode_protocol::IndexSnapshot {
+                        working_started_at: Default::default(),
                         title_generating: Default::default(),
                         sessions: store.index_replica.0.clone(),
                         projects: store.index_replica.1.clone(),

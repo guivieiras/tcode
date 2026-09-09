@@ -803,6 +803,9 @@ usage:
     minutes: "%{count} 分钟"
     scoped: "%{window} · %{scope}"
 time:
+  minutes: "%{count} 分钟"
+  hours: "%{count} 小时"
+  days: "%{count} 天"
   just_now: "刚刚"
   minutes_ago: "%{count} 分钟前"
   hours_ago: "%{count} 小时前"

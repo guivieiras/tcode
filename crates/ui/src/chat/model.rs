@@ -1,3 +1,4 @@
+use crate::time::format_duration;
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hash as _, Hasher as _};
@@ -357,20 +358,6 @@ pub(crate) fn tool_brief(input: &serde_json::Value) -> String {
             .unwrap_or_default(),
         serde_json::Value::String(s) => one_line(s),
         _ => String::new(),
-    }
-}
-
-/// Wall-clock duration formatted as "XmYYs" / "YYs".
-pub(crate) fn format_duration(secs: u64) -> String {
-    if secs >= 60 {
-        crate::tr!(
-            "time.duration_minutes",
-            minutes = secs / 60,
-            seconds = format!("{:02}", secs % 60)
-        )
-        .into_owned()
-    } else {
-        crate::tr!("time.duration_seconds", seconds = secs).into_owned()
     }
 }
 
