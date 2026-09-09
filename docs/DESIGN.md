@@ -579,8 +579,11 @@ in both states.
    at both widths. Regeneration preserves the thread's activity timestamp and
    list position; a manual rename wins over a late result. Failure preserves the
    title and shows an error.
-   On hover, time swaps to the archive icon; active = persistent accent bg; a running
-   session shows "● Working" (blue, 11px) left of the title; >6 threads →
+   Thread rows have a 6px gap. Relative ages omit the suffix ("5m", "2h", "3d").
+   On hover, an idle, unsettled thread swaps its time for a circle-check Settle
+   action; settled rows keep their time. Active = persistent accent bg. A running
+   session shows its elapsed working time (blue, 11px, e.g. "1m 05s") in place of
+   the Working label, with no second activity-age label; >6 threads →
    "Show more" / "Show less" toggle row (the row remains available after
    expansion so the list can be collapsed again). Collapsing a project folder
    resets only that project's expanded thread list, including when collapsed
@@ -613,11 +616,13 @@ context menu offers **Mark completed / 标记为已完成**. The marker retains 
 last-visited behavior: opening the thread clears it, and child threads do not
 show it.
 
-Completed and working thread titles use the full theme foreground, white in
-dark mode. Settled titles use 35% foreground opacity, taking precedence over
-other states. Other titles, including threads waiting for approval or input,
-use 70% foreground opacity. Status glyphs and labels keep their semantic colors;
-secondary project and time metadata remain muted.
+All thread titles use the full theme foreground, white in dark mode, except
+settled titles, which use 35% foreground opacity. Status glyphs and labels keep
+their semantic colors; secondary project and time metadata remain muted. Working
+durations update once per second from the host's current turn start timestamp,
+including parked threads and remote clients. Waiting-for-approval and input
+labels retain their existing wording. Compact rows use the same 6px gap and
+duration labels.
 
 In wide layout, the sidebar switches the content route directly: Machines
 replaces Chat in the content column, and selecting a thread, starting a draft,

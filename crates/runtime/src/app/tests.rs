@@ -4593,6 +4593,42 @@ fn queued_turns_keep_the_interaction_mode_selected_at_submit_time() {
     ));
 }
 
+#[test]
+fn sidebar_working_start_survives_activity_and_parking_and_resets_for_the_next_turn() {
+    let cx = &mut TestAppContext::default();
+    let store = TestStore::new("tcode-sidebar-working-start");
+    let state = cx.new_entity(TestClientState::new((*store).clone()));
+    state.update(cx, |state, _| {
+        let mut active = live_session(ProviderKind::Codex, smol::channel::unbounded().0);
+        active.turn_in_flight = true;
+        active.timeline.turns.push(tcode_core::session::TurnMeta {
+            start_ts: Some(1_000),
+            running: true,
+            ..Default::default()
+        });
+        let id = active.meta.id.clone();
+        state.install_selected(active);
+        assert_eq!(state.index_snapshot().working_started_at[&id], 1_000);
+
+        let mut active = state.residents.live.remove(&id).unwrap();
+        active.meta.updated_at = 90;
+        state.residents.parked.insert(id.clone(), active);
+        assert_eq!(state.index_snapshot().working_started_at[&id], 1_000);
+
+        state.residents.parked.get_mut(&id).unwrap().turn_in_flight = false;
+        assert!(!state.index_snapshot().working_started_at.contains_key(&id));
+
+        let active = state.residents.parked.get_mut(&id).unwrap();
+        active.turn_in_flight = true;
+        active.timeline.turns.push(tcode_core::session::TurnMeta {
+            start_ts: Some(100_000),
+            running: true,
+            ..Default::default()
+        });
+        assert_eq!(state.index_snapshot().working_started_at[&id], 100_000);
+    });
+}
+
 /// A live session with `provider`, nothing queued, no turn in flight.
 fn live_session(
     provider: ProviderKind,

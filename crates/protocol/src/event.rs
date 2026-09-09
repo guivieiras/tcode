@@ -311,6 +311,9 @@ pub struct QueuedMessageStatus {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IndexSnapshot {
+    /// Current working turn start, in Unix milliseconds, including parked sessions.
+    #[serde(default)]
+    pub working_started_at: HashMap<String, u64>,
     /// Working, approval, user-input and background-only flags for sidebar rows.
     #[serde(default)]
     pub activity: HashMap<String, (bool, bool, bool, bool)>,
