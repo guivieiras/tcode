@@ -205,7 +205,7 @@ pub fn import(options: &ImportOptions) -> Result<ImportReport, String> {
             .map_err(|e| format!("write projects: {e}"))?;
         store
     };
-    for mut thread in prepared {
+    for thread in prepared {
         if !options.dry_run {
             let result = (|| -> std::io::Result<()> {
                 let old = store.read_event_log(&thread.meta.id)?;
