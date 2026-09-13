@@ -43,9 +43,12 @@ impl AppState {
     ) {
         let host_cx = cx.clone();
         HostCx::spawn_detached(cx, async move {
-            let branch = host_cx.unblock(move || read_git_branch(&cwd)).await;
+            let query_cwd = cwd.clone();
+            let branch = host_cx.unblock(move || read_git_branch(&query_cwd)).await;
             host_cx.enqueue(move |state, _cx| {
-                if let Some(session) = state.resident_mut(&session_id) {
+                if let Some(session) = state.resident_mut(&session_id)
+                    && session.meta.cwd == cwd
+                {
                     session.git_branch = branch;
                 }
             });

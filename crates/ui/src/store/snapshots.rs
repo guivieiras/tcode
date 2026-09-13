@@ -25,6 +25,8 @@ pub struct ComposerCheckoutState {
     pub checkout_blocked: bool,
     pub is_draft: bool,
     pub worktree_base: Option<String>,
+    pub workspace: WorkspaceMode,
+    pub worktrees: Vec<PathBuf>,
     pub worktree: Option<WorktreeInfo>,
 }
 
@@ -105,6 +107,8 @@ pub(crate) fn composer_state(
                 WorkspaceMode::NewWorktree { base } => Some(base.clone()),
                 _ => None,
             },
+            workspace: status.draft_workspace.clone(),
+            worktrees: status.worktrees.clone(),
             worktree: status.worktree.clone(),
         })
     });
@@ -257,6 +261,7 @@ mod tests {
             provider_commands: Vec::new(),
             git_branch: Some("main".into()),
             branches: vec!["main".into()],
+            worktrees: Vec::new(),
             draft: false,
             draft_workspace: WorkspaceMode::LocalCheckout,
             worktree: None,

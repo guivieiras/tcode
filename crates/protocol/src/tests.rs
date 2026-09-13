@@ -1027,7 +1027,7 @@ fn version_six_index_visits_output_and_elision_literal_json() {
         "terminal_limit_reached":false,"terminal_split_available":false,"usage":null,"context_window":200000,
         "running_turn":null,"pending_approvals":[],"pending_user_input":null,"supports_steering":true,
         "provider_option_descriptors":[],"provider_option_selections":[],"provider_option_requested_selections":[],"provider_commands":[],
-        "git_branch":null,"branches":[],"draft":false,"draft_workspace":{"kind":"local_checkout"},"worktree":null,
+        "git_branch":null,"branches":[],"worktrees":[],"draft":false,"draft_workspace":{"kind":"local_checkout"},"worktree":null,
         "preparing_worktree":false,"relay_confirmation":null,"native_rewind_pending":false,
         "native_rewind_prefill_available":false,"model_pending_restart":false,"options_pending_restart":false
     }}"#).unwrap();

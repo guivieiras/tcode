@@ -276,6 +276,7 @@ impl AppState {
                 | Command::SplitTerminal { session_id, .. }
                 | Command::RunGitAction { session_id, .. }
                 | Command::LoadBranches { session_id }
+                | Command::LoadWorktrees { session_id }
                 | Command::CheckoutBranch { session_id, .. }
                 | Command::MergeWorktree { session_id }
                 | Command::SetDraftWorkspace { session_id, .. }

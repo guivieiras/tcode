@@ -19,6 +19,9 @@ pub enum WorkspaceMode {
     NewWorktree {
         base: String,
     },
+    ExistingWorktree {
+        path: std::path::PathBuf,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

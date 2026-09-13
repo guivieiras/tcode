@@ -849,6 +849,7 @@ fn dispatch_command(app: &mut AppState, cx: &mut HostCx, command: Command) -> Co
             value,
         } => app.set_active_option(&session_id, &id, value, cx),
         Command::LoadBranches { session_id } => app.load_branches(&session_id, cx),
+        Command::LoadWorktrees { session_id } => app.load_worktrees(&session_id, cx),
         Command::CheckoutBranch { session_id, branch } => {
             app.checkout_branch(&session_id, branch, cx)
         }
