@@ -400,9 +400,6 @@ impl<E: Element> Element for Registered<E> {
             registry.entries[entry_index].hitbox = Some(hitbox.id);
             registry.parents.pop();
         }
-        if self.root {
-            wheel::did_prepaint(window, cx);
-        }
         result
     }
     fn paint(
@@ -416,6 +413,9 @@ impl<E: Element> Element for Registered<E> {
         cx: &mut App,
     ) {
         if self.root {
+            // Deferred popovers prepaint after the root. Reconcile only once
+            // their viewports have also been registered for this frame.
+            wheel::did_prepaint(window, cx);
             install(window);
         }
         self.element

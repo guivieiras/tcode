@@ -299,3 +299,46 @@ fn wheel_scroll_only_moves_the_innermost_scrollable_viewport(cx: &mut TestAppCon
         "the parent must receive wheel input at the child's limit"
     );
 }
+
+struct DeferredScrollView(ScrollHandle);
+
+impl Render for DeferredScrollView {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        root(
+            div().child(gpui::deferred(register(
+                div()
+                    .id("popup-scroll")
+                    .w(px(100.))
+                    .h(px(100.))
+                    .overflow_y_scroll()
+                    .track_scroll(&self.0)
+                    .child(div().h(px(1000.)).w_full().flex_none()),
+                Handle::Scroll(self.0.clone()),
+            ))),
+        )
+    }
+}
+
+#[gpui::test]
+fn wheel_scroll_completes_in_deferred_popover(cx: &mut TestAppContext) {
+    let handle = ScrollHandle::new();
+    let window = cx.add_window(|_, _| DeferredScrollView(handle.clone()));
+    let distance = window
+        .update(cx, |_, window, _| f32::from(window.line_height()) * 3.)
+        .unwrap();
+    VisualTestContext::from_window(window.into(), cx).simulate_event(ScrollWheelEvent {
+        position: point(px(5.), px(5.)),
+        delta: ScrollDelta::Lines(point(0., -3.)),
+        ..Default::default()
+    });
+    cx.executor().run_until_parked();
+    for millis in [32, 150] {
+        cx.executor().advance_clock(Duration::from_millis(millis));
+        VisualTestContext::from_window(window.into(), cx).update(|window, cx| {
+            window.simulate_next_frame(cx);
+            window.draw(cx).clear(cx);
+        });
+        cx.executor().run_until_parked();
+    }
+    assert_near(handle.offset().y, -distance);
+}

@@ -921,7 +921,8 @@ The checkout row below the desktop composer shows the working directory and
 Git branch. In a new-thread draft, the workspace picker offers Local checkout and
 New worktree, followed by a divider and the repository's existing worktrees.
 The list refreshes from the attached host when opened, excludes the project's own
-checkout and missing directories, and scrolls when needed. Rows show directory
+checkout and missing directories, and scrolls when needed with a visible, draggable
+scrollbar. Wheel scrolling completes its normal travel inside the popup. Rows show directory
 names with full paths in tooltips; the selected workspace has a checkmark.
 Selecting an existing worktree changes the draft's working directory without
 creating or taking ownership of it. Deleting its original owner or running orphan
