@@ -545,6 +545,11 @@ impl WorkspaceStore {
             feature_branch: request.feature_branch,
         });
     }
+    pub fn load_worktrees(&mut self) {
+        self.dispatch(Command::LoadWorktrees {
+            session_id: self.active_session_id().unwrap_or_default(),
+        });
+    }
     pub fn load_branches(&mut self) {
         self.dispatch(Command::LoadBranches {
             session_id: self.active_session_id().unwrap_or_default(),

@@ -292,6 +292,7 @@ impl AppState {
             provider_commands: session.provider_commands.clone(),
             git_branch: session.git_branch.clone(),
             branches: session.branches.clone(),
+            worktrees: session.worktrees.clone(),
             draft: session.draft,
             draft_workspace: session.draft_workspace.clone(),
             worktree: meta.worktree.clone(),

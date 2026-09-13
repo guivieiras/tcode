@@ -7830,3 +7830,118 @@ fn history_paging_bench() {
         snapshot_elapsed + paged
     );
 }
+
+#[test]
+fn draft_reuses_registered_worktree_without_taking_cleanup_ownership() {
+    let cx = &mut TestAppContext::default();
+    let test_store = TestStore::new("tcode-existing-worktree-test");
+    let temp =
+        std::env::temp_dir().join(format!("tcode-existing-worktree-{}", uuid::Uuid::new_v4()));
+    let root = temp.join("repo");
+    let linked = temp.join("feature café");
+    let missing = temp.join("missing");
+    std::fs::create_dir_all(&root).unwrap();
+    run_git(&root, &["init", "-b", "main"]).unwrap();
+    run_git(
+        &root,
+        &[
+            "-c",
+            "user.name=tcode",
+            "-c",
+            "user.email=tcode@localhost",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "initial",
+        ],
+    )
+    .unwrap();
+    run_git(
+        &root,
+        &["worktree", "add", "-b", "feature", linked.to_str().unwrap()],
+    )
+    .unwrap();
+    run_git(
+        &root,
+        &["worktree", "add", "--detach", missing.to_str().unwrap()],
+    )
+    .unwrap();
+    std::fs::remove_dir_all(&missing).unwrap();
+
+    let state = cx.new_entity(TestClientState::new((*test_store).clone()));
+    let id = state.update(cx, |state, cx| {
+        let project = Project::from_root(root.clone());
+        let project_id = project.id.clone();
+        state.projects.push(project);
+        state.start_draft(project_id, root.clone(), cx);
+        let id = state.active_session_id().unwrap().to_string();
+        state.load_worktrees(&id, cx);
+        id
+    });
+    cx.run_until_parked();
+    state.update(cx, |state, cx| {
+        assert_eq!(state.resident(&id).unwrap().worktrees, vec![linked.clone()]);
+        state.set_draft_workspace(
+            &id,
+            WorkspaceMode::ExistingWorktree {
+                path: linked.clone(),
+            },
+            cx,
+        );
+    });
+    cx.run_until_parked();
+    state.update(cx, |state, cx| {
+        let active = state.resident(&id).unwrap();
+        assert_eq!(active.meta.cwd, linked);
+        assert_eq!(active.git_branch.as_deref(), Some("feature"));
+        assert!(active.meta.worktree.is_none());
+        state.set_draft_workspace(&id, WorkspaceMode::LocalCheckout, cx);
+        assert_eq!(state.resident(&id).unwrap().meta.cwd, root);
+        state.set_draft_workspace(
+            &id,
+            WorkspaceMode::ExistingWorktree {
+                path: linked.clone(),
+            },
+            cx,
+        );
+        state.set_draft_workspace(
+            &id,
+            WorkspaceMode::NewWorktree {
+                base: "main".into(),
+            },
+            cx,
+        );
+        assert_eq!(state.resident(&id).unwrap().meta.cwd, root);
+        state.set_draft_workspace(
+            &id,
+            WorkspaceMode::ExistingWorktree {
+                path: linked.clone(),
+            },
+            cx,
+        );
+        state.commit_draft(&id, cx);
+        let mut owner = SessionMeta::new(ProviderKind::Codex, linked.clone(), None);
+        owner.worktree = Some(WorktreeInfo {
+            root_project_path: root.clone(),
+            base: "main".into(),
+            branch: "feature".into(),
+        });
+        let owner_id = owner.id.clone();
+        state.sessions.push(owner);
+        state.delete_session(&owner_id, true, cx);
+        state.set_draft_workspace(&id, WorkspaceMode::LocalCheckout, cx);
+        assert_eq!(state.resident(&id).unwrap().meta.cwd, linked);
+        assert!(state.resident(&id).unwrap().meta.worktree.is_none());
+    });
+    cx.run_until_parked();
+    let stored = test_store.load_index();
+    let meta = stored.iter().find(|meta| meta.id == id).unwrap();
+    assert_eq!(meta.cwd, linked);
+    assert!(
+        linked.exists(),
+        "deleting the original owner removed a reused checkout"
+    );
+    assert!(meta.worktree.is_none());
+    assert_eq!(read_git_branch(&root).as_deref(), Some("main"));
+    std::fs::remove_dir_all(temp).unwrap();
+}

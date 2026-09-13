@@ -262,6 +262,8 @@ pub struct SessionStatus {
     pub provider_commands: Vec<ProviderCommand>,
     pub git_branch: Option<String>,
     pub branches: Vec<String>,
+    #[serde(default)]
+    pub worktrees: Vec<PathBuf>,
     pub draft: bool,
     pub draft_workspace: WorkspaceMode,
     pub worktree: Option<WorktreeInfo>,

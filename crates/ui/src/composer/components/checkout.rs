@@ -153,8 +153,13 @@ impl Composer {
                 .into_any_element()
         };
 
-        let left =
-            self.render_workspace_chip(is_draft, worktree_mode, worktree.is_some(), &branch, cx);
+        let left = self.render_workspace_chip(
+            is_draft,
+            checkout.workspace,
+            worktree.is_some(),
+            &branch,
+            cx,
+        );
 
         Some(
             h_flex()
@@ -170,21 +175,25 @@ impl Composer {
         )
     }
 
-    /// The left-hand workspace chip: a draft can pick current checkout vs a new
-    /// dedicated worktree; a started session shows its locked workspace.
+    /// Drafts choose a checkout; a started session keeps its workspace locked.
     pub(in super::super) fn render_workspace_chip(
         &self,
         is_draft: bool,
-        worktree_mode: bool,
+        workspace: WorkspaceMode,
         has_worktree: bool,
         base_default: &str,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let muted = cx.theme().muted_foreground;
-        let label = if worktree_mode || has_worktree {
-            crate::tr!("composer.new_worktree")
-        } else {
-            crate::tr!("composer.local_checkout")
+        let label = match &workspace {
+            WorkspaceMode::ExistingWorktree { path } => {
+                tcode_core::project::project_name_from_root(path)
+            }
+            WorkspaceMode::NewWorktree { .. } => crate::tr!("composer.new_worktree").into_owned(),
+            WorkspaceMode::LocalCheckout if has_worktree => {
+                crate::tr!("composer.new_worktree").into_owned()
+            }
+            WorkspaceMode::LocalCheckout => crate::tr!("composer.local_checkout").into_owned(),
         };
 
         if !is_draft {
@@ -197,6 +206,7 @@ impl Composer {
                 .into_any_element();
         }
 
+        let store_open = self.workspace_store.clone();
         let store_content = self.workspace_store.clone();
         let base_default = base_default.to_string();
         let trigger = Button::new("workspace-picker")
@@ -210,85 +220,107 @@ impl Composer {
                     .text_size(px(13.))
                     .text_color(muted)
                     .child(Icon::empty().path("icons/folder-closed.svg").xsmall())
-                    .child(label)
+                    .child(div().max_w(px(180.)).truncate().child(label))
                     .child(Icon::new(IconName::ChevronDown).xsmall().text_color(muted)),
             );
         crate::material::overlay_popover("workspace-popover")
             .anchor(Anchor::BottomLeft)
             .trigger(trigger)
+            .on_open_change(move |open, _window, cx| {
+                if *open {
+                    store_open.update(cx, |store, _cx| store.load_worktrees());
+                }
+            })
             .content(move |_state, _window, cx| {
                 let popover = cx.entity();
-                let store_local = store_content.clone();
-                let store_worktree = store_content.clone();
-                let pop_local = popover.clone();
-                let pop_worktree = popover.clone();
-                let base = base_default.clone();
-                let workspace_row = |label: gpui::SharedString,
-                                     selected: bool,
-                                     cx: &mut Context<PopoverState>|
-                 -> gpui::Div {
-                    h_flex()
-                        .w_full()
-                        .px_2()
-                        .py_1p5()
-                        .gap_2()
-                        .items_center()
-                        .rounded(px(6.))
-                        .cursor_pointer()
-                        .text_size(px(13.))
-                        .hover(|s| s.bg(cx.theme().muted))
-                        .child(div().flex_1().min_w_0().child(label))
-                        .when(selected, |this| {
-                            this.child(
-                                Icon::new(IconName::Check)
-                                    .xsmall()
-                                    .text_color(cx.theme().primary),
-                            )
-                        })
+                let Some(checkout) = store_content.read(cx).composer_state().checkout else {
+                    return div().into_any_element();
                 };
-                v_flex()
-                    .w(px(200.))
+                let mut options = vec![
+                    (
+                        WorkspaceMode::LocalCheckout,
+                        crate::tr!("composer.local_checkout").into_owned(),
+                    ),
+                    (
+                        WorkspaceMode::NewWorktree {
+                            base: base_default.clone(),
+                        },
+                        crate::tr!("composer.new_worktree").into_owned(),
+                    ),
+                ];
+                options.extend(checkout.worktrees.into_iter().map(|path| {
+                    let label = tcode_core::project::project_name_from_root(&path);
+                    (WorkspaceMode::ExistingWorktree { path }, label)
+                }));
+                let mut list = v_flex()
+                    .id("workspace-list")
+                    .role(Role::Menu)
+                    .aria_label(crate::tr!("composer.workspace"))
+                    .w(px(260.))
+                    .max_h(px(280.))
+                    .touch_overflow_y_scroll()
                     .p_1()
                     .gap_0p5()
                     .child(
                         div()
+                            .flex_none()
                             .px_2()
                             .py_1()
                             .text_size(px(11.))
                             .font_medium()
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("composer.workspace")),
-                    )
-                    .child(
-                        workspace_row(
-                            crate::tr!("composer.local_checkout").into_owned().into(),
-                            false,
-                            cx,
-                        )
-                        .id("workspace-local")
-                        .on_click(move |_, window, cx| {
-                            store_local.update(cx, |store, _cx| {
-                                store.set_draft_workspace(WorkspaceMode::LocalCheckout);
-                            });
-                            pop_local.update(cx, |st, cx| st.dismiss(window, cx));
-                        }),
-                    )
-                    .child(
-                        workspace_row(
-                            crate::tr!("composer.new_worktree").into_owned().into(),
-                            false,
-                            cx,
-                        )
-                        .id("workspace-worktree")
-                        .on_click(move |_, window, cx| {
-                            let base = base.clone();
-                            store_worktree.update(cx, |store, _cx| {
-                                store.set_draft_workspace(WorkspaceMode::NewWorktree { base });
-                            });
-                            pop_worktree.update(cx, |st, cx| st.dismiss(window, cx));
-                        }),
-                    )
-                    .into_any_element()
+                    );
+                for (index, (mode, label)) in options.into_iter().enumerate() {
+                    if index == 2 {
+                        list = list.child(
+                            div()
+                                .flex_none()
+                                .h(px(1.))
+                                .mx_2()
+                                .my_1()
+                                .bg(cx.theme().border),
+                        );
+                    }
+                    let selected = match &mode {
+                        WorkspaceMode::NewWorktree { .. } => {
+                            matches!(checkout.workspace, WorkspaceMode::NewWorktree { .. })
+                        }
+                        _ => mode == checkout.workspace,
+                    };
+                    let store = store_content.clone();
+                    let pop = popover.clone();
+                    let mut row = Button::new(("workspace-option", index))
+                        .ghost()
+                        .compact()
+                        .aria_label(label.clone())
+                        .selected(selected)
+                        .flex_none()
+                        .w_full()
+                        .px_2()
+                        .child(
+                            h_flex()
+                                .w_full()
+                                .gap_2()
+                                .items_center()
+                                .child(div().flex_1().min_w_0().text_left().truncate().child(label))
+                                .when(selected, |row| {
+                                    row.child(
+                                        Icon::new(IconName::Check)
+                                            .xsmall()
+                                            .text_color(cx.theme().primary),
+                                    )
+                                }),
+                        );
+                    if let WorkspaceMode::ExistingWorktree { path } = &mode {
+                        row = row.tooltip(path.display().to_string());
+                    }
+                    list = list.child(row.on_click(move |_, window, cx| {
+                        store.update(cx, |store, _cx| store.set_draft_workspace(mode.clone()));
+                        pop.update(cx, |st, cx| st.dismiss(window, cx));
+                    }));
+                }
+                list.into_any_element()
             })
             .into_any_element()
     }

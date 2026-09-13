@@ -385,13 +385,45 @@ impl AppState {
         let target_id = target_id.to_string();
         let host_cx = cx.clone();
         HostCx::spawn_detached(cx, async move {
-            let branches = host_cx.unblock(move || list_git_branches(&cwd)).await;
+            let query_cwd = cwd.clone();
+            let branches = host_cx.unblock(move || list_git_branches(&query_cwd)).await;
             host_cx.enqueue(move |state, _cx| {
                 if let Some(active) = state.resident_mut(&target_id)
                     && active.meta.id == session_id
+                    && active.meta.cwd == cwd
                 {
                     active.branches = branches;
                 }
+            });
+        });
+    }
+
+    /// Refresh registered worktrees on the host whenever the workspace picker opens.
+    pub fn load_worktrees(&mut self, target_id: &str, cx: &mut HostCx) {
+        let Some(active) = self.resident(target_id) else {
+            return;
+        };
+        let Some(project) = self
+            .projects
+            .iter()
+            .find(|p| Some(&p.id) == active.meta.project_id.as_ref())
+        else {
+            return;
+        };
+        let root = project.root.clone();
+        let target_id = target_id.to_string();
+        let host_cx = cx.clone();
+        HostCx::spawn_detached(cx, async move {
+            let result = host_cx
+                .unblock(move || tcode_services::worktree::list_existing(&root))
+                .await;
+            host_cx.enqueue(move |state, cx| match result {
+                Ok(worktrees) => {
+                    if let Some(active) = state.resident_mut(&target_id) {
+                        active.worktrees = worktrees;
+                    }
+                }
+                Err(error) => state.report_error(RuntimeError::External(error.to_string()), cx),
             });
         });
     }

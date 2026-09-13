@@ -252,7 +252,7 @@ fn available_branch(root: &Path, requested: &str) -> Result<String, WorktreeErro
 fn porcelain_worktree_paths(root: &Path) -> Result<Vec<PathBuf>, WorktreeError> {
     let output = crate::process::command("git")
         .current_dir(root)
-        .args(["worktree", "list", "--porcelain"])
+        .args(["worktree", "list", "--porcelain", "-z"])
         .output()
         .map_err(io_error)?;
     if !output.status.success() {
@@ -261,9 +261,18 @@ fn porcelain_worktree_paths(root: &Path) -> Result<Vec<PathBuf>, WorktreeError> 
         ));
     }
     Ok(String::from_utf8_lossy(&output.stdout)
-        .lines()
+        .split('\0')
         .filter_map(|line| line.strip_prefix("worktree "))
         .map(PathBuf::from)
+        .collect())
+}
+
+/// Existing checkouts of this repository, excluding the project's own checkout.
+/// Missing/prunable entries cannot be used as a session working directory.
+pub fn list_existing(root: &Path) -> Result<Vec<PathBuf>, WorktreeError> {
+    Ok(porcelain_worktree_paths(root)?
+        .into_iter()
+        .filter(|path| path.is_dir() && !same_existing_path(path, root))
         .collect())
 }
 
@@ -403,10 +412,14 @@ fn worktrees_root() -> PathBuf {
 /// Tests and isolated processes may set `TCODE_WORKTREES_DIR`; production falls
 /// back to `~/.tcode/worktrees`. Fresh unknown entries are presumed live and
 /// preserved for at least [`ORPHAN_MIN_AGE`].
-pub fn cleanup_orphans(known_session_ids: &HashSet<String>) -> CleanupSummary {
+pub fn cleanup_orphans(
+    known_session_ids: &HashSet<String>,
+    used_paths: &[PathBuf],
+) -> CleanupSummary {
     cleanup_orphans_at(
         &worktrees_root(),
         known_session_ids,
+        used_paths,
         SystemTime::now(),
         ORPHAN_MIN_AGE,
     )
@@ -415,6 +428,7 @@ pub fn cleanup_orphans(known_session_ids: &HashSet<String>) -> CleanupSummary {
 fn cleanup_orphans_at(
     worktrees: &Path,
     known_session_ids: &HashSet<String>,
+    used_paths: &[PathBuf],
     now: SystemTime,
     minimum_age: Duration,
 ) -> CleanupSummary {
@@ -436,7 +450,12 @@ fn cleanup_orphans_at(
         let is_directory = entry
             .file_type()
             .is_ok_and(|kind| kind.is_dir() && !kind.is_symlink());
-        if known_session_ids.contains(&session_id) || !is_directory {
+        if known_session_ids.contains(&session_id)
+            || !is_directory
+            || used_paths
+                .iter()
+                .any(|used| same_existing_path(used, &path))
+        {
             continue;
         }
         let modified = match entry.metadata().and_then(|metadata| metadata.modified()) {
@@ -989,14 +1008,26 @@ mod tests {
         let modified = std::fs::metadata(&orphan).unwrap().modified().unwrap();
         let known = HashSet::new();
 
-        let fresh = cleanup_orphans_at(&worktrees, &known, modified, ORPHAN_MIN_AGE);
+        let fresh = cleanup_orphans_at(&worktrees, &known, &[], modified, ORPHAN_MIN_AGE);
         assert!(fresh.removed.is_empty());
         assert_eq!(fresh.skipped.as_slice(), std::slice::from_ref(&orphan));
+        assert!(orphan.exists());
+
+        // Another session may reuse this path after the original owner is deleted.
+        let reused = cleanup_orphans_at(
+            &worktrees,
+            &known,
+            std::slice::from_ref(&orphan),
+            modified + ORPHAN_MIN_AGE + Duration::from_secs(1),
+            ORPHAN_MIN_AGE,
+        );
+        assert_eq!(reused, CleanupSummary::default());
         assert!(orphan.exists());
 
         let old = cleanup_orphans_at(
             &worktrees,
             &known,
+            &[],
             modified + ORPHAN_MIN_AGE + Duration::from_secs(1),
             ORPHAN_MIN_AGE,
         );
@@ -1016,6 +1047,7 @@ mod tests {
         let summary = cleanup_orphans_at(
             &worktrees,
             &known,
+            &[],
             modified + ORPHAN_MIN_AGE + Duration::from_secs(1),
             ORPHAN_MIN_AGE,
         );

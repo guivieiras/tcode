@@ -918,7 +918,18 @@ the secondary send action steers when the provider supports it. Stop interrupts
 the current turn. Queue/steer guidance belongs in the send tooltip.
 
 The checkout row below the desktop composer shows the working directory and
-Git branch. Voice input is available on supported macOS 26 builds: live partial
+Git branch. In a new-thread draft, the workspace picker offers Local checkout and
+New worktree, followed by a divider and the repository's existing worktrees.
+The list refreshes from the attached host when opened, excludes the project's own
+checkout and missing directories, and scrolls when needed. Rows show directory
+names with full paths in tooltips; the selected workspace has a checkmark.
+Selecting an existing worktree changes the draft's working directory without
+creating or taking ownership of it. Deleting its original owner or running orphan
+cleanup preserves a worktree still used by another thread. Local checkout restores
+the project directory.
+The workspace locks after the first send.
+
+Voice input is available on supported macOS 26 builds: live partial
 text replaces its provisional range at the insertion anchor, final text commits
 it, and stopping keeps the transcript without sending. Escape, submit and
 thread changes also stop dictation. Compact clients hide this entry point.
