@@ -1,5 +1,7 @@
 use super::super::*;
 use crate::scroll::ScrollableElement as _;
+use gpui::ScrollHandle;
+use gpui_base::{Scrollbar, ScrollbarMode};
 
 impl Composer {
     pub(in super::super) fn render_checkout_row(
@@ -208,7 +210,11 @@ impl Composer {
                     store_open.update(cx, |store, _cx| store.load_worktrees());
                 }
             })
-            .content(move |_state, _window, cx| {
+            .content(move |_state, window, cx| {
+                let scroll = window
+                    .use_keyed_state("workspace-scroll", cx, |_, _| ScrollHandle::new())
+                    .read(cx)
+                    .clone();
                 let popover = cx.entity();
                 let Some(checkout) = store_content.read(cx).composer_state().checkout else {
                     return div().into_any_element();
@@ -236,7 +242,9 @@ impl Composer {
                     .w(px(260.))
                     .max_h(px(280.))
                     .overflow_y_scroll_area()
+                    .track_scroll(&scroll)
                     .p_1()
+                    .pr(px(16.))
                     .gap_0p5()
                     .child(
                         div()
@@ -297,7 +305,17 @@ impl Composer {
                         pop.update(cx, |st, cx| st.dismiss(window, cx));
                     }));
                 }
-                list.into_any_element()
+                div()
+                    .relative()
+                    .child(list)
+                    .child(
+                        div().absolute().inset_0().child(
+                            Scrollbar::vertical(&scroll)
+                                .id("workspace-scrollbar")
+                                .mode(ScrollbarMode::Always),
+                        ),
+                    )
+                    .into_any_element()
             })
             .into_any_element()
     }
