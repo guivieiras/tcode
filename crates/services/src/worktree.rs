@@ -252,7 +252,7 @@ fn available_branch(root: &Path, requested: &str) -> Result<String, WorktreeErro
 fn porcelain_worktree_paths(root: &Path) -> Result<Vec<PathBuf>, WorktreeError> {
     let output = crate::process::command("git")
         .current_dir(root)
-        .args(["worktree", "list", "--porcelain"])
+        .args(["worktree", "list", "--porcelain", "-z"])
         .output()
         .map_err(io_error)?;
     if !output.status.success() {
@@ -261,9 +261,18 @@ fn porcelain_worktree_paths(root: &Path) -> Result<Vec<PathBuf>, WorktreeError> 
         ));
     }
     Ok(String::from_utf8_lossy(&output.stdout)
-        .lines()
+        .split('\0')
         .filter_map(|line| line.strip_prefix("worktree "))
         .map(PathBuf::from)
+        .collect())
+}
+
+/// Existing checkouts of this repository, excluding the project's own checkout.
+/// Missing/prunable entries cannot be used as a session working directory.
+pub fn list_existing(root: &Path) -> Result<Vec<PathBuf>, WorktreeError> {
+    Ok(porcelain_worktree_paths(root)?
+        .into_iter()
+        .filter(|path| path.is_dir() && !same_existing_path(path, root))
         .collect())
 }
 

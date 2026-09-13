@@ -989,7 +989,13 @@ impl AppState {
             let shared = self
                 .sessions
                 .iter()
-                .chain(self.residents.live.values().map(|session| &session.meta))
+                .chain(
+                    self.residents
+                        .live
+                        .values()
+                        .chain(self.residents.parked.values())
+                        .map(|session| &session.meta),
+                )
                 .any(|other| meta.shares_worktree_with(other));
             if shared {
                 log::info!(
@@ -1161,9 +1167,36 @@ impl AppState {
 
     /// Choose the draft's workspace mode (checkout-row picker). No-op unless the
     /// active thread is an unstarted draft.
-    pub fn set_draft_workspace(&mut self, target_id: &str, mode: WorkspaceMode, _cx: &mut HostCx) {
-        if let Some(active) = self.resident_mut(target_id).filter(|a| a.draft) {
-            active.draft_workspace = mode;
+    pub fn set_draft_workspace(&mut self, target_id: &str, mode: WorkspaceMode, cx: &mut HostCx) {
+        let Some(active) = self
+            .resident(target_id)
+            .filter(|a| a.draft && !a.preparing_worktree)
+        else {
+            return;
+        };
+        let cwd = match &mode {
+            WorkspaceMode::ExistingWorktree { path } => {
+                if !active.worktrees.contains(path) {
+                    return;
+                }
+                path.clone()
+            }
+            _ => self
+                .projects
+                .iter()
+                .find(|p| Some(&p.id) == active.meta.project_id.as_ref())
+                .map(|p| p.root.clone())
+                .unwrap_or_else(|| active.meta.cwd.clone()),
+        };
+        let active = self.resident_mut(target_id).unwrap();
+        let cwd_changed = active.meta.cwd != cwd;
+        active.draft_workspace = mode;
+        active.meta.cwd = cwd.clone();
+        // Reusing a checkout does not make it session-owned or eligible for cleanup.
+        if cwd_changed {
+            active.branches.clear();
+            self.refresh_session_git_branch(target_id.to_string(), cwd, cx);
+            self.refresh_git_status(target_id, cx);
         }
     }
 

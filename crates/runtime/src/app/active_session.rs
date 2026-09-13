@@ -140,6 +140,7 @@ pub struct ActiveSession {
     /// Local branches for the checkout-row picker, loaded lazily when the
     /// popover opens (empty until then / when not a git repo).
     pub branches: Vec<String>,
+    pub worktrees: Vec<PathBuf>,
     /// A draft thread: set up (provider/model/cwd) but not yet persisted or
     /// started. Materialized into a real session on the first send.
     pub draft: bool,
@@ -230,6 +231,7 @@ impl ActiveSession {
             timeline: Timeline::default(),
             git_branch: None,
             branches: Vec::new(),
+            worktrees: Vec::new(),
             draft,
             pending_relay: None,
             runtime: Runtime::Idle,
