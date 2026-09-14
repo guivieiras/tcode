@@ -1588,7 +1588,7 @@ fn resolve_child_worktree(
     cwd: PathBuf,
     child_id: &str,
 ) -> (PathBuf, Option<WorktreeInfo>, Option<String>) {
-    match provision(&cwd, child_id) {
+    match provision(&cwd, child_id, None) {
         Ok(created) => {
             let info = WorktreeInfo {
                 root_project_path: cwd,

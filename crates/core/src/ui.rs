@@ -17,6 +17,7 @@ pub enum WorkspaceMode {
     #[default]
     LocalCheckout,
     NewWorktree {
+        name: String,
         base: String,
     },
     ExistingWorktree {

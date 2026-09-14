@@ -11,3 +11,4 @@ mod user_input;
 /// button included — compiles out elsewhere.
 #[cfg(all(feature = "voice", target_os = "macos"))]
 pub(super) mod voice;
+mod worktree_dialog;

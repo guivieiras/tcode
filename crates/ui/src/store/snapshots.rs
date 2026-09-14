@@ -131,7 +131,7 @@ pub(crate) fn composer_state(
             turn_running: status.turn_running,
             is_draft: status.draft,
             worktree_base: match &status.draft_workspace {
-                WorkspaceMode::NewWorktree { base } => Some(base.clone()),
+                WorkspaceMode::NewWorktree { base, .. } => Some(base.clone()),
                 _ => None,
             },
             workspace: status.draft_workspace.clone(),
