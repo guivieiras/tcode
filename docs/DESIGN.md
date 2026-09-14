@@ -293,6 +293,11 @@ The conversation timeline overlays a vertical scrollbar at its right edge,
 using the shared theme's hover/scroll visibility. Its track follows the list's
 viewport, excluding the timeline padding and composer. Dragging it moves the
 conversation and pauses tail-following when the reader leaves the bottom.
+Unmeasured turns reserve an estimated height based on the visible turns, excluding
+the history-loading reservation. Estimates are seeded after layout, including
+after resizing or loading history, while retaining previously measured heights.
+Scrolling refines those estimates instead of adding each unseen turn from zero;
+the scrollbar can reach the whole loaded conversation before every turn is measured.
 
 Thread lists also overlay the shared vertical scrollbar, in Recent and By
 project at both layout widths. Each scrollbar follows its list's viewport and
