@@ -1308,30 +1308,32 @@ impl Render for Composer {
                         this.child(self.render_fallback_review_panel(&review, cx))
                     })
                     .children(self.render_trigger_menu(cx))
-                    .children(self.render_queue_strip(cx))
-                    .child(v_flex().w_full().child(card).when(
-                        self.compact || (readonly && compact),
-                        |el| {
-                            el.child(
-                                h_flex()
-                                    .debug_selector(|| "composer-settings-drawer".into())
-                                    .mx_2()
-                                    .px_1()
-                                    .min_w_0()
-                                    .gap_1()
-                                    .items_center()
-                                    .rounded_b(px(12.))
-                                    .border_1()
-                                    .border_t_0()
-                                    .border_color(cx.theme().border)
-                                    .bg(cx.theme().muted)
-                                    .child(self.render_permission_picker(cx))
-                                    .child(self.render_mode_chip(cx))
-                                    .child(div().flex_1())
-                                    .child(self.render_context_meter(cx)),
-                            )
-                        },
-                    ))
+                    .child(
+                        v_flex()
+                            .w_full()
+                            .children(self.render_queue_strip(cx))
+                            .child(card)
+                            .when(self.compact || (readonly && compact), |el| {
+                                el.child(
+                                    h_flex()
+                                        .debug_selector(|| "composer-settings-drawer".into())
+                                        .mx_2()
+                                        .px_1()
+                                        .min_w_0()
+                                        .gap_1()
+                                        .items_center()
+                                        .rounded_b(px(12.))
+                                        .border_1()
+                                        .border_t_0()
+                                        .border_color(cx.theme().border)
+                                        .bg(cx.theme().muted)
+                                        .child(self.render_permission_picker(cx))
+                                        .child(self.render_mode_chip(cx))
+                                        .child(div().flex_1())
+                                        .child(self.render_context_meter(cx)),
+                                )
+                            }),
+                    )
                     .when(!self.compact && !readonly, |el| {
                         el.children(self.render_checkout_row(cx))
                     }),
