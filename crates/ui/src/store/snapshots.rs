@@ -104,7 +104,7 @@ pub(crate) fn composer_state(
             checkout_blocked: status.checkout_blocked,
             is_draft: status.draft,
             worktree_base: match &status.draft_workspace {
-                WorkspaceMode::NewWorktree { base } => Some(base.clone()),
+                WorkspaceMode::NewWorktree { base, .. } => Some(base.clone()),
                 _ => None,
             },
             workspace: status.draft_workspace.clone(),

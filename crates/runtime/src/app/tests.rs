@@ -7280,7 +7280,7 @@ fn orphan_sweep_leaves_worktrees_a_thread_works_in_or_the_user_kept() {
     run_git(&repo, &["add", "tracked.txt"]).unwrap();
     run_git(&repo, &["commit", "-m", "initial"]).unwrap();
     let owner = |id: &str| {
-        let created = provision(&repo, id, store.root()).unwrap();
+        let created = provision(&repo, id, None, store.root()).unwrap();
         let mut meta = SessionMeta::new(ProviderKind::Codex, created.path, None);
         meta.id = id.into();
         meta.worktree = Some(WorktreeInfo {
@@ -11577,6 +11577,7 @@ fn draft_reuses_registered_worktree_without_taking_cleanup_ownership() {
         state.set_draft_workspace(
             &id,
             WorkspaceMode::NewWorktree {
+                name: "new-feature".into(),
                 base: "main".into(),
             },
             cx,
