@@ -1701,7 +1701,8 @@ impl AppState {
         target_id: &str,
         text: String,
         attachments: Vec<Attachment>,
-        _base: String,
+        name: String,
+        base: String,
         cx: &mut HostCx,
     ) {
         let Some(active) = self.resident_mut(target_id) else {
@@ -1720,7 +1721,14 @@ impl AppState {
         let host_cx = cx.clone();
         HostCx::spawn_detached(cx, async move {
             let result = host_cx
-                .unblock(move || provision(&root_for_task, &session_id_for_task, &data_dir))
+                .unblock(move || {
+                    provision(
+                        &root_for_task,
+                        &session_id_for_task,
+                        Some((&name, &base)),
+                        &data_dir,
+                    )
+                })
                 .await;
             host_cx.enqueue(move |state, cx| {
                 if state
@@ -1764,7 +1772,6 @@ impl AppState {
                         cx.author = previous_author;
                     }
                     Err(err) => {
-                        active.draft_workspace = WorkspaceMode::LocalCheckout;
                         state.report_error(
                             RuntimeError::WorktreeAdd {
                                 error: err.to_string(),
