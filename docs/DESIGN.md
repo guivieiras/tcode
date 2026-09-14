@@ -855,6 +855,14 @@ platform pays that inset.
 
 ### Composer
 
+Typing `$` opens the provider's skill picker above the composer at both widths.
+The same inline menu handles `@` files and `/` commands. Inline autocomplete uses
+dense 28pt rows at both widths, independently of the 44pt sizing of mobile icon
+buttons. The scrolling menu fits above the software keyboard.
+Up/Down move the highlighted option and keep it visible without moving the text
+cursor; Enter inserts it. Tapping an option also inserts it. Escape dismisses
+the menu and returns arrows to text editing until the query changes.
+
 The composer holds the draft plus removable attachment, terminal-context and
 review-comment chips. Its controls select the provider/model, model parameters,
 approval mode and Build/Plan mode, subject to provider capabilities. Context

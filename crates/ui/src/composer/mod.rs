@@ -4,6 +4,8 @@
 
 mod components;
 pub(crate) mod model;
+#[cfg(test)]
+mod tests;
 
 use components::images::PendingImage;
 #[cfg(all(feature = "voice", target_os = "macos"))]
@@ -38,6 +40,7 @@ use gpui::{
     Subscription, Task, Window, div, img, prelude::FluentBuilder as _, px, rgb,
 };
 use gpui_base::PopoverState;
+use gpui_base::input::{Enter, Escape, MoveDown, MoveUp};
 use gpui_base::{ElementExt as _, StyledExt as _, h_flex, v_flex};
 
 use crate::attachments::attach_error_message;
@@ -159,6 +162,7 @@ pub struct Composer {
     active_trigger: Option<ComposerTrigger>,
     /// Highlighted row index within the open trigger menu (arrows + hover).
     menu_highlight: usize,
+    menu_scroll: gpui::ScrollHandle,
     /// The trigger identity the menu was last shown for; when it changes the
     /// highlight resets and any Escape-dismissal clears.
     menu_last_key: Option<String>,
@@ -295,6 +299,15 @@ impl Composer {
                 ],
                 cx,
             ),
+            // IME composition and caret movement notify the editor without
+            // emitting Change. Keep the trigger range and query current too.
+            cx.observe(&input, |this, _, cx| {
+                let previous = this.active_trigger.clone();
+                this.recompute_trigger(cx);
+                if this.active_trigger != previous {
+                    cx.notify();
+                }
+            }),
             cx.subscribe_in(&input, window, |this, input, event, window, cx| {
                 match event {
                     InputEvent::PressEnter {
@@ -316,14 +329,12 @@ impl Composer {
                             this.submit(&input, *secondary, window, cx);
                         }
                     }
-                    // Recompute the active `@`/`/`/`$` trigger and re-render (also
-                    // refreshes the send button's has-text state).
+                    // Refresh the send button's has-text state on draft edits.
                     InputEvent::Change => {
                         // An edit that did not come from the transcript writer
                         // ends dictation (see `components::voice`).
                         #[cfg(all(feature = "voice", target_os = "macos"))]
                         this.stop_dictation_on_user_edit(cx);
-                        this.recompute_trigger(cx);
                         cx.notify();
                     }
                     _ => {}
@@ -408,6 +419,7 @@ impl Composer {
             raf_pending: false,
             active_trigger: None,
             menu_highlight: 0,
+            menu_scroll: gpui::ScrollHandle::new(),
             menu_last_key: None,
             menu_dismissed: false,
             workspace: None,
@@ -1200,41 +1212,35 @@ impl Render for Composer {
                     cx.stop_propagation();
                 }
             }))
-            // Arrow/Escape trigger-menu navigation (fires after the input's own
-            // key actions).
+            // Input key bindings run before raw key listeners, so the picker
+            // must intercept their actions before the editor moves its caret.
+            .capture_action(cx.listener(|this, _: &MoveUp, _, cx| {
+                this.move_menu_highlight(false, cx);
+            }))
+            .capture_action(cx.listener(|this, _: &MoveDown, _, cx| {
+                this.move_menu_highlight(true, cx);
+            }))
+            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                if !action.shift && this.menu_visible() {
+                    this.accept_menu(this.menu_highlight, window, cx);
+                    cx.stop_propagation();
+                }
+            }))
+            .capture_action(cx.listener(|this, _: &Escape, _, cx| {
+                #[cfg(all(feature = "voice", target_os = "macos"))]
+                if this.stop_dictation(cx) {
+                    cx.stop_propagation();
+                    return;
+                }
+                if this.menu_visible() {
+                    this.menu_dismissed = true;
+                    cx.stop_propagation();
+                    cx.notify();
+                }
+            }))
             .capture_key_down(cx.listener(|this, ev: &gpui::KeyDownEvent, window, cx| {
-                let key = ev.keystroke.key.as_str();
                 if this.handle_user_input_digit(ev, window, cx) {
                     cx.stop_propagation();
-                    return;
-                }
-                // Escape ends dictation (keeping the transcript) before it can
-                // mean anything else.
-                #[cfg(all(feature = "voice", target_os = "macos"))]
-                if key == "escape" && this.stop_dictation(cx) {
-                    cx.stop_propagation();
-                    return;
-                }
-                if !this.menu_visible() {
-                    return;
-                }
-                let (rows, _, _) = this.menu_rows(cx);
-                match key {
-                    "up" => {
-                        this.menu_highlight = this.menu_highlight.saturating_sub(1);
-                        cx.notify();
-                    }
-                    "down" => {
-                        if !rows.is_empty() {
-                            this.menu_highlight = (this.menu_highlight + 1).min(rows.len() - 1);
-                        }
-                        cx.notify();
-                    }
-                    "escape" => {
-                        this.menu_dismissed = true;
-                        cx.notify();
-                    }
-                    _ => {}
                 }
             }))
             .on_drop(
@@ -1307,7 +1313,7 @@ impl Render for Composer {
                     .when_some(fallback_review, |this, review| {
                         this.child(self.render_fallback_review_panel(&review, cx))
                     })
-                    .children(self.render_trigger_menu(cx))
+                    .children(self.render_trigger_menu(window, cx))
                     .children(self.render_queue_strip(cx))
                     .child(v_flex().w_full().child(card).when(
                         self.compact || (readonly && compact),
