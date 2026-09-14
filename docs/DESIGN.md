@@ -928,7 +928,14 @@ Selecting an existing worktree changes the draft's working directory without
 creating or taking ownership of it. Deleting its original owner or running orphan
 cleanup preserves a worktree still used by another thread. Local checkout restores
 the project directory.
-The workspace locks after the first send.
+New worktree opens a modal with a required branch/worktree name and a local
+base-branch selector defaulting to main. Confirming saves both on the draft;
+canceling leaves its workspace unchanged. Creation happens on the first send
+using that exact branch and base. Branch-name slashes become hyphens in the
+worktree directory name. Existing branches and directories are never replaced.
+The draft shows the chosen name and base; selecting New worktree again or
+clicking its base reopens the form for editing. The workspace locks after the
+first send.
 
 Voice input is available on supported macOS 26 builds: live partial
 text replaces its provisional range at the insertion anchor, final text commits

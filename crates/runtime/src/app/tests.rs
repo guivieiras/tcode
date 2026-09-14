@@ -7907,6 +7907,7 @@ fn draft_reuses_registered_worktree_without_taking_cleanup_ownership() {
         state.set_draft_workspace(
             &id,
             WorkspaceMode::NewWorktree {
+                name: "new-feature".into(),
                 base: "main".into(),
             },
             cx,

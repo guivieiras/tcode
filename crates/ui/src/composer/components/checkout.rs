@@ -23,7 +23,20 @@ impl Composer {
 
         // The branch chip: a popover listing local branches. While a turn runs
         // the selector is disabled (it just shows a "wait" tooltip).
-        let right: AnyElement = if turn_running {
+        let right: AnyElement = if is_draft && worktree_mode {
+            let store = self.workspace_store.clone();
+            Button::new("worktree-base-picker")
+                .ghost()
+                .outline()
+                .compact()
+                .icon(Icon::empty().path("icons/git-branch.svg").xsmall())
+                .label(picker_current.clone())
+                .tooltip(crate::tr!("composer.worktree_base"))
+                .on_click(move |_, window, cx| {
+                    super::worktree_dialog::open(store.clone(), window, cx)
+                })
+                .into_any_element()
+        } else if turn_running {
             Button::new("branch-picker")
                 .ghost()
                 .outline()
@@ -71,18 +84,6 @@ impl Composer {
                     let popover = cx.entity();
                     let muted = cx.theme().muted_foreground;
                     let mut col = v_flex().w_full().p_1().gap_0p5();
-                    if worktree_mode {
-                        col = col.child(
-                            div()
-                                .flex_none()
-                                .px_2()
-                                .py_1()
-                                .text_size(px(11.))
-                                .font_medium()
-                                .text_color(muted)
-                                .child(crate::tr!("composer.worktree_base")),
-                        );
-                    }
                     if branches.is_empty() {
                         col = col.child(
                             div()
@@ -129,15 +130,7 @@ impl Composer {
                                     .on_click(move |_, window, cx| {
                                         let branch_name = branch_name.clone();
                                         store_pick.update(cx, |store, _cx| {
-                                            if worktree_mode {
-                                                store.set_draft_workspace(
-                                                    WorkspaceMode::NewWorktree {
-                                                        base: branch_name,
-                                                    },
-                                                );
-                                            } else {
-                                                store.checkout_branch(branch_name);
-                                            }
+                                            store.checkout_branch(branch_name);
                                         });
                                         pop.update(cx, |st, cx| st.dismiss(window, cx));
                                     }),
@@ -155,13 +148,7 @@ impl Composer {
                 .into_any_element()
         };
 
-        let left = self.render_workspace_chip(
-            is_draft,
-            checkout.workspace,
-            worktree.is_some(),
-            &branch,
-            cx,
-        );
+        let left = self.render_workspace_chip(is_draft, checkout.workspace, worktree.is_some(), cx);
 
         Some(
             h_flex()
@@ -183,7 +170,6 @@ impl Composer {
         is_draft: bool,
         workspace: WorkspaceMode,
         has_worktree: bool,
-        base_default: &str,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let muted = cx.theme().muted_foreground;
@@ -191,7 +177,7 @@ impl Composer {
             WorkspaceMode::ExistingWorktree { path } => {
                 tcode_core::project::project_name_from_root(path)
             }
-            WorkspaceMode::NewWorktree { .. } => crate::tr!("composer.new_worktree").into_owned(),
+            WorkspaceMode::NewWorktree { name, .. } => name.clone(),
             WorkspaceMode::LocalCheckout if has_worktree => {
                 crate::tr!("composer.new_worktree").into_owned()
             }
@@ -210,7 +196,6 @@ impl Composer {
 
         let store_open = self.workspace_store.clone();
         let store_content = self.workspace_store.clone();
-        let base_default = base_default.to_string();
         let trigger = Button::new("workspace-picker")
             .ghost()
             .outline()
@@ -244,19 +229,14 @@ impl Composer {
                 };
                 let mut options = vec![
                     (
-                        WorkspaceMode::LocalCheckout,
+                        Some(WorkspaceMode::LocalCheckout),
                         crate::tr!("composer.local_checkout").into_owned(),
                     ),
-                    (
-                        WorkspaceMode::NewWorktree {
-                            base: base_default.clone(),
-                        },
-                        crate::tr!("composer.new_worktree").into_owned(),
-                    ),
+                    (None, crate::tr!("composer.new_worktree").into_owned()),
                 ];
                 options.extend(checkout.worktrees.into_iter().map(|path| {
                     let label = tcode_core::project::project_name_from_root(&path);
-                    (WorkspaceMode::ExistingWorktree { path }, label)
+                    (Some(WorkspaceMode::ExistingWorktree { path }), label)
                 }));
                 let mut list = v_flex()
                     .id("workspace-list")
@@ -291,10 +271,8 @@ impl Composer {
                         );
                     }
                     let selected = match &mode {
-                        WorkspaceMode::NewWorktree { .. } => {
-                            matches!(checkout.workspace, WorkspaceMode::NewWorktree { .. })
-                        }
-                        _ => mode == checkout.workspace,
+                        None => matches!(checkout.workspace, WorkspaceMode::NewWorktree { .. }),
+                        Some(mode) => *mode == checkout.workspace,
                     };
                     let store = store_content.clone();
                     let pop = popover.clone();
@@ -320,12 +298,16 @@ impl Composer {
                                     )
                                 }),
                         );
-                    if let WorkspaceMode::ExistingWorktree { path } = &mode {
+                    if let Some(WorkspaceMode::ExistingWorktree { path }) = &mode {
                         row = row.tooltip(path.display().to_string());
                     }
                     list = list.child(row.on_click(move |_, window, cx| {
-                        store.update(cx, |store, _cx| store.set_draft_workspace(mode.clone()));
                         pop.update(cx, |st, cx| st.dismiss(window, cx));
+                        if let Some(mode) = &mode {
+                            store.update(cx, |store, _cx| store.set_draft_workspace(mode.clone()));
+                        } else {
+                            super::worktree_dialog::open(store.clone(), window, cx);
+                        }
                     }));
                 }
                 div()
