@@ -33,6 +33,7 @@ android {
 dependencies {
     // The device provides the platform test runner; only its compile stubs are needed here.
     androidTestCompileOnly(files("${android.sdkDirectory}/platforms/android-${android.compileSdk}/optional/android.test.base.jar"))
+    androidTestCompileOnly(files("${android.sdkDirectory}/platforms/android-${android.compileSdk}/optional/android.test.runner.jar"))
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("androidx.core:core:1.15.0")
     implementation("androidx.core:core-splashscreen:1.0.1")

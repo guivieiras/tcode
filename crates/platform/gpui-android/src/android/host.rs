@@ -123,6 +123,39 @@ pub(crate) fn hide_keyboard() {
     with_activity("gpuiHideKeyboard", "()V", Vec::new());
 }
 
+/// Reopen the toolbar when a hold selects an already selected word.
+pub fn request_selection_menu() {
+    with_activity("gpuiRequestSelectionMenu", "()V", Vec::new());
+}
+
+/// Synchronize the focused editor's selection anchor and allowed clipboard actions.
+/// Bounds are in physical pixels relative to the native window.
+pub fn selection_menu(
+    input: u64,
+    selection: std::ops::Range<usize>,
+    bounds: gpui::Bounds<gpui::DevicePixels>,
+    copy: bool,
+    cut: bool,
+    paste: bool,
+) {
+    with_activity(
+        "gpuiSelectionMenu",
+        "(JIIIIIIZZZ)V",
+        vec![
+            OwnedArgument::Long(input),
+            OwnedArgument::Int(selection.start as i32),
+            OwnedArgument::Int(selection.end as i32),
+            OwnedArgument::Int(i32::from(bounds.left())),
+            OwnedArgument::Int(i32::from(bounds.top())),
+            OwnedArgument::Int(i32::from(bounds.right())),
+            OwnedArgument::Int(i32::from(bounds.bottom())),
+            OwnedArgument::Bool(copy),
+            OwnedArgument::Bool(cut),
+            OwnedArgument::Bool(paste),
+        ],
+    );
+}
+
 pub(crate) fn configure_input(configuration: TextInputConfiguration) {
     // GPUI has no separate multiline flag; Enter explicitly requests a line break.
     with_activity(

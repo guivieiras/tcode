@@ -206,21 +206,31 @@ impl RenderOnce for Input {
                 })
                 .refine_style(&self.style)
                 .child(editor)
+                .map(|this| {
+                    #[cfg(any(target_os = "android", test))]
+                    let this = this.child(input_configuration::touch_selection(base.clone()));
+                    this
+                })
                 // Register after the editor paints so GPUI uses its configured handler.
                 .child(
                     gpui::canvas(
                         |_, _, _| (),
                         move |bounds, _, window, cx| {
                             let bounds = input_entity.read(cx).text_bounds().unwrap_or(bounds);
-                            window.handle_input(
-                                &focus,
-                                input_configuration::ConfiguredInput::new(
-                                    bounds,
-                                    input_entity.clone(),
-                                    multi_line,
-                                ),
-                                cx,
+                            let handler = input_configuration::ConfiguredInput::new(
+                                bounds,
+                                input_entity.clone(),
+                                multi_line,
                             );
+                            #[cfg(target_os = "android")]
+                            let handler = {
+                                let mut handler = handler;
+                                if focus.is_focused(window) {
+                                    handler.sync_selection_menu(window, cx);
+                                }
+                                handler
+                            };
+                            window.handle_input(&focus, handler, cx);
                         },
                     )
                     .absolute()
