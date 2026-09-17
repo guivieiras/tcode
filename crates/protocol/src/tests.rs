@@ -854,8 +854,9 @@ fn version_six_index_visits_output_and_elision_literal_json() {
     };
     assert_eq!(
         serde_json::to_value(&index).unwrap(),
-        json!({"activity": {}, "title_generating": [], "archived_counts": {"p": 2},
-            "archived_worktree_branches": [], "sessions": [], "projects": []})
+        json!({"working_started_at": {}, "activity": {}, "title_generating": [],
+            "archived_counts": {"p": 2}, "archived_worktree_branches": [], "sessions": [],
+            "projects": []})
     );
     assert_eq!(
         serde_json::to_value(ServerEvent::LastVisitedChanged(
