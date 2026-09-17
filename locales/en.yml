@@ -102,6 +102,7 @@ markdown:
   path_copy_relative: "Copy relative path"
 sidebar:
   pending_write: "Pending"
+  unsent_text: "Unsent text"
   parent_unavailable: "(parent unavailable)"
   collapse: "Collapse sidebar"
   expand: "Expand sidebar"
@@ -191,7 +192,7 @@ sidebar:
   fork_unsupported: "This provider does not support conversation forks."
   fork_empty: "This conversation is empty and cannot be forked."
   fork_running: "Wait for the running turn to finish before forking this conversation."
-  ctx_mark_unread: "Mark unread"
+  ctx_mark_completed: "Mark completed"
   ctx_copy_path: "Copy workspace path"
   ctx_copy_id: "Copy thread ID"
   ctx_export_jsonl: "Export as Tcode JSONL"
@@ -233,7 +234,7 @@ settings:
   auto_archive:
     section: "AUTO-ARCHIVE"
     title: "Auto-archive old threads"
-    description: "Automatically archive threads idle for over %{days} days and beyond the %{keep} most recent. Working, unread, and open threads are never archived."
+    description: "Automatically archive threads idle for over %{days} days and beyond the %{keep} most recent. Working, completed, and open threads are never archived."
     idle_days: "Idle days"
     idle_days_description: "Archive only after this many full days without activity."
     keep_count: "Keep most recent"
@@ -278,6 +279,11 @@ settings:
     system: "System default"
     light: "Light"
     dark: "Dark"
+  thread_appearance:
+    title: "Thread appearance"
+    description: "Choose how thread rows look on this device."
+    inline: "Inline"
+    icon_column: "Icon column"
   device_name:
     title: "Device name"
     description: "The name this device shows to machines it connects to."
@@ -840,6 +846,9 @@ usage:
     minutes: "%{count} min"
     scoped: "%{window} · %{scope}"
 time:
+  minutes: "%{count}m"
+  hours: "%{count}h"
+  days: "%{count}d"
   just_now: "just now"
   minutes_ago: "%{count}m ago"
   hours_ago: "%{count}h ago"
@@ -1061,7 +1070,7 @@ mobile:
   working: "Working"
   approval: "Needs approval"
   answer: "Needs your answer"
-  unread: "Unread"
+  completed: "Completed"
   message: "Type a message…"
   offline_message: "Offline — you can send when reconnected"
   offline_action: "Offline — available when reconnected"

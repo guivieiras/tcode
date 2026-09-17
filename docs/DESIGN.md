@@ -197,7 +197,8 @@ so startup never exposes a default white/black window or decorative backdrop.
   edge to the composer card's top edge when scrolled to the end, in both compact
   and wide layouts, including when the last row has a running status. The timeline
   wrapper owns this gap outside the `List`; the composer adds no top inset.
-- Sidebar thread rows ≈30px, 13px text, 4px-radius hover bg.
+- Wide Inline thread rows are 30px grouped / child and 48px Recent root rows;
+  Icon column rows are 60px. Both use 13px titles and 6px-radius hover backgrounds.
 - Parent thread rows always show a disclosure chevron and total-child badge;
   when children are active, the badge reads active/total in the success color.
 - Thread rows come in three shapes: grouped (one line), flat root (two lines)
@@ -392,8 +393,8 @@ launch behavior is unchanged.
   toggles the same per-parent collapse state as the wide sidebar. Collapsing
   hides children without changing family ordering; running children keep their
   parent in Recent. Children with archived or missing parents remain top-level
-  with a muted “(parent unavailable)” subtitle. Recent shows the project name beside the
-  relative time in the muted subtitle. **By project** keeps the grouped list.
+  with a muted “(parent unavailable)” subtitle. Recent shows the project name in
+  the muted subtitle beside the time. **By project** keeps the grouped list.
   The list header has a 44pt layout toggle sharing the wide sidebar’s persisted
   Flat/Grouped setting; search opens the shared palette in either view. Both
   views use the same plain rows, status glyphs and approval/input washes.
@@ -640,7 +641,7 @@ in both states.
    persistent features are rows here, not new controls elsewhere.
 4. Project/thread header: sort, grouped/flat layout and add-project controls.
    Sorting and layout choices are persisted.
-5. Project groups: rotating chevron + project icon + 13px medium name; hover
+5. Project groups: rotating chevron + project icon + 14px medium name; hover
    shows "+" (new thread in project); collapse state persisted.
    Thread rows: single-line truncated AI-generated title (first-message fallback
    while naming) + relative time (muted 11px); hover = accent bg. With the
@@ -666,9 +667,13 @@ in both states.
    at both widths. Regeneration preserves the thread's activity timestamp and
    list position; a manual rename wins over a late result. Failure preserves the
    title and shows an error.
-   On hover, time swaps to the archive icon; active = persistent accent bg; a running
-   session shows "● Working" (green, 11px) left of the title; >6 threads →
-   "Show more" / "Show less" toggle row (the row remains available after
+   Wide thread rows have a 4px gap. Relative ages omit the suffix ("5m", "2h", "3d").
+   Trailing time labels align to the same right edge regardless of their width.
+   On hover, an idle, unsettled thread swaps its time for a circle-check Settle
+   action; settled rows keep their time. Active = persistent accent bg. A running
+   session shows its elapsed working time (blue, 11px, e.g. "1m 05s") in the
+   trailing timestamp slot, right-aligned with idle ages on the title line.
+   More than six threads add a "Show more" / "Show less" toggle row (available after
    expansion so the list can be collapsed again). Collapsing a project folder
    resets only that project's expanded thread list, including when collapsed
    in compact layout; reopening in wide layout shows at most six visible threads.
@@ -687,11 +692,64 @@ saved on the attached host and applies to both layouts, both window widths, and
 thread timestamps in the command palette. Parent/child groups stay together and
 sort by the parent's last user message; children sort by their own. Project
 recency follows the same parent timestamps. Settled and archive grouping, and
-unread markers, keep their existing behavior.
+completion markers, keep their existing behavior.
 
 Existing histories recover their timestamps from stored user-role messages and
 steering requests, which older logs cannot reliably distinguish from automated
 input. Threads with no timestamped user message use their creation time.
+
+At both widths and in both grouping modes, the former unread marker is
+**Completed / 已完成**, shown as a green success dot. Thread status dots sit
+immediately left of their time label: green for completed, blue for working.
+Both use a static, fully opaque 6px footprint. Both appearances put
+this pair at the trailing edge of the title line in wide layout. Compact rows
+put it in the subtitle after the project and status metadata. The title uses
+the available text width, and a parent's 44px child disclosure sits beside both
+lines, centered vertically at the right. The button does not add a third line
+of height. Compact rows have no extra gap between their inset separators.
+A muted 12px pencil beside the time indicates unsent prompt text, before any
+status dot. It appears while typing, remains when switching threads, and clears
+when that prompt is sent or erased. Whitespace alone does not show the icon.
+The tooltip and accessible label read **Unsent text / 未发送的文字**. This uses
+the window's existing in-memory composer drafts in wide and compact layouts.
+Project headers keep a green dot when a non-working top-level thread has that
+marker. The thread context menu offers **Mark completed / 标记为已完成**.
+The marker retains its last-visited behavior: opening the thread clears it, and child threads do not
+show it.
+
+Thread titles use 13px text in wide layout and 16px in compact layout. Project
+names use 14px in wide group headers and 11px in Recent metadata; compact project
+headers and metadata use 13px. Inline metadata uses an 18px line height, and time
+labels use 11px wide and 13px compact.
+Wide Inline project metadata includes 12px project artwork; compact metadata is text only, with project artwork in the leading slot when idle.
+
+Settings → General → Appearance offers **Thread appearance**, a client-local
+choice independent of Recent / By project and light / dark mode. **Inline** is
+the default arrangement described above. **Icon column** places 18px project artwork
+(or a child arrow) in a 28px column beside both lines, with 16px project metadata
+and a 14px time label, on the title line in wide layout and in the subtitle on
+compact. Wide Icon column rows are 60px tall; compact rows grow with content
+and retain a separate 44px disclosure target beside both lines.
+Child rows omit the project label in both appearances because their parent
+provides that context. Children whose parent is unavailable keep the project
+label when displayed as top-level rows.
+Switching is immediate and keeps thread selection, drafts and grouping; native
+clients and browsers remember the choice locally. Existing profiles use Inline.
+
+The built-in layouts are ordinary Rust modules under
+`crates/ui/src/sidebar/thread_row/`, selected by `ThreadAppearance`. Each owns its
+arrangement and wide row height. Shared controls own title editing, time/status
+and draft indicators, metadata and child disclosure; the sidebar retains list
+ordering, navigation and context menus. Adding a variant means adding a Rust
+module, enum/match arms and a localized settings option, then rebuilding the
+app. There is no external layout file or runtime plugin loader.
+
+Thread titles use the softer sidebar foreground, including the selected thread.
+Settled titles use 35% foreground opacity regardless of selection. Status glyphs
+and labels keep their semantic colors; secondary project and time metadata remain
+muted. Working durations update once per second from the host's current turn start timestamp,
+including parked threads and remote clients. Waiting-for-approval and input
+labels retain their existing wording. Compact rows use the same duration labels.
 
 In wide layout, the sidebar switches the content route directly: Machines
 replaces Chat in the content column, and selecting a thread, starting a draft,
@@ -1375,14 +1433,14 @@ queued.
 
 ### Settled threads
 
-The thread context menu offers **Settle / 标记为已完成** and, for settled threads,
+The thread context menu offers **Settle / 标记为已处理** and, for settled threads,
 **Make active / 恢复为活跃**. Settling applies to a thread and its descendants and
 is refused while any affected thread has running work, pending input or approval,
 or queued messages. It preserves the selected conversation, provider session,
 terminals and worktree. Archive remains a separate, reversible action; automatic
 archiving exempts settled threads.
 
-At both widths, active threads precede a collapsible **Settled / 已完成** group.
+At both widths, active threads precede a collapsible **Settled / 已处理** group.
 By project has one group inside each project; Recent has one group after active
 threads. Existing ordering and parent/child folds apply within each group. A
 settled parent cannot hide active descendants. Settled groups start collapsed,

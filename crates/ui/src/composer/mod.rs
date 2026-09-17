@@ -125,7 +125,7 @@ pub struct Composer {
     fallback_review_input: Entity<TextareaState>,
     fallback_review_seeded: Option<String>,
     /// Unsent text is isolated by persisted thread or project New thread page.
-    text_cache: ComposerTextCache,
+    text_cache: Entity<ComposerTextCache>,
     model_search: Entity<InputState>,
     context_window_custom: Entity<InputState>,
     context_window_custom_error: bool,
@@ -193,6 +193,10 @@ pub struct Composer {
 impl EventEmitter<ComposerEvent> for Composer {}
 
 impl Composer {
+    pub(crate) fn drafts(&self) -> Entity<ComposerTextCache> {
+        self.text_cache.clone()
+    }
+
     fn interactive(&self, cx: &App) -> bool {
         !self.workspace_store.read(cx).native_subagent_readonly()
             && !matches!(self.workspace_store.read(cx).connection_state(),
@@ -331,6 +335,12 @@ impl Composer {
                     }
                     // Refresh the send button's has-text state on draft edits.
                     InputEvent::Change => {
+                        let text = input.read(cx).value();
+                        this.text_cache.update(cx, |cache, cx| {
+                            if cache.update_current(&text) {
+                                cx.notify();
+                            }
+                        });
                         // An edit that did not come from the transcript writer
                         // ends dictation (see `components::voice`).
                         #[cfg(all(feature = "voice", target_os = "macos"))]
@@ -402,7 +412,7 @@ impl Composer {
             user_input_custom,
             fallback_review_input,
             fallback_review_seeded: None,
-            text_cache: ComposerTextCache::default(),
+            text_cache: cx.new(|_| ComposerTextCache::default()),
             model_search,
             context_window_custom,
             context_window_custom_error: false,
@@ -446,7 +456,10 @@ impl Composer {
             .with_composer_destination(composer_destination)
             .flatten();
         let outgoing_text = self.input.read(cx).value().to_string();
-        let Some(incoming_text) = self.text_cache.switch_to(destination, &outgoing_text) else {
+        let Some(incoming_text) = self
+            .text_cache
+            .update(cx, |cache, _| cache.switch_to(destination, &outgoing_text))
+        else {
             return;
         };
         // The dictation anchor belongs to the text we are about to swap out.
@@ -575,7 +588,10 @@ impl Composer {
                 .iter()
                 .map(|image| image.path.clone())
                 .collect();
-            self.text_cache.clear_current();
+            self.text_cache.update(cx, |cache, cx| {
+                cache.clear_current();
+                cx.notify();
+            });
             input.update(cx, |state, cx| state.set_value("", window, cx));
             self.pending_images.clear();
             self.image_load_generation = self.image_load_generation.wrapping_add(1);
@@ -591,7 +607,10 @@ impl Composer {
         if terminal_contexts.is_empty()
             && let Some(command) = slash_command(&text)
         {
-            self.text_cache.clear_current();
+            self.text_cache.update(cx, |cache, cx| {
+                cache.clear_current();
+                cx.notify();
+            });
             input.update(cx, |state, cx| state.set_value("", window, cx));
             match command {
                 SlashIntent::Plan => self.workspace_store.update(cx, |store, _cx| {
@@ -686,7 +705,10 @@ impl Composer {
     ) {
         #[cfg(all(feature = "voice", target_os = "macos"))]
         self.abort_dictation(cx);
-        self.text_cache.clear_current();
+        self.text_cache.update(cx, |cache, cx| {
+            cache.clear_current();
+            cx.notify();
+        });
         input.update(cx, |state, cx| state.set_value("", window, cx));
         self.pending_images.clear();
         self.image_load_generation = self.image_load_generation.wrapping_add(1);

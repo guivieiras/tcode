@@ -147,6 +147,11 @@ impl ClientHost for NativeClientHost {
         let prefs = self.prefs();
         let value = |key: &str| prefs.get(key).and_then(|v| v.as_str()).map(str::to_owned);
         ClientPreferences {
+            thread_appearance: prefs
+                .get("thread_appearance")
+                .cloned()
+                .and_then(|value| serde_json::from_value(value).ok())
+                .unwrap_or_default(),
             appearance: value("appearance"),
             language: value("language"),
             device_name: value("device_name"),
@@ -159,6 +164,7 @@ impl ClientHost for NativeClientHost {
 
     fn save_preferences(&self, preferences: &ClientPreferences) {
         let mut prefs = self.prefs();
+        prefs["thread_appearance"] = serde_json::json!(preferences.thread_appearance);
         prefs["appearance"] = serde_json::json!(preferences.appearance);
         prefs["language"] = serde_json::json!(preferences.language);
         prefs["device_name"] = serde_json::json!(preferences.device_name);
@@ -702,6 +708,7 @@ mod tests {
             Some("host-before-client-seam")
         );
         host.save_preferences(&ClientPreferences {
+            thread_appearance: tcode_client::host::ThreadAppearance::IconColumn,
             appearance: Some("light".into()),
             language: None,
             device_name: Some("Renamed".into()),
@@ -713,6 +720,11 @@ mod tests {
         assert_eq!(saved["last_host_id"], "host-before-client-seam");
         assert_eq!(saved["future_field"]["preserve"], true);
         assert_eq!(saved["appearance"], "light");
+        assert_eq!(saved["thread_appearance"], "icon_column");
+        assert_eq!(
+            host.load_preferences().thread_appearance,
+            tcode_client::host::ThreadAppearance::IconColumn
+        );
         assert_eq!(
             host.load_preferences().navigation.unwrap()["history"],
             serde_json::json!(["hosts", "threads"])
