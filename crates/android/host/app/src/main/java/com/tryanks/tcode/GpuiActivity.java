@@ -257,8 +257,8 @@ public final class GpuiActivity extends NativeActivity {
     }
 
     public void gpuiSelectionMenu(long input, int start, int end,
-            int left, int top, int right, int bottom, boolean copy, boolean cut, boolean paste) {
-        inputView.updateSelectionMenu(input, start, end, new Rect(left, top, right, bottom), copy, cut, paste);
+            int left, int top, int right, int bottom, boolean copy, boolean cut, boolean paste, boolean nativeInput) {
+        inputView.updateSelectionMenu(input, start, end, new Rect(left, top, right, bottom), copy, cut, paste, nativeInput);
     }
 
     public int[] gpuiRasterizeEmoji(int glyph, float size) throws java.io.IOException {
@@ -394,6 +394,8 @@ public final class GpuiActivity extends NativeActivity {
         private boolean canCopy;
         private boolean canCut;
         private boolean canPaste;
+        private boolean nativeSelectionInput = true;
+        private boolean caretMenu;
 
         GpuiInputView(Context context) {
             super(context);
@@ -410,7 +412,8 @@ public final class GpuiActivity extends NativeActivity {
             revision = nextRevision;
             textEditable = text != null;
             String value = textEditable ? text : "";
-            if (!value.contentEquals(editable)) editable.replace(0, editable.length(), value);
+            boolean contentChanged = !value.contentEquals(editable);
+            if (contentChanged) editable.replace(0, editable.length(), value);
             BaseInputConnection.removeComposingSpans(editable);
             if (composingStart >= 0) {
                 new BaseInputConnection(this, true) {
@@ -422,7 +425,7 @@ public final class GpuiActivity extends NativeActivity {
             InputMethodManager manager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             if (externalEdit) manager.restartInput(this);
             manager.updateSelection(this, selectionStart, selectionEnd, composingStart, composingEnd);
-            if (!textEditable || selectionStart == selectionEnd) finishSelectionMenu();
+            if (nativeSelectionInput && (!textEditable || contentChanged)) finishSelectionMenu();
         }
 
         private void publishInput(GpuiInputConnection.State state) {
@@ -440,9 +443,12 @@ public final class GpuiActivity extends NativeActivity {
         }
 
         void updateSelectionMenu(long input, int start, int end, Rect bounds,
-                boolean copy, boolean cut, boolean paste) {
+                boolean copy, boolean cut, boolean paste, boolean nativeInput) {
             boolean changed = input != selectionInput || start != menuStart || end != menuEnd;
-            boolean actionsChanged = copy != canCopy || cut != canCut || paste != canPaste;
+            boolean actionsChanged = changed || copy != canCopy || cut != canCut || paste != canPaste;
+            if (selectionMenuRequested) caretMenu = nativeInput && start == end;
+            else if (changed) caretMenu = false;
+            nativeSelectionInput = nativeInput;
             boolean boundsChanged = !selectionBounds.equals(bounds);
             selectionInput = input;
             menuStart = start;
@@ -452,7 +458,7 @@ public final class GpuiActivity extends NativeActivity {
             canCut = cut;
             canPaste = paste;
             if (connection != null) connection.setClipboardAccess(copy, cut, paste);
-            if (start == end) {
+            if (start == end && !caretMenu) {
                 finishSelectionMenu();
                 selectionMenuRequested = false;
                 return;
@@ -468,14 +474,24 @@ public final class GpuiActivity extends NativeActivity {
                         return true;
                     }
                     @Override public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-                        menu.findItem(android.R.id.copy).setVisible(canCopy);
-                        menu.findItem(android.R.id.cut).setVisible(canCut);
+                        menu.findItem(android.R.id.copy).setVisible(canCopy && menuStart != menuEnd);
+                        menu.findItem(android.R.id.cut).setVisible(canCut && menuStart != menuEnd);
                         ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                         menu.findItem(android.R.id.paste).setVisible(canPaste && clipboard.hasPrimaryClip());
+                        menu.findItem(android.R.id.selectAll).setVisible(!nativeSelectionInput || editable.length() > 0);
                         return true;
                     }
                     @Override public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-                        boolean handled = connection != null && connection.performContextMenuAction(item.getItemId());
+                        boolean handled;
+                        if (nativeSelectionInput) {
+                            handled = connection != null && connection.performContextMenuAction(item.getItemId());
+                        } else {
+                            // Read-only rendered text owns selection in GPUI, not the IME's Editable.
+                            int key = item.getItemId() == android.R.id.copy ? KeyEvent.KEYCODE_C : KeyEvent.KEYCODE_A;
+                            nativeKeyEvent(key, true, 0, KeyEvent.META_CTRL_ON);
+                            nativeKeyEvent(key, false, 0, KeyEvent.META_CTRL_ON);
+                            handled = true;
+                        }
                         if (handled && item.getItemId() != android.R.id.selectAll) mode.finish();
                         return handled;
                     }

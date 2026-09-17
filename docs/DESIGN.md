@@ -105,7 +105,10 @@ the selection. Long press and double tap expose Android's floating text toolbar
 for Copy, Cut, Paste and Select all. Keyboard editing commands use the same
 selection and edit transaction as the toolbar. Masked fields do not allow Copy
 or Cut, and read-only fields do not allow Cut or Paste. The toolbar follows the
-selection anchor and closes when the selection is cleared or input focus leaves.
+selection anchor. Holding blank space in the composer places the caret at the
+nearest text position and offers Paste and, when text exists, Select all; an
+empty composer also supports Paste. Sent messages and agent messages support
+word selection by long press and a read-only Copy / Select all toolbar.
 The centered chat/composer column is 720px wide at most. Desktop prose and
 composer text use 13.5px type with a 21px line height; metadata is smaller and
 muted, with monospace for paths, command text and numeric evidence.

@@ -367,7 +367,6 @@ impl MarkdownState {
         cx: &mut Context<Self>,
     ) -> bool {
         let width_changed = self.bounds.size.width != bounds.size.width;
-        let resized = self.bounds.size != bounds.size;
         let had_measured_height = self.measured_content_height.is_some();
         self.bounds = bounds;
 
@@ -379,7 +378,7 @@ impl MarkdownState {
                 // width-correct measuring frame before caching the new height.
                 self.list_state.reset(self.list_state.item_count());
                 cx.notify();
-                return resized;
+                return width_changed;
             }
         }
         if let Some(height) = measured_content_height
@@ -391,7 +390,7 @@ impl MarkdownState {
             // Re-enter the width-correct measuring pass on the next frame.
             cx.notify();
         }
-        resized
+        width_changed
     }
 
     fn list_content_height(&self) -> Option<Pixels> {
@@ -474,15 +473,18 @@ impl Render for MarkdownState {
                     )
                 };
                 let mut revision_changed = false;
-                let resized = state.update(cx, |state, cx| {
+                let width_changed = state.update(cx, |state, cx| {
                     revision_changed = state
                         .selection_adapter
                         .update_layout_revision(state.selection_revision, state.is_selecting);
                     let measured_height = state.list_content_height();
                     state.update_layout(bounds, measured_height, cx)
                 });
+                // Keyboard transitions can change height without reflowing text.
+                // Only a new width or content revision invalidates the endpoints.
                 if !is_selecting
-                    && ((resized && selection_involves_view) || (revision_changed && has_snapshot))
+                    && ((width_changed && selection_involves_view)
+                        || (revision_changed && has_snapshot))
                 {
                     gpui_base::TextSelection::clear(window, cx);
                 }

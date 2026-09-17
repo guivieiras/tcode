@@ -21,7 +21,8 @@ pub(super) fn select_word_at<M: InputModeKind>(
             return false;
         }
         let Some(index) = state.character_index_for_point(position, window, cx) else {
-            return false;
+            crate::touch_selection::select_at(position, 1, window, cx);
+            return true;
         };
         let text = state.text();
         let offset = text.offset_utf16_to_offset(index);
@@ -34,7 +35,9 @@ pub(super) fn select_word_at<M: InputModeKind>(
                 .split_word_bound_indices()
                 .find(|(start, word)| *start <= offset && offset < start + word.len())
             else {
-                return false;
+                state.focus_handle(cx).focus(window, cx);
+                state.set_selected_range(offset..offset, cx);
+                return true;
             };
             start..start + word.len()
         };
@@ -111,6 +114,7 @@ impl<M: InputModeKind> ConfiguredInput<M> {
             copy,
             copy && paste,
             paste,
+            true,
         );
     }
 }

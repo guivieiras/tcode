@@ -128,8 +128,9 @@ pub fn request_selection_menu() {
     with_activity("gpuiRequestSelectionMenu", "()V", Vec::new());
 }
 
-/// Synchronize the focused editor's selection anchor and allowed clipboard actions.
-/// Bounds are in physical pixels relative to the native window.
+/// Synchronize the focused text's selection anchor and clipboard actions.
+/// Bounds are in physical pixels relative to the native window. `native_input`
+/// routes commands through the IME; rendered text uses GPUI's Copy/SelectAll bindings.
 pub fn selection_menu(
     input: u64,
     selection: std::ops::Range<usize>,
@@ -137,10 +138,11 @@ pub fn selection_menu(
     copy: bool,
     cut: bool,
     paste: bool,
+    native_input: bool,
 ) {
     with_activity(
         "gpuiSelectionMenu",
-        "(JIIIIIIZZZ)V",
+        "(JIIIIIIZZZZ)V",
         vec![
             OwnedArgument::Long(input),
             OwnedArgument::Int(selection.start as i32),
@@ -152,6 +154,7 @@ pub fn selection_menu(
             OwnedArgument::Bool(copy),
             OwnedArgument::Bool(cut),
             OwnedArgument::Bool(paste),
+            OwnedArgument::Bool(native_input),
         ],
     );
 }
