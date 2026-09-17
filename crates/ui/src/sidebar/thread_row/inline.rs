@@ -61,10 +61,7 @@ pub(super) fn render(row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpui::A
             .child(time)
             .into_any_element();
     }
-    let project = row
-        .project(11., Some(12.), cx)
-        .map(|project| div().flex_1().min_w_0().child(project).into_any_element());
-    let has_project = project.is_some();
+    let project = row.project(11., Some(12.), cx);
     let metadata = row.metadata(project, None, cx);
     v_flex()
         .w_full()
@@ -88,11 +85,6 @@ pub(super) fn render(row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpui::A
                 .child(title)
                 .child(time),
         )
-        .child(
-            metadata
-                .w_full()
-                .when(!has_project, |line| line.child(div().flex_1()))
-                .children(disclosure),
-        )
+        .child(metadata.w_full().child(div().flex_1()).children(disclosure))
         .into_any_element()
 }
