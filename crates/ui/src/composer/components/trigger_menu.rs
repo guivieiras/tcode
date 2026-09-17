@@ -1,5 +1,7 @@
 use super::super::*;
-use crate::touch_scroll::TouchScrollExt as _;
+use crate::touch_scroll::{Handle, register};
+use gpui::EntityInputHandler as _;
+use gpui_base::{Scrollbar, ScrollbarMode};
 
 impl Composer {
     pub(in super::super) fn menu_visible(&self) -> bool {
@@ -10,10 +12,6 @@ impl Composer {
     /// highlight (and un-dismissing) when the trigger identity changes, and
     /// lazily loading the workspace listing for `@`-mentions.
     pub(in super::super) fn recompute_trigger(&mut self, cx: &mut Context<Self>) {
-        if self.compact {
-            self.active_trigger = None;
-            return;
-        }
         let (text, cursor) = {
             let state = self.input.read(cx);
             (state.value().to_string(), state.cursor())
@@ -24,6 +22,7 @@ impl Composer {
             .map(|t| format!("{:?}\u{1}{}", t.kind, t.query));
         if key != self.menu_last_key {
             self.menu_highlight = 0;
+            self.menu_scroll.set_offset(gpui::Point::default());
             self.menu_dismissed = false;
             self.menu_last_key = key;
         }
@@ -31,6 +30,38 @@ impl Composer {
             self.ensure_workspace(cx);
         }
         self.active_trigger = trigger;
+    }
+
+    pub(in super::super) fn move_menu_highlight(&mut self, down: bool, cx: &mut Context<Self>) {
+        if !self.menu_visible() {
+            return;
+        }
+        let (rows, _, _) = self.menu_rows(cx);
+        let last = rows.len().saturating_sub(1);
+        self.menu_highlight = self.menu_highlight.min(last);
+        if down {
+            self.menu_highlight = (self.menu_highlight + 1).min(last);
+        } else {
+            self.menu_highlight = self.menu_highlight.saturating_sub(1);
+        }
+        // Headers occupy scroll children but are not selectable options.
+        let mut last_group = None;
+        let headers = rows
+            .iter()
+            .take(self.menu_highlight + 1)
+            .filter(|row| {
+                if row.group.is_some() && row.group != last_group {
+                    last_group = row.group;
+                    true
+                } else {
+                    false
+                }
+            })
+            .count();
+        self.menu_scroll
+            .scroll_to_item(self.menu_highlight + headers);
+        cx.stop_propagation();
+        cx.notify();
     }
 
     /// Load the workspace file/folder listing for the active session cwd in the
@@ -200,6 +231,8 @@ impl Composer {
         };
         let replacement = replacement.to_string();
         self.input.update(cx, |state, cx| {
+            // An IME's composing range must not override the selected trigger.
+            state.unmark_text(window, cx);
             state.set_selected_range(trigger.range.clone(), cx);
             state.replace(replacement.clone(), window, cx);
         });
@@ -247,6 +280,7 @@ impl Composer {
     /// card. `None` when no trigger is active (or it was dismissed).
     pub(in super::super) fn render_trigger_menu(
         &self,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         if !self.menu_visible() {
@@ -256,7 +290,20 @@ impl Composer {
         let muted = cx.theme().muted_foreground;
         let highlight = self.menu_highlight.min(rows.len().saturating_sub(1));
 
-        let mut list = v_flex().w_full().p_1().gap_0p5();
+        let insets = crate::window_seam::WindowSeam::current(cx).content_insets();
+        let available_height = window.viewport_size().height - insets.top - insets.bottom;
+        let mut list = v_flex()
+            .id("composer-trigger-menu")
+            .debug_selector(|| "composer-trigger-menu".into())
+            .role(Role::ListBox)
+            .aria_label(crate::tr!("composer.trigger_results"))
+            .flex_none()
+            .w_full()
+            .max_h(px(288.).min(available_height / 3.))
+            .overflow_y_scroll()
+            .track_scroll(&self.menu_scroll)
+            .p_1()
+            .gap_0p5();
         if rows.is_empty() {
             list = list.child(
                 div()
@@ -308,6 +355,7 @@ impl Composer {
                 list = list.child(
                     h_flex()
                         .id(("menu-row", index))
+                        .debug_selector(move || format!("composer-trigger-row-{index}"))
                         .role(Role::ListBoxOption)
                         .aria_label(accessible_label)
                         .aria_selected(is_active)
@@ -325,7 +373,10 @@ impl Composer {
                         .child(icon.small().text_color(muted))
                         .child(
                             div()
-                                .flex_none()
+                                .max_w_full()
+                                .min_w_0()
+                                .overflow_hidden()
+                                .text_ellipsis()
                                 .text_size(px(13.))
                                 .font_medium()
                                 .child(row.primary.clone()),
@@ -357,18 +408,24 @@ impl Composer {
 
         Some(
             div()
-                .id("composer-trigger-menu")
-                .role(Role::ListBox)
-                .aria_label(crate::tr!("composer.trigger_results"))
+                .relative()
+                .flex_none()
                 .w_full()
-                .max_h(px(288.))
-                .touch_overflow_y_scroll()
-                .rounded(crate::material::radius_overlay())
-                .border_1()
-                .border_color(cx.theme().border)
-                .bg(cx.theme().popover)
-                .shadow_xl()
-                .child(list)
+                .child(register(
+                    list.rounded(crate::material::radius_overlay())
+                        .border_1()
+                        .border_color(cx.theme().border)
+                        .bg(cx.theme().popover)
+                        .shadow_xl(),
+                    Handle::Scroll(self.menu_scroll.clone()),
+                ))
+                .child(
+                    div().absolute().inset_0().child(
+                        Scrollbar::vertical(&self.menu_scroll)
+                            .id("composer-trigger-scrollbar")
+                            .mode(ScrollbarMode::Always),
+                    ),
+                )
                 .with_animation(
                     "composer-trigger-menu-pop-in",
                     Animation::new(Duration::from_millis(150)),
