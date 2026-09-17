@@ -5,8 +5,10 @@ edition = "2024"
 
 [features]
 test-support = []
+t3-import = ["dep:rusqlite"]
 
 [dependencies]
+rusqlite = { version = "0.37", features = ["bundled"], optional = true }
 agent = { path = "../agent" }
 tcode-core = { path = "../core" }
 tcode-protocol = { path = "../protocol" }

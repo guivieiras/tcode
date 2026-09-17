@@ -98,6 +98,7 @@ pub fn spawn_host(store: SessionStore, mut services: HostServices) -> std::io::R
     fn assert_send<T: Send>() {}
     assert_send::<AppState>();
 
+    let store_lock = store.lock_exclusive(true)?;
     let (client_tx, client_rx) = async_channel::unbounded::<String>();
     let (event_tx, event_rx) = async_channel::unbounded::<String>();
     let (stopped_tx, stopped_rx) = smol::channel::bounded(1);
@@ -120,6 +121,7 @@ pub fn spawn_host(store: SessionStore, mut services: HostServices) -> std::io::R
     std::thread::Builder::new()
         .name("tcode-host".into())
         .spawn(move || {
+            let _store_lock = store_lock;
             let mut state = AppState::with_ai_titles(store, services.ai_title_generation);
             if let Some((url, tokens)) = preview_registration {
                 state.attach_preview_mcp(url, tokens);
@@ -145,6 +147,7 @@ pub fn spawn_host(store: SessionStore, mut services: HostServices) -> std::io::R
             state.sync_terminal_handles();
             let _ = ready_tx.send(());
             smol::block_on(host_loop(state, cx, client_rx, mailbox_rx));
+            drop(_store_lock);
             let _ = stopped_tx.send_blocking(());
         })?;
     ready_rx.recv().map_err(|error| {
@@ -433,6 +436,13 @@ fn dispatch_command(app: &mut AppState, cx: &mut HostCx, command: Command) -> Co
             Ok(project_id) => response = CommandResponse::ProjectId(Some(project_id)),
             Err(error) => return CommandOutcome::Immediate(Err(error)),
         },
+        Command::StartT3Import {
+            project_id,
+            profiles,
+        } => match app.start_t3_import(&project_id, profiles, cx) {
+            Ok(started) => response = CommandResponse::ExternalImportStarted(started),
+            Err(error) => return CommandOutcome::Immediate(Err(error)),
+        },
         Command::StartExternalImport {
             project_id,
             threads,
@@ -607,6 +617,17 @@ fn dispatch_query(
                 .map(|active| active.meta.cwd.clone());
             let task = app.list_workspace_at(cwd, cx);
             cx.spawn_background(async move { Ok(QueryResponse::ActiveWorkspace(task.await)) })
+        }
+        Query::InspectT3Project { root } => {
+            let task = app.inspect_t3_project(root, cx);
+            cx.spawn_background(async move {
+                task.await
+                    .map(QueryResponse::T3Project)
+                    .map_err(|message| ProtocolError {
+                        code: "t3_inspection_failed".into(),
+                        message,
+                    })
+            })
         }
         Query::ScanExternalHistory => {
             let task = app.scan_external_history(cx);

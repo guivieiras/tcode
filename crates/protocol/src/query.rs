@@ -24,6 +24,9 @@ pub enum Query {
         session_id: String,
     },
     ScanExternalHistory,
+    InspectT3Project {
+        root: PathBuf,
+    },
     GenerateCommitMessage {
         session_id: String,
         included: Option<Vec<String>>,
@@ -113,7 +116,8 @@ pub enum QueryResponse {
         parent: Option<PathBuf>,
         entries: Vec<IconImageEntry>,
     },
-    ExternalHistory(Vec<RecentDir>),
+    ExternalHistory(ExternalHistoryScan),
+    T3Project(Option<T3ProjectHistory>),
     CommitMessage(String),
     GitDiff(GitDiffResult),
     FileBytes(#[serde(with = "crate::wire::base64_bytes")] Vec<u8>),
@@ -243,12 +247,37 @@ pub struct ExternalThread {
     pub last_active_ms: u64,
 }
 
+/// T3 history for a recent project. Only custom instances need a profile choice.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct T3ProjectHistory {
+    pub title: String,
+    pub profiles: Vec<T3ImportProfile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct T3ImportProfile {
+    pub id: String,
+    pub provider: agent::ProviderKind,
+}
+
+/// Native recent directories, annotated with T3 source counts when its database
+/// can be read. A T3 scan failure leaves the native choices available.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExternalHistoryScan {
+    pub directories: Vec<RecentDir>,
+    pub t3_error: Option<String>,
+}
+
 /// Recently active directory containing external threads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecentDir {
     pub path: PathBuf,
     pub last_active_ms: u64,
+    /// Complete native fallback, including transcripts also represented in T3.
     pub threads: Vec<ExternalThread>,
+    /// Counts for the recent row, with matching T3/native identities counted once.
+    #[serde(default)]
+    pub source_counts: std::collections::HashMap<SourceTool, usize>,
 }
 
 /// Fresh history and backwards pages are bounded independently of live cursors.

@@ -7,7 +7,7 @@
 //! and the attachment is local, and never as a substitute for the host's own
 //! judgment about a path.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
 use crate::overlay::{DialogActions, OverlayExt as _};
@@ -42,6 +42,23 @@ enum RecentState {
     Failed(String),
 }
 
+#[derive(Clone)]
+enum ImportChoice {
+    Checking,
+    T3 {
+        history: tcode_protocol::T3ProjectHistory,
+        profiles: BTreeMap<String, String>,
+    },
+    Native,
+    Failed(String),
+}
+
+#[derive(Clone)]
+struct RecentConfirmation {
+    recent: RecentDir,
+    choice: ImportChoice,
+}
+
 /// Whether this build can put up a directory picker at all.
 const NATIVE_DIRECTORY_PICKER: bool = cfg!(feature = "native-dialogs");
 
@@ -49,17 +66,19 @@ pub(super) struct AddProjectDialog {
     store: Entity<WorkspaceStore>,
     path_input: Entity<InputState>,
     recent: RecentState,
+    scan_warning: Option<String>,
     /// The last failure to show under the path row. Host-authored where the
     /// host produced it, so the user reads the host's own reason.
     error: Option<String>,
+    confirmation: Option<RecentConfirmation>,
+    busy: bool,
 }
 
 pub(super) fn open(store: Entity<WorkspaceStore>, window: &mut Window, cx: &mut App) {
     let dialog = cx.new(|cx| AddProjectDialog::new(store, window, cx));
     dialog.update(cx, |dialog, cx| dialog.scan(cx));
     let content = dialog.clone();
-    let footer = dialog.clone();
-    window.open_dialog(cx, move |builder, window, cx| {
+    window.open_dialog(cx, move |builder, _, cx| {
         let dialog_content = content.clone();
         builder
             .w(px(680.))
@@ -70,7 +89,6 @@ pub(super) fn open(store: Entity<WorkspaceStore>, window: &mut Window, cx: &mut 
             .shadow_xl()
             .title(crate::tr!("sidebar.add_project").into_owned())
             .content(move |content_el, _, _| content_el.child(dialog_content.clone()))
-            .footer(render_add_footer(&footer, window, cx))
     });
 }
 
@@ -85,7 +103,10 @@ impl AddProjectDialog {
             store,
             path_input,
             recent: RecentState::Loading,
+            scan_warning: None,
             error: None,
+            confirmation: None,
+            busy: false,
         }
     }
 
@@ -103,7 +124,10 @@ impl AddProjectDialog {
             let recent = recent.await;
             let _ = this.update(cx, |dialog, cx| {
                 dialog.recent = match recent {
-                    Ok(recent) => RecentState::Ready(recent),
+                    Ok(scan) => {
+                        dialog.scan_warning = scan.t3_error;
+                        RecentState::Ready(scan.directories)
+                    }
                     Err(error) => RecentState::Failed(error),
                 };
                 cx.notify();
@@ -147,7 +171,12 @@ impl AddProjectDialog {
     }
 
     fn create_draft(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        self.busy = true;
         self.error = None;
+        cx.notify();
         let create = self
             .store
             .update(cx, |store, cx| store.create_project(path.clone(), cx));
@@ -178,11 +207,106 @@ impl AddProjectDialog {
     }
 
     fn fail(&mut self, reason: String, cx: &mut Context<Self>) {
+        self.busy = false;
         self.error = Some(crate::tr!("sidebar.path_rejected", reason = reason).into_owned());
         cx.notify();
     }
 
-    fn choose_recent(&mut self, recent: RecentDir, window: &mut Window, cx: &mut Context<Self>) {
+    fn choose_recent(&mut self, recent: RecentDir, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        self.error = None;
+        self.confirmation = Some(RecentConfirmation {
+            recent: recent.clone(),
+            choice: ImportChoice::Checking,
+        });
+        let inspect = self.store.update(cx, |store, cx| {
+            store.inspect_t3_project(recent.path.clone(), cx)
+        });
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let result = inspect.await;
+            let _ = this.update(cx, |dialog, cx| {
+                let Some(confirmation) = &mut dialog.confirmation else {
+                    return;
+                };
+                if confirmation.recent.path != recent.path
+                    || !matches!(confirmation.choice, ImportChoice::Checking)
+                {
+                    return;
+                }
+                confirmation.choice = match result {
+                    Ok(Some(history)) => ImportChoice::T3 {
+                        history,
+                        profiles: BTreeMap::new(),
+                    },
+                    Ok(None) => ImportChoice::Native,
+                    Err(error) => ImportChoice::Failed(error),
+                };
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn cancel_recent(&mut self, cx: &mut Context<Self>) {
+        self.confirmation = None;
+        self.error = None;
+        cx.notify();
+    }
+
+    fn decline_recent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(confirmation) = &mut self.confirmation else {
+            return;
+        };
+        match confirmation.choice {
+            ImportChoice::T3 { .. } | ImportChoice::Failed(_) => {
+                confirmation.choice = ImportChoice::Native;
+                self.error = None;
+                cx.notify();
+            }
+            ImportChoice::Native => {
+                let path = confirmation.recent.path.clone();
+                self.create_draft(path, window, cx);
+            }
+            ImportChoice::Checking => {}
+        }
+    }
+
+    fn confirm_recent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(confirmation) = self.confirmation.clone() else {
+            return;
+        };
+        let profiles = match confirmation.choice {
+            ImportChoice::T3 { history, profiles } => {
+                if history
+                    .profiles
+                    .iter()
+                    .any(|profile| !profiles.contains_key(&profile.id))
+                {
+                    return;
+                }
+                Some(profiles)
+            }
+            ImportChoice::Native => None,
+            _ => return,
+        };
+        self.begin_import(confirmation.recent, profiles, window, cx);
+    }
+
+    fn begin_import(
+        &mut self,
+        recent: RecentDir,
+        profiles: Option<BTreeMap<String, String>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.busy {
+            return;
+        }
+        self.busy = true;
+        cx.notify();
         self.error = None;
         let path = recent.path.clone();
         let create = self
@@ -209,7 +333,10 @@ impl AddProjectDialog {
             // retained status snapshot.
             let import = store.update(cx, |store, cx| {
                 store.watch_external_import(&project_id);
-                store.start_external_import(&project_id, threads, cx)
+                match profiles {
+                    Some(profiles) => store.start_t3_import(&project_id, profiles, cx),
+                    None => store.start_external_import(&project_id, threads, cx),
+                }
             });
             let started = import.await;
             if !matches!(started, Ok(CommandResponse::ExternalImportStarted(true))) {
@@ -221,6 +348,7 @@ impl AddProjectDialog {
                     _ => crate::tr!("sidebar.import_refused").into_owned(),
                 };
                 let _ = this.update_in(cx, |dialog, _, cx| {
+                    dialog.busy = false;
                     dialog.error =
                         Some(crate::tr!("sidebar.import_failed", reason = reason).into_owned());
                     cx.notify();
@@ -250,6 +378,122 @@ impl AddProjectDialog {
             });
         })
         .detach();
+    }
+
+    fn render_confirmation(
+        &self,
+        confirmation: RecentConfirmation,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let (message, can_accept, can_decline) = match &confirmation.choice {
+            ImportChoice::Checking => (
+                crate::tr!("sidebar.import_checking").into_owned(),
+                false,
+                false,
+            ),
+            ImportChoice::T3 { history, profiles } => (
+                crate::tr!("sidebar.import_t3_confirm", name = history.title.clone()).into_owned(),
+                history
+                    .profiles
+                    .iter()
+                    .all(|profile| profiles.contains_key(&profile.id)),
+                true,
+            ),
+            ImportChoice::Native => (
+                crate::tr!(
+                    "sidebar.import_native_confirm",
+                    tools = tool_counts(&confirmation.recent.threads)
+                )
+                .into_owned(),
+                true,
+                true,
+            ),
+            ImportChoice::Failed(error) => (
+                crate::tr!("sidebar.import_t3_check_failed", reason = error.clone()).into_owned(),
+                false,
+                true,
+            ),
+        };
+        let mut content = v_flex()
+            .gap_3()
+            .child(
+                div()
+                    .text_size(px(13.))
+                    .font_semibold()
+                    .child(directory_name(&confirmation.recent.path)),
+            )
+            .child(div().text_size(px(13.)).child(message));
+        if let ImportChoice::T3 { history, profiles } = &confirmation.choice {
+            let settings = self.store.read(cx).settings();
+            for source in &history.profiles {
+                let mut choices = h_flex().gap_2().flex_wrap();
+                for profile in settings.profiles_for_kind(source.provider) {
+                    let source_id = source.id.clone();
+                    let selected = profiles.get(&source.id) == Some(&profile.id);
+                    choices = choices.child(
+                        Button::new(format!("import-profile-{}-{}", source.id, profile.id))
+                            .label(settings.profile_display_name(&profile.id))
+                            .when(selected, |button| button.primary())
+                            .disabled(self.busy)
+                            .on_click(cx.listener(move |dialog, _, _, cx| {
+                                if let Some(RecentConfirmation {
+                                    choice: ImportChoice::T3 { profiles, .. },
+                                    ..
+                                }) = &mut dialog.confirmation
+                                {
+                                    profiles.insert(source_id.clone(), profile.id.clone());
+                                    cx.notify();
+                                }
+                            })),
+                    );
+                }
+                content = content.child(
+                    v_flex()
+                        .gap_2()
+                        .child(div().text_size(px(12.)).child(crate::tr!(
+                            "sidebar.import_profile",
+                            name = source.id.clone()
+                        )))
+                        .child(choices),
+                );
+            }
+        }
+        content
+            .when_some(self.error.clone(), |column, error| {
+                column.child(
+                    div()
+                        .text_size(px(12.))
+                        .text_color(cx.theme().danger)
+                        .child(error),
+                )
+            })
+            .child(
+                DialogActions::new()
+                    .child(
+                        Button::new("import-cancel")
+                            .label(crate::tr!("sidebar.cancel"))
+                            .disabled(self.busy)
+                            .on_click(cx.listener(|dialog, _, _, cx| dialog.cancel_recent(cx))),
+                    )
+                    .child(
+                        Button::new("import-no")
+                            .label(crate::tr!("sidebar.import_no"))
+                            .disabled(self.busy || !can_decline)
+                            .on_click(cx.listener(|dialog, _, window, cx| {
+                                dialog.decline_recent(window, cx)
+                            })),
+                    )
+                    .child(
+                        Button::new("import-yes")
+                            .primary()
+                            .label(crate::tr!("sidebar.import_yes"))
+                            .disabled(self.busy || !can_accept)
+                            .on_click(cx.listener(|dialog, _, window, cx| {
+                                dialog.confirm_recent(window, cx)
+                            })),
+                    ),
+            )
+            .into_any_element()
     }
 
     fn render_recent(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
@@ -286,7 +530,11 @@ impl AddProjectDialog {
                         crate::tr!("sidebar.open_recent", name = name.clone()).into_owned();
                     let path = middle_truncate(&recent.path, 76);
                     let ago = humanize_ago(now_secs().saturating_sub(recent.last_active_ms / 1000));
-                    let counts = tool_counts(&recent.threads);
+                    let counts = if recent.source_counts.is_empty() {
+                        tool_counts(&recent.threads)
+                    } else {
+                        format_tool_counts(&recent.source_counts)
+                    };
                     rows = rows.child(
                         crate::material::accessible_clickable(
                             v_flex(),
@@ -353,6 +601,9 @@ impl AddProjectDialog {
 
 impl Render for AddProjectDialog {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some(confirmation) = self.confirmation.clone() {
+            return self.render_confirmation(confirmation, cx);
+        }
         let host = self.store.read(cx).remote_host_name().map(str::to_owned);
         let recent_label = match &host {
             Some(host) => crate::tr!("sidebar.recent_activity_host", host = host).into_owned(),
@@ -368,6 +619,17 @@ impl Render for AddProjectDialog {
                 v_flex()
                     .gap_2()
                     .child(div().text_size(px(13.)).font_semibold().child(recent_label))
+                    .when_some(self.scan_warning.clone(), |column, reason| {
+                        column.child(
+                            div()
+                                .text_size(px(12.))
+                                .text_color(cx.theme().danger)
+                                .child(crate::tr!(
+                                    "sidebar.import_t3_scan_failed",
+                                    reason = reason
+                                )),
+                        )
+                    })
                     .child(self.render_recent(window, cx)),
             )
             .child(
@@ -410,6 +672,8 @@ impl Render for AddProjectDialog {
                         )
                     }),
             )
+            .child(render_add_footer(&cx.entity(), window, cx))
+            .into_any_element()
     }
 }
 
@@ -459,6 +723,12 @@ impl Render for ImportProgress {
             }
             _ => None,
         };
+        let failure = match &state {
+            Some(ExternalImportState::Failed { message }) => Some(message.clone()),
+            _ => None,
+        };
+        let finished =
+            failure.is_some() || matches!(state, Some(ExternalImportState::Finished { .. }));
         let summary = match state {
             Some(ExternalImportState::Finished { imported, skipped }) => Some((imported, skipped)),
             _ => None,
@@ -490,32 +760,41 @@ impl Render for ImportProgress {
                 )
             })
             .when_some(summary, |column, (imported, skipped)| {
-                column
-                    .child(
-                        div()
-                            .text_size(px(13.))
-                            .font_semibold()
-                            .text_color(cx.theme().foreground)
-                            .child(crate::tr!(
-                                "sidebar.import_summary",
-                                imported = imported,
-                                skipped = skipped
-                            )),
-                    )
-                    .child(
-                        h_flex().w_full().justify_end().child(
-                            Button::new("external-import-ok")
-                                .rounded(crate::material::radius_button())
-                                .primary()
-                                .label(crate::tr!("sidebar.import_ok"))
-                                .on_click(move |_, window, cx| {
-                                    store.update(cx, |store, _cx| {
-                                        store.unwatch_external_import(&project_id);
-                                    });
-                                    window.close_dialog(cx);
-                                }),
-                        ),
-                    )
+                column.child(
+                    div()
+                        .text_size(px(13.))
+                        .font_semibold()
+                        .text_color(cx.theme().foreground)
+                        .child(crate::tr!(
+                            "sidebar.import_summary",
+                            imported = imported,
+                            skipped = skipped
+                        )),
+                )
+            })
+            .when_some(failure, |column, error| {
+                column.child(
+                    div()
+                        .text_size(px(13.))
+                        .text_color(cx.theme().danger)
+                        .child(error),
+                )
+            })
+            .when(finished, |column| {
+                column.child(
+                    h_flex().w_full().justify_end().child(
+                        Button::new("external-import-ok")
+                            .rounded(crate::material::radius_button())
+                            .primary()
+                            .label(crate::tr!("sidebar.import_ok"))
+                            .on_click(move |_, window, cx| {
+                                store.update(cx, |store, _cx| {
+                                    store.unwatch_external_import(&project_id);
+                                });
+                                window.close_dialog(cx);
+                            }),
+                    ),
+                )
             })
     }
 }
@@ -574,10 +853,14 @@ fn tool_counts(threads: &[ExternalThread]) -> String {
     for thread in threads {
         *counts.entry(thread.source).or_insert(0_usize) += 1;
     }
+    format_tool_counts(&counts)
+}
+
+fn format_tool_counts(counts: &HashMap<SourceTool, usize>) -> String {
     [
+        SourceTool::T3Code,
         SourceTool::ClaudeCode,
         SourceTool::ClaudeDesktop,
-        SourceTool::T3Code,
         SourceTool::CodexCli,
         SourceTool::CodexDesktop,
     ]
@@ -688,5 +971,123 @@ mod tests {
 
         host.shutdown_blocking().expect("stop host");
         let _ = std::fs::remove_dir_all(root);
+    }
+    #[gpui::test]
+    fn recent_imports_confirm_sources_before_creating_a_project(cx: &mut TestAppContext) {
+        use tcode_protocol::{
+            ClientPayload, HostMessage, Query, QueryResponse, T3ImportProfile, T3ProjectHistory,
+        };
+        cx.update(crate::theme::init);
+        let (to_host, requests) = async_channel::unbounded();
+        let (replies, from_host) = async_channel::unbounded();
+        let link = tcode_client::HostLink::new(to_host, from_host);
+        let pump_link = link.clone();
+        let executor = cx.background_executor.clone();
+        let _pump = cx.background_executor.spawn(async move {
+            pump_link
+                .pump_with_timer(|| executor.timer(std::time::Duration::from_millis(25)))
+                .await;
+        });
+        let store = cx.new(|cx| {
+            WorkspaceStore::new_attached(link, WorkspaceAttachment::Local, None, false, cx)
+        });
+        let mut view = None;
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let dialog = cx.new(|cx| AddProjectDialog::new(store, window, cx));
+            view = Some(dialog.clone());
+            crate::overlay::OverlayHost::new(dialog, window, cx)
+        });
+        let dialog = view.unwrap();
+        while requests.try_recv().is_ok() {}
+        for width in [393., 1000.] {
+            cx.simulate_resize(gpui::size(px(width), px(800.)));
+            for choice in ["cancel_check", "t3", "native", "failed"] {
+                let recent = RecentDir {
+                    path: PathBuf::from("/host/project"),
+                    last_active_ms: 0,
+                    source_counts: HashMap::new(),
+                    threads: vec![ExternalThread {
+                        source: SourceTool::CodexCli,
+                        file: PathBuf::from("/host/native.jsonl"),
+                        external_id: "codex:native".into(),
+                        title_hint: None,
+                        last_active_ms: 0,
+                    }],
+                };
+                cx.update(|window, cx| {
+                    dialog.update(cx, |dialog, cx| {
+                        dialog.choose_recent(recent.clone(), window, cx)
+                    })
+                });
+                cx.run_until_parked();
+                let message =
+                    tcode_protocol::decode_client_line(&requests.try_recv().unwrap()).unwrap();
+                assert_eq!(
+                    message.payload,
+                    ClientPayload::Query(Query::InspectT3Project { root: recent.path })
+                );
+                assert!(
+                    requests.is_empty(),
+                    "selection must only inspect, never create or import"
+                );
+                if choice == "cancel_check" {
+                    cx.update(|_, cx| dialog.update(cx, |dialog, cx| dialog.cancel_recent(cx)));
+                }
+                let result = match choice {
+                    "native" => Ok(QueryResponse::T3Project(None)),
+                    "failed" => Err(tcode_protocol::ProtocolError {
+                        code: "t3_inspection_failed".into(),
+                        message: "Unreadable T3 history".into(),
+                    }),
+                    _ => Ok(QueryResponse::T3Project(Some(T3ProjectHistory {
+                        title: "T3 title".into(),
+                        profiles: vec![T3ImportProfile {
+                            id: "Custom".into(),
+                            provider: agent::ProviderKind::Codex,
+                        }],
+                    }))),
+                };
+                replies
+                    .try_send(
+                        tcode_protocol::encode_line(&HostMessage::QueryResult {
+                            id: message.id,
+                            result,
+                        })
+                        .unwrap(),
+                    )
+                    .unwrap();
+                cx.run_until_parked();
+                assert!(requests.is_empty(), "inspection must not start a write");
+                if choice == "cancel_check" {
+                    assert!(dialog.read_with(cx, |dialog, _| dialog.confirmation.is_none()));
+                    continue;
+                }
+                if choice == "t3" {
+                    cx.update(|window, cx| {
+                        dialog.update(cx, |dialog, cx| dialog.confirm_recent(window, cx))
+                    });
+                    cx.run_until_parked();
+                    assert!(
+                        requests.is_empty(),
+                        "custom T3 instances need an explicit profile choice"
+                    );
+                }
+                if matches!(choice, "t3" | "failed") {
+                    cx.update(|window, cx| {
+                        dialog.update(cx, |dialog, cx| dialog.decline_recent(window, cx))
+                    });
+                }
+                assert!(dialog.read_with(cx, |dialog, _| matches!(
+                    dialog.confirmation.as_ref().unwrap().choice,
+                    ImportChoice::Native
+                )));
+                cx.update(|_, cx| dialog.update(cx, |dialog, cx| dialog.cancel_recent(cx)));
+                cx.run_until_parked();
+                assert!(
+                    requests.is_empty(),
+                    "No to T3 and Cancel must not create a project"
+                );
+            }
+        }
     }
 }
