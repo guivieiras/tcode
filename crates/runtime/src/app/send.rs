@@ -227,9 +227,9 @@ impl AppState {
         if let Some(active) = self.resident(target_id)
             && active.draft
             && !active.preparing_worktree
-            && let WorkspaceMode::NewWorktree { base } = active.draft_workspace.clone()
+            && let WorkspaceMode::NewWorktree { name, base } = active.draft_workspace.clone()
         {
-            self.begin_worktree_prep(target_id, text, attachments, base, cx);
+            self.begin_worktree_prep(target_id, text, attachments, name, base, cx);
             return;
         }
 

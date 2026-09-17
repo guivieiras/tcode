@@ -363,6 +363,9 @@ pub enum Command {
     LoadBranches {
         session_id: String,
     },
+    LoadWorktrees {
+        session_id: String,
+    },
     CheckoutBranch {
         session_id: String,
         branch: String,
@@ -449,6 +452,7 @@ impl Command {
             | Self::SavePlanToWorkspace { session_id, .. }
             | Self::DownloadPlan { session_id, .. }
             | Self::LoadBranches { session_id, .. }
+            | Self::LoadWorktrees { session_id, .. }
             | Self::CheckoutBranch { session_id, .. }
             | Self::SetActiveApprovalMode { session_id, .. }
             | Self::RewindTurn { session_id, .. } => Some(session_id),
@@ -472,6 +476,7 @@ impl Command {
                 | Self::CheckProviderVersions
                 | Self::RefreshAcpRegistry
                 | Self::LoadBranches { .. }
+                | Self::LoadWorktrees { .. }
                 | Self::CopyPlan { .. }
                 | Self::DownloadPlan { .. }
         )

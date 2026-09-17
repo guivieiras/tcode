@@ -948,7 +948,17 @@ impl AppState {
         }
         self.close_orchestrator_children(session_id, cx);
         let worktree_remove = meta.as_ref().and_then(|meta| {
-            (remove_worktree && meta.worktree.is_some()).then(|| {
+            let shared = self
+                .sessions
+                .iter()
+                .any(|other| other.id != session_id && other.cwd == meta.cwd)
+                || self
+                    .residents
+                    .live
+                    .values()
+                    .chain(self.residents.parked.values())
+                    .any(|other| other.meta.id != session_id && other.meta.cwd == meta.cwd);
+            (remove_worktree && meta.worktree.is_some() && !shared).then(|| {
                 let worktree = meta.worktree.as_ref().unwrap();
                 (worktree.root_project_path.clone(), meta.cwd.clone())
             })
@@ -1088,9 +1098,16 @@ impl AppState {
             .iter()
             .map(|session| session.id.clone())
             .collect();
+        let used_paths = self
+            .sessions
+            .iter()
+            .map(|session| session.cwd.clone())
+            .collect::<Vec<_>>();
         let host_cx = cx.clone();
         HostCx::spawn_detached(cx, async move {
-            let summary = host_cx.unblock(move || cleanup_orphans(&known_ids)).await;
+            let summary = host_cx
+                .unblock(move || cleanup_orphans(&known_ids, &used_paths))
+                .await;
             if !summary.removed.is_empty() || !summary.skipped.is_empty() {
                 log::info!(
                     "worktree orphan recovery removed {}, left {}",
@@ -1103,9 +1120,36 @@ impl AppState {
 
     /// Choose the draft's workspace mode (checkout-row picker). No-op unless the
     /// active thread is an unstarted draft.
-    pub fn set_draft_workspace(&mut self, target_id: &str, mode: WorkspaceMode, _cx: &mut HostCx) {
-        if let Some(active) = self.resident_mut(target_id).filter(|a| a.draft) {
-            active.draft_workspace = mode;
+    pub fn set_draft_workspace(&mut self, target_id: &str, mode: WorkspaceMode, cx: &mut HostCx) {
+        let Some(active) = self
+            .resident(target_id)
+            .filter(|a| a.draft && !a.preparing_worktree)
+        else {
+            return;
+        };
+        let cwd = match &mode {
+            WorkspaceMode::ExistingWorktree { path } => {
+                if !active.worktrees.contains(path) {
+                    return;
+                }
+                path.clone()
+            }
+            _ => self
+                .projects
+                .iter()
+                .find(|p| Some(&p.id) == active.meta.project_id.as_ref())
+                .map(|p| p.root.clone())
+                .unwrap_or_else(|| active.meta.cwd.clone()),
+        };
+        let active = self.resident_mut(target_id).unwrap();
+        let cwd_changed = active.meta.cwd != cwd;
+        active.draft_workspace = mode;
+        active.meta.cwd = cwd.clone();
+        // Reusing a checkout does not make it session-owned or eligible for cleanup.
+        if cwd_changed {
+            active.branches.clear();
+            self.refresh_session_git_branch(target_id.to_string(), cwd, cx);
+            self.refresh_git_status(target_id, cx);
         }
     }
 
@@ -1116,7 +1160,8 @@ impl AppState {
         target_id: &str,
         text: String,
         attachments: Vec<Attachment>,
-        _base: String,
+        name: String,
+        base: String,
         cx: &mut HostCx,
     ) {
         let Some(active) = self.resident_mut(target_id) else {
@@ -1133,7 +1178,9 @@ impl AppState {
         let host_cx = cx.clone();
         HostCx::spawn_detached(cx, async move {
             let result = host_cx
-                .unblock(move || provision(&root_for_task, &session_id_for_task))
+                .unblock(move || {
+                    provision(&root_for_task, &session_id_for_task, Some((&name, &base)))
+                })
                 .await;
             host_cx.enqueue(move |state, cx| {
                 let Some(active) = state
@@ -1169,7 +1216,6 @@ impl AppState {
                         cx.delivery_key = None;
                     }
                     Err(err) => {
-                        active.draft_workspace = WorkspaceMode::LocalCheckout;
                         state.report_error(
                             RuntimeError::WorktreeAdd {
                                 error: err.to_string(),

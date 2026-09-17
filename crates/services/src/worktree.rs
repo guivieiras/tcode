@@ -1,8 +1,7 @@
 //! Lifecycle for app-owned Git worktrees.
 //!
-//! Callers provide only the canonical project root and session identity. This
-//! module owns every correlated Git identity: base revision, target path, and
-//! collision-safe branch name.
+//! Resolves named draft requests or derives identities for agent dispatches.
+//! This module owns target paths, Git creation, seeding, and cleanup.
 
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
@@ -114,12 +113,13 @@ impl std::fmt::Display for MergeBackError {
 
 impl std::error::Error for MergeBackError {}
 
-/// Provision `session_id` from the branch currently checked out at `root`.
-///
-/// `root` must itself be the canonical main repository root. The target path,
-/// requested branch, collision suffix, base revision, seeding, and rollback are
-/// all owned by this module.
-pub fn provision(root: &Path, session_id: &str) -> Result<ProvisionedWorktree, ProvisionError> {
+/// Provision a worktree for `session_id`. A named request supplies the exact
+/// branch and base; otherwise the lifecycle derives them for agent dispatches.
+pub fn provision(
+    root: &Path,
+    session_id: &str,
+    requested: Option<(&str, &str)>,
+) -> Result<ProvisionedWorktree, ProvisionError> {
     let canonical_root = root
         .canonicalize()
         .map_err(|error| ProvisionError::Git(error.to_string()))?;
@@ -134,20 +134,25 @@ pub fn provision(root: &Path, session_id: &str) -> Result<ProvisionedWorktree, P
             path: canonical_root,
         });
     }
-    let base = run_git(
-        &canonical_root,
-        &["symbolic-ref", "--quiet", "--short", "HEAD"],
-    )
-    .or_else(|_| run_git(&canonical_root, &["rev-parse", "HEAD"]))
-    .map_err(ProvisionError::Git)?
-    .trim()
-    .to_string();
+    let base = if let Some((_, base)) = requested {
+        base.to_string()
+    } else {
+        run_git(
+            &canonical_root,
+            &["symbolic-ref", "--quiet", "--short", "HEAD"],
+        )
+        .or_else(|_| run_git(&canonical_root, &["rev-parse", "HEAD"]))
+        .map_err(ProvisionError::Git)?
+        .trim()
+        .to_string()
+    };
     provision_at(
         &canonical_root,
         session_id,
         &base,
         &worktrees_root(),
         WORKTREE_SEED_LIMIT_BYTES,
+        requested.map(|(name, _)| name),
     )
     .map_err(Into::into)
 }
@@ -158,12 +163,30 @@ fn provision_at(
     base: &str,
     worktrees_root: &Path,
     seed_limit: u64,
+    name: Option<&str>,
 ) -> Result<ProvisionedWorktree, WorktreeError> {
-    let path = worktrees_root.join(session_id);
-    let requested_branch = format!("tcode/{session_id}");
+    let (path, branch) = if let Some(name) = name {
+        let checked =
+            run_git(root, &["check-ref-format", "--branch", name]).map_err(WorktreeError)?;
+        if checked.trim() != name {
+            return Err(WorktreeError("use a literal branch name".into()));
+        }
+        let path = worktrees_root.join(name.replace('/', "-"));
+        if path.exists() {
+            return Err(WorktreeError(format!(
+                "worktree directory already exists: {}",
+                path.display()
+            )));
+        }
+        (path, name.to_string())
+    } else {
+        (
+            worktrees_root.join(session_id),
+            available_branch(root, &format!("tcode/{session_id}"))?,
+        )
+    };
     let seed_plan = read_seed_plan(root)?;
     std::fs::create_dir_all(worktrees_root).map_err(io_error)?;
-    let branch = available_branch(root, &requested_branch)?;
     if registered_worktree_path(root, &path)?.is_some() {
         return Err(WorktreeError(format!(
             "worktree target is already registered: {}",
@@ -252,7 +275,7 @@ fn available_branch(root: &Path, requested: &str) -> Result<String, WorktreeErro
 fn porcelain_worktree_paths(root: &Path) -> Result<Vec<PathBuf>, WorktreeError> {
     let output = crate::process::command("git")
         .current_dir(root)
-        .args(["worktree", "list", "--porcelain"])
+        .args(["worktree", "list", "--porcelain", "-z"])
         .output()
         .map_err(io_error)?;
     if !output.status.success() {
@@ -261,9 +284,18 @@ fn porcelain_worktree_paths(root: &Path) -> Result<Vec<PathBuf>, WorktreeError> 
         ));
     }
     Ok(String::from_utf8_lossy(&output.stdout)
-        .lines()
+        .split('\0')
         .filter_map(|line| line.strip_prefix("worktree "))
         .map(PathBuf::from)
+        .collect())
+}
+
+/// Existing checkouts of this repository, excluding the project's own checkout.
+/// Missing/prunable entries cannot be used as a session working directory.
+pub fn list_existing(root: &Path) -> Result<Vec<PathBuf>, WorktreeError> {
+    Ok(porcelain_worktree_paths(root)?
+        .into_iter()
+        .filter(|path| path.is_dir() && !same_existing_path(path, root))
         .collect())
 }
 
@@ -403,10 +435,14 @@ fn worktrees_root() -> PathBuf {
 /// Tests and isolated processes may set `TCODE_WORKTREES_DIR`; production falls
 /// back to `~/.tcode/worktrees`. Fresh unknown entries are presumed live and
 /// preserved for at least [`ORPHAN_MIN_AGE`].
-pub fn cleanup_orphans(known_session_ids: &HashSet<String>) -> CleanupSummary {
+pub fn cleanup_orphans(
+    known_session_ids: &HashSet<String>,
+    used_paths: &[PathBuf],
+) -> CleanupSummary {
     cleanup_orphans_at(
         &worktrees_root(),
         known_session_ids,
+        used_paths,
         SystemTime::now(),
         ORPHAN_MIN_AGE,
     )
@@ -415,6 +451,7 @@ pub fn cleanup_orphans(known_session_ids: &HashSet<String>) -> CleanupSummary {
 fn cleanup_orphans_at(
     worktrees: &Path,
     known_session_ids: &HashSet<String>,
+    used_paths: &[PathBuf],
     now: SystemTime,
     minimum_age: Duration,
 ) -> CleanupSummary {
@@ -436,7 +473,12 @@ fn cleanup_orphans_at(
         let is_directory = entry
             .file_type()
             .is_ok_and(|kind| kind.is_dir() && !kind.is_symlink());
-        if known_session_ids.contains(&session_id) || !is_directory {
+        if known_session_ids.contains(&session_id)
+            || !is_directory
+            || used_paths
+                .iter()
+                .any(|used| same_existing_path(used, &path))
+        {
             continue;
         }
         let modified = match entry.metadata().and_then(|metadata| metadata.modified()) {
@@ -792,6 +834,7 @@ mod tests {
             "main",
             worktrees,
             WORKTREE_SEED_LIMIT_BYTES,
+            None,
         )
         .unwrap()
     }
@@ -800,6 +843,70 @@ mod tests {
         std::fs::write(root.join(path), contents).unwrap();
         run(root, &["add", path]);
         run(root, &["commit", "-m", message]);
+    }
+
+    #[test]
+    fn named_worktree_uses_requested_base_and_preserves_existing_names() {
+        let (temp, root) = scratch_repo("tcode-named-worktree-test");
+        let worktrees = temp.join("worktrees");
+        run(&root, &["branch", "release"]);
+        let base_head = run_git(&root, &["rev-parse", "release"]).unwrap();
+        commit_file(&root, "only-on-main.txt", "main", "advance main");
+        let main_head = run_git(&root, &["rev-parse", "HEAD"]).unwrap();
+        let created = provision_at(
+            &root,
+            "draft-id",
+            "release",
+            &worktrees,
+            WORKTREE_SEED_LIMIT_BYTES,
+            Some("feature/search"),
+        )
+        .unwrap();
+        assert_eq!(created.branch, "feature/search");
+        assert_eq!(created.base, "release");
+        assert_eq!(created.path, worktrees.join("feature-search"));
+        assert_eq!(
+            run_git(&created.path, &["rev-parse", "HEAD"]).unwrap(),
+            base_head
+        );
+        assert_eq!(run_git(&root, &["rev-parse", "HEAD"]).unwrap(), main_head);
+        assert!(!created.path.join("only-on-main.txt").exists());
+
+        std::fs::write(created.path.join("keep.txt"), "keep").unwrap();
+        assert!(
+            provision_at(
+                &root,
+                "another-draft",
+                "main",
+                &worktrees,
+                WORKTREE_SEED_LIMIT_BYTES,
+                Some("feature/search")
+            )
+            .is_err()
+        );
+        assert_eq!(
+            std::fs::read_to_string(created.path.join("keep.txt")).unwrap(),
+            "keep"
+        );
+        for name in ["release", "../escape", "with space"] {
+            assert!(
+                provision_at(
+                    &root,
+                    "another-draft",
+                    "main",
+                    &worktrees,
+                    WORKTREE_SEED_LIMIT_BYTES,
+                    Some(name)
+                )
+                .is_err()
+            );
+        }
+        assert_eq!(
+            run_git(&root, &["rev-parse", "release"]).unwrap(),
+            base_head
+        );
+        assert!(!temp.join("escape").exists());
+        std::fs::remove_dir_all(temp).unwrap();
     }
 
     #[test]
@@ -960,6 +1067,7 @@ mod tests {
             "main",
             &worktrees,
             WORKTREE_SEED_LIMIT_BYTES,
+            None,
         )
         .unwrap_err();
         assert!(error.to_string().contains("cannot contain '..'"));
@@ -973,7 +1081,8 @@ mod tests {
         std::fs::write(root.join("first.bin"), b"1234").unwrap();
         std::fs::write(root.join("second.bin"), b"5678").unwrap();
         std::fs::write(root.join(".worktreeinclude"), "first.bin\nsecond.bin\n").unwrap();
-        let created = provision_at(&root, "limit", "main", &temp.join("worktrees"), 4).unwrap();
+        let created =
+            provision_at(&root, "limit", "main", &temp.join("worktrees"), 4, None).unwrap();
         assert_eq!(created.seed_summary.copied_files, 1);
         assert!(created.seed_summary.limit_reached);
         assert_eq!(created.seed_summary.skipped, ["second.bin"]);
@@ -989,14 +1098,26 @@ mod tests {
         let modified = std::fs::metadata(&orphan).unwrap().modified().unwrap();
         let known = HashSet::new();
 
-        let fresh = cleanup_orphans_at(&worktrees, &known, modified, ORPHAN_MIN_AGE);
+        let fresh = cleanup_orphans_at(&worktrees, &known, &[], modified, ORPHAN_MIN_AGE);
         assert!(fresh.removed.is_empty());
         assert_eq!(fresh.skipped.as_slice(), std::slice::from_ref(&orphan));
+        assert!(orphan.exists());
+
+        // Another session may reuse this path after the original owner is deleted.
+        let reused = cleanup_orphans_at(
+            &worktrees,
+            &known,
+            std::slice::from_ref(&orphan),
+            modified + ORPHAN_MIN_AGE + Duration::from_secs(1),
+            ORPHAN_MIN_AGE,
+        );
+        assert_eq!(reused, CleanupSummary::default());
         assert!(orphan.exists());
 
         let old = cleanup_orphans_at(
             &worktrees,
             &known,
+            &[],
             modified + ORPHAN_MIN_AGE + Duration::from_secs(1),
             ORPHAN_MIN_AGE,
         );
@@ -1016,6 +1137,7 @@ mod tests {
         let summary = cleanup_orphans_at(
             &worktrees,
             &known,
+            &[],
             modified + ORPHAN_MIN_AGE + Duration::from_secs(1),
             ORPHAN_MIN_AGE,
         );

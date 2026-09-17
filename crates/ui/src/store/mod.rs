@@ -2782,13 +2782,11 @@ impl WorkspaceStore {
             .iter()
             .find(|meta| meta.id == session_id)?;
         let worktree = meta.worktree.clone()?;
-        let shared = self.index_replica.0.iter().any(|meta| {
-            meta.id != session_id
-                && meta
-                    .worktree
-                    .as_ref()
-                    .is_some_and(|other| other.branch == worktree.branch)
-        });
+        let shared = self
+            .index_replica
+            .0
+            .iter()
+            .any(|other| other.id != session_id && other.cwd == meta.cwd);
         (!shared).then_some(worktree)
     }
 }
