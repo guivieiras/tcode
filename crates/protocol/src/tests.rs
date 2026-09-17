@@ -163,6 +163,7 @@ fn older_messages_default_new_optional_fields() {
     let queued: QueuedMessageStatus =
         serde_json::from_value(json!({"id": 1, "text": "next"})).unwrap();
     assert_eq!(queued.fire_at_unix_secs, None);
+    assert!(queued.attachment_paths.is_empty());
     let command = decode_client_line(r#"{"id":1,"payload":{"type":"command","content":{"type":"capture_terminal_selection","content":{"session_id":"s","terminal_id":9}}}}"#).unwrap();
     assert!(matches!(
         command.payload,

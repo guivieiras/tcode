@@ -396,6 +396,20 @@ impl WorkspaceStore {
             id,
         });
     }
+    /// Wait for the host to remove the entry before replacing a composer draft.
+    pub fn take_queued(
+        &self,
+        id: u64,
+        cx: &mut App,
+    ) -> Task<Result<CommandResponse, ProtocolError>> {
+        self.command(
+            Command::DropQueued {
+                session_id: self.active_session_id().unwrap_or_default(),
+                id,
+            },
+            cx,
+        )
+    }
     pub fn drop_queued(&mut self, id: u64) {
         self.dispatch(Command::DropQueued {
             session_id: self.active_session_id().unwrap_or_default(),

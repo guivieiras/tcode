@@ -1043,7 +1043,7 @@ exist, and then without the Fast row.
 When messages are queued, a matching drawer attaches directly above the input
 card at both widths, inset 8pt with a muted fill, hairline border and rounded
 top corners. It contains the queue count, message previews, scheduled countdowns
-and existing send-now and return-to-composer actions. Its contents scroll after
+and separate send-now, edit and remove actions. Its contents scroll after
 180pt, and it disappears when the queue is empty. Compact queue actions keep
 the desktop button widths and horizontal spacing, with 32pt height. Compact
 rows use 12pt message previews with no extra vertical gaps or separator padding.
@@ -1072,6 +1072,20 @@ older in-flight results.
 Sending during a turn queues the message;
 the secondary send action steers when the provider supports it. Stop interrupts
 the current turn. Queue/steer guidance belongs in the send tooltip.
+
+Each queued row has separate Edit (pencil), send/steer, and Remove (×) actions.
+Remove deletes only that queue entry and leaves the composer draft untouched.
+Edit takes the message out of the queue and restores its text and image
+attachments to the composer. If the composer contains text, attachments (including
+images still loading), terminal context, or review comments, a Replace draft / Cancel
+confirmation appears first. Cancel changes neither the queue nor the draft.
+During removal, a modal progress indicator keeps the draft and navigation stable
+until the host acknowledges the command. Failure leaves the draft untouched and
+shows the host error. Successful replacement clears the previous draft's attached
+context; context already assembled into the queued text stays in that text.
+Resending uses a new queue position and the current send settings; a scheduled
+message's original deadline is not restored. Compact actions use the drawer's
+32pt button height and scale with interface zoom.
 
 The checkout row below the desktop composer shows the working directory and
 Git branch. In a new-thread draft, the workspace picker offers Local checkout and
