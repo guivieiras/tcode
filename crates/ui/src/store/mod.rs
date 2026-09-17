@@ -4226,7 +4226,12 @@ mod tests {
         });
         let target_id = session_id.clone();
         update_host!(&host, move |state, cx| {
-            state.queue_message_for_replica_test(&target_id, "queued for replication".into(), cx);
+            state.queue_message_for_replica_test(
+                &target_id,
+                "queued for replication".into(),
+                Vec::new(),
+                cx,
+            );
         });
         command(
             &host,

@@ -196,12 +196,14 @@ impl AppState {
         &mut self,
         target_id: &str,
         text: String,
+        attachment_paths: Vec<PathBuf>,
         _cx: &mut HostCx,
     ) {
+        let (text, attachments) = self.assemble_user_message(target_id, text, attachment_paths);
         let Some(active) = self.resident_mut(target_id) else {
             return;
         };
-        active.push_queued(text, Vec::new());
+        active.push_queued(text, attachments);
     }
 
     pub(super) fn send_turn_assembled(

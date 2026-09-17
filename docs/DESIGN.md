@@ -917,6 +917,21 @@ Sending during a turn queues the message;
 the secondary send action steers when the provider supports it. Stop interrupts
 the current turn. Queue/steer guidance belongs in the send tooltip.
 
+Each queued row has separate Edit (pencil), send/steer, and Remove (×) actions.
+Remove deletes only that queue entry and leaves the composer draft untouched.
+Edit takes the message out of the queue and restores its text and image
+attachments to the composer. If the composer contains text, attachments (including
+images still loading), terminal context, or review comments, a Replace draft / Cancel
+confirmation appears first. Cancel changes neither the queue nor the draft.
+During removal, a modal progress indicator keeps the draft and navigation stable
+until the host acknowledges the command. Failure leaves the draft untouched and
+shows the host error. Successful replacement clears the previous draft's attached
+context; context already assembled into the queued text stays in that text.
+Resending uses a new queue position and the current send settings; a scheduled
+message's original deadline is not restored. Compact action buttons retain 44pt
+touch targets.
+
+
 The checkout row below the desktop composer shows the working directory and
 Git branch. Voice input is available on supported macOS 26 builds: live partial
 text replaces its provisional range at the insertion anchor, final text commits

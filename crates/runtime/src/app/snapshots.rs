@@ -250,6 +250,11 @@ impl AppState {
                 .map(|message| QueuedMessageStatus {
                     delivery_key: message.delivery_key.clone(),
                     id: message.id,
+                    attachment_paths: message
+                        .attachments
+                        .iter()
+                        .filter_map(|attachment| attachment.source_path.as_ref().map(PathBuf::from))
+                        .collect(),
                     text: message.text.clone(),
                     fire_at_unix_secs: message.not_before.and_then(|time| {
                         time.duration_since(UNIX_EPOCH)

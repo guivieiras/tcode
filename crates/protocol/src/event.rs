@@ -303,6 +303,9 @@ pub struct TerminalContextStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QueuedMessageStatus {
     pub id: u64,
+    /// Host attachment paths restored when a queued message returns to the composer.
+    #[serde(default)]
+    pub attachment_paths: Vec<PathBuf>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery_key: Option<String>,
     pub text: String,
