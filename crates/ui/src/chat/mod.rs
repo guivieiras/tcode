@@ -1816,6 +1816,73 @@ impl ChatView {
         cx.notify();
     }
 
+    pub(crate) fn render_thread_title(&self, title: String, cx: &mut Context<Self>) -> gpui::Div {
+        let store = self.workspace_store.read(cx);
+        let project = store.chat_project();
+        let project_name = store.chat_project_name();
+        h_flex()
+            .max_w_full()
+            .min_w_0()
+            .items_center()
+            .text_color(cx.theme().foreground)
+            .gap_1()
+            .when_some(project_name, |row, name| {
+                let label = if let Some(project) = project {
+                    crate::material::accessible_clickable(
+                        h_flex(),
+                        "thread-project-link",
+                        Role::Button,
+                        crate::tr!("palette.new_thread", project = name.clone()),
+                        cx,
+                    )
+                    .debug_selector(|| "thread-project-link".into())
+                    .min_w_0()
+                    .flex_shrink_0()
+                    .max_w(gpui::relative(0.5))
+                    .h(px(if self.window_state.read(cx).compact {
+                        44.
+                    } else {
+                        28.
+                    }))
+                    .items_center()
+                    .rounded(px(4.))
+                    .text_color(cx.theme().muted_foreground)
+                    .cursor_pointer()
+                    .hover(|style| style.text_color(cx.theme().foreground))
+                    .occlude()
+                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        if this.window_state.read(cx).compact {
+                            window.blur(cx);
+                        }
+                        this.workspace_store.update(cx, |store, cx| {
+                            store.start_draft(project.id.clone(), project.root.clone(), cx);
+                        });
+                        this.focus_composer(window, cx);
+                    }))
+                    .child(div().min_w_0().truncate().child(name))
+                    .into_any_element()
+                } else {
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .text_color(cx.theme().muted_foreground)
+                        .child(name)
+                        .into_any_element()
+                };
+                row.child(label).child(
+                    div()
+                        .flex_none()
+                        .text_color(cx.theme().muted_foreground)
+                        .child("/"),
+                )
+            })
+            .child(window_caption::drag_region(
+                div().min_w_0().truncate().child(title),
+            ))
+    }
+
     fn render_header(
         &self,
         title: Option<String>,
@@ -1880,40 +1947,22 @@ impl ChatView {
                 });
             }));
 
-        // A draft shows a muted "New thread" label; an open thread its title;
-        // nothing active shows "No active thread". The title stretch carries no
-        // controls, so it doubles as the window's native drag handle where the
-        // platform needs one.
-        let title_el = if is_draft {
-            div()
-                .flex_1()
-                .min_w_0()
-                .text_size(px(15.))
-                .font_medium()
-                .text_color(cx.theme().muted_foreground)
-                .child(crate::tr!("chat.new_thread"))
+        let thread_title = if is_draft {
+            crate::tr!("chat.new_thread").into_owned()
         } else {
-            match &title {
-                Some(title) => div()
-                    .flex_1()
-                    // Keep a few words of the title even when the diff panel and
-                    // the git/Open buttons squeeze the header; without a floor it
-                    // collapses to a lone "I…".
-                    .min_w(px(120.))
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .text_size(px(15.))
-                    .font_medium()
-                    .child(title.clone()),
-                None => div()
-                    .flex_1()
-                    .min_w_0()
-                    .text_size(px(15.))
-                    .font_medium()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(crate::tr!("chat.no_active_thread")),
-            }
+            title
+                .clone()
+                .unwrap_or_else(|| crate::tr!("chat.no_active_thread").into_owned())
         };
+        let title_el = self
+            .render_thread_title(thread_title, cx)
+            .flex_1()
+            .min_w(px(120.))
+            .text_size(px(15.))
+            .font_medium()
+            .when(!is_draft && title.is_none(), |title| {
+                title.text_color(cx.theme().muted_foreground)
+            });
 
         // The right-side cluster (Open split-button + panel toggles) shows for
         // any active thread, including a draft.
@@ -1927,7 +1976,7 @@ impl ChatView {
         let diff_showing = right_panel_open && right_tab == RightTab::Diff;
         window_drag_area("chat-header-drag", base, window, cx)
             .child(sidebar_toggle)
-            .child(window_caption::drag_region(title_el))
+            .child(title_el)
             .when(show_actions, |this| {
                 this.children(self.render_git_button(cx))
                     .children(cwd.clone().map(|cwd| self.render_open_button(cwd, cx)))
@@ -2303,50 +2352,21 @@ impl ChatView {
             .into_any_element()
     }
 
-    /// The phone's "new thread" empty state: which project the thread
-    /// starts in, and which provider/model the first message reaches.
-    fn render_compact_draft_empty(
-        &self,
-        cwd: &std::path::Path,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let store = self.workspace_store.read(cx);
-        let project = store
-            .projects()
-            .into_iter()
-            .find(|project| project.root == cwd)
-            .map(|project| project.name)
-            .unwrap_or_else(|| {
-                cwd.file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-                    .unwrap_or_default()
-            });
-        let composer = store.composer_state();
-        let model = composer
-            .active_model
-            .as_ref()
-            .map(|active| {
-                let name = composer
-                    .active_model_spec
-                    .as_ref()
-                    .map(|spec| spec.display_name.clone())
-                    .or_else(|| active.model.clone())
-                    .unwrap_or_default();
-                let provider = crate::settings::provider_label(active.provider);
-                if name.is_empty() {
-                    provider.to_string()
-                } else {
-                    format!("{provider} · {name}")
-                }
-            })
+    fn render_draft_prompt(&self, cx: &mut Context<Self>) -> AnyElement {
+        let project = self
+            .workspace_store
+            .read(cx)
+            .chat_project_name()
             .unwrap_or_default();
-        crate::material::empty_state(
-            Icon::empty().path("icons/message-square.svg"),
-            crate::tr!("mobile.draft_empty_title", project = project),
-            crate::tr!("mobile.draft_empty_body", model = model),
-            cx,
-        )
-        .into_any_element()
+        div()
+            .w_full()
+            .px(px(CONTENT_MIN_PADDING))
+            .pb_4()
+            .text_center()
+            .text_size(px(24.))
+            .font_semibold()
+            .child(crate::tr!("chat.draft_prompt", project = project))
+            .into_any_element()
     }
 
     fn render_empty_state(&self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -2796,27 +2816,19 @@ impl Render for ChatView {
         .flex_1()
         .min_h_0();
 
-        // A fresh phone draft shows its project/model context above the focused composer.
-        let timeline: AnyElement = if compact && is_draft && item_count == 0 {
-            self.render_compact_draft_empty(&cwd, cx)
-        } else {
-            // GPUI's scrollbar extent excludes List padding, while wheel and
-            // tail-resume calculations include it. Keep the inset outside the
-            // list so every input path shares the same bottom and pixel offset.
-            v_flex()
-                .flex_1()
-                .min_h_0()
-                .relative()
-                .py_4()
-                .child(crate::touch_scroll::register(
-                    timeline,
-                    crate::touch_scroll::Handle::List(self.list_state.clone()),
-                ))
-                .when(!window.is_inspector_picking(cx), |timeline| {
-                    timeline.child(Scrollbar::vertical(&self.list_state).id("timeline-scrollbar"))
-                })
-                .into_any_element()
-        };
+        // Keep padding outside the List so scrolling and scrollbar geometry agree.
+        let timeline = v_flex()
+            .flex_1()
+            .min_h_0()
+            .relative()
+            .py_4()
+            .child(crate::touch_scroll::register(
+                timeline,
+                crate::touch_scroll::Handle::List(self.list_state.clone()),
+            ))
+            .when(!window.is_inspector_picking(cx), |timeline| {
+                timeline.child(Scrollbar::vertical(&self.list_state).id("timeline-scrollbar"))
+            });
 
         let composer = self.composer.clone().into_any_element();
         let deliveries = self.workspace_store.read(cx).delivery_messages();
@@ -2904,43 +2916,49 @@ impl Render for ChatView {
             })
             .collect::<Vec<_>>();
 
+        let fresh_draft = is_draft && item_count == 0 && delivery_rows.is_empty();
         let main = v_flex()
             .size_full()
             .min_h_0()
-            .child(
-                div()
-                    .id("timeline")
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_h_0()
-                    .relative()
-                    .child(timeline)
-                    .child(
-                        gpui::canvas(
-                            {
-                                let list = self.list_state.clone();
-                                let view = cx.entity().downgrade();
-                                move |_, window, cx| {
-                                    // List prepaint may change geometry after render
-                                    // (resize, splice, or markdown remeasurement).
-                                    // Reconcile the sibling control after that layout.
-                                    if jump_to_latest_visible(&list) != show_jump_to_latest {
-                                        window.defer(cx, move |_, cx| {
-                                            let _ = view.update(cx, |_, cx| cx.notify());
-                                        });
+            .when(fresh_draft, |main| {
+                main.justify_center().child(self.render_draft_prompt(cx))
+            })
+            .when(!fresh_draft, |main| {
+                main.child(
+                    div()
+                        .id("timeline")
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_h_0()
+                        .relative()
+                        .child(timeline)
+                        .child(
+                            gpui::canvas(
+                                {
+                                    let list = self.list_state.clone();
+                                    let view = cx.entity().downgrade();
+                                    move |_, window, cx| {
+                                        // List prepaint may change geometry after render
+                                        // (resize, splice, or markdown remeasurement).
+                                        // Reconcile the sibling control after that layout.
+                                        if jump_to_latest_visible(&list) != show_jump_to_latest {
+                                            window.defer(cx, move |_, cx| {
+                                                let _ = view.update(cx, |_, cx| cx.notify());
+                                            });
+                                        }
                                     }
-                                }
-                            },
-                            |_, _, _, _| {},
+                                },
+                                |_, _, _, _| {},
+                            )
+                            .absolute()
+                            .size_full(),
                         )
-                        .absolute()
-                        .size_full(),
-                    )
-                    .when(show_jump_to_latest, |this| {
-                        this.child(self.render_scroll_pill(cx))
-                    }),
-            )
+                        .when(show_jump_to_latest, |this| {
+                            this.child(self.render_scroll_pill(cx))
+                        }),
+                )
+            })
             .child(
                 v_flex()
                     .w_full()
