@@ -3,6 +3,7 @@
 //! place. macOS only — see `crates/voice` for the engine side.
 
 use super::super::*;
+use crate::sizing::design;
 
 use gpui::SharedString;
 use tcode_voice::{DictationEvent, DictationSession};
@@ -99,7 +100,7 @@ impl Composer {
             Button::new("voice-mic")
                 .ghost()
                 .compact()
-                .h(px(28.))
+                .h(design(28.))
                 .rounded(crate::material::radius_chip())
                 .tooltip(tooltip)
                 .child(if preparing {
@@ -112,7 +113,7 @@ impl Composer {
                     match dictation {
                         Some(d) => div()
                             .rounded_full()
-                            .p(px(2.))
+                            .p(design(2.))
                             .bg(cx.theme().danger.opacity(0.08 + d.level * 0.42))
                             .child(icon)
                             .into_any_element(),

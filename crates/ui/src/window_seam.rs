@@ -11,11 +11,12 @@
 //! of build reading it, evaluated where it is consumed: nothing is cached or
 //! polled.
 
-use gpui::{App, Edges, Global, Pixels, Window, px};
+use crate::sizing::design;
+use gpui::{App, Edges, Global, Pixels, Window};
 
-/// The layout breakpoint for a mobile build: below this much usable content
-/// width the shell uses its compact layout, at or above it the wide split. A
-/// desktop build never consults it — see [`window_is_compact`].
+/// The layout breakpoint for a mobile build: below this many design pixels of
+/// usable content width the shell uses its compact layout, at or above it the
+/// wide split. A desktop build never consults it — see [`window_is_compact`].
 pub(crate) const COMPACT_BREAKPOINT: f32 = 900.;
 
 /// The one safe content rectangle shared by pages, palette, dialogs and
@@ -37,10 +38,10 @@ pub(crate) fn content_insets(window: &Window) -> Edges<Pixels> {
 
 /// The width half of the rule: compact iff the width the window can actually
 /// lay content out in — the viewport minus whatever the system occludes on its
-/// left and right — is under [`COMPACT_BREAKPOINT`]. At exactly 900 the layout
-/// is wide.
-pub(crate) fn compact_for(content_width: Pixels) -> bool {
-    content_width < px(COMPACT_BREAKPOINT)
+/// left and right — is under [`COMPACT_BREAKPOINT`] design pixels at the
+/// window's rem size. At exactly 900 the layout is wide at 100% zoom.
+pub(crate) fn compact_for(content_width: Pixels, rem_size: Pixels) -> bool {
+    content_width < design(COMPACT_BREAKPOINT).to_pixels(rem_size)
 }
 
 /// The one layout rule. A desktop build (macOS, Windows, Linux, the browser)
@@ -50,7 +51,7 @@ pub(crate) fn compact_for(content_width: Pixels) -> bool {
 /// visible bounds, so a phone is compact and a tablet in landscape is wide.
 /// Never persisted: a window width is not a setting.
 pub(crate) fn window_is_compact(window: &Window, cx: &App) -> bool {
-    is_mobile(cx) && compact_for(window.fully_visible_bounds().size.width)
+    is_mobile(cx) && compact_for(window.fully_visible_bounds().size.width, window.rem_size())
 }
 
 /// Whether a software keyboard covers the bottom of this window: the visual
@@ -117,7 +118,7 @@ pub(crate) fn occlude_for_test(cx: &mut gpui::VisualTestContext, insets: Edges<P
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui::{Bounds, Render, TestAppContext, point, size};
+    use gpui::{Bounds, Render, TestAppContext, point, px, size};
 
     struct Probe;
 
@@ -158,6 +159,16 @@ mod tests {
                 "a mobile tablet in landscape is wide"
             );
         });
+    }
+
+    /// The breakpoint is in design pixels, so zooming the UI in reaches the
+    /// compact layout at a proportionally wider window; 900 itself is wide.
+    #[test]
+    fn the_breakpoint_scales_with_zoom_and_is_wide_at_nine_hundred() {
+        assert!(compact_for(px(899.), px(16.)));
+        assert!(!compact_for(px(900.), px(16.)));
+        assert!(compact_for(px(1349.), px(24.)));
+        assert!(!compact_for(px(1350.), px(24.)));
     }
 
     /// The seam is read from the window's fully visible bounds: a landscape

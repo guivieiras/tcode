@@ -47,6 +47,7 @@ pub struct MarkdownState {
     has_potential_link_reference_definition: bool,
     pub(super) list_state: ListState,
     measured_content_height: Option<Pixels>,
+    measured_rem_size: Pixels,
     selection_revision: usize,
     pub(super) selection_adapter: MarkdownSelectionAdapter,
     #[cfg(test)]
@@ -90,6 +91,7 @@ impl MarkdownState {
             list_state: ListState::new(items.len(), ListAlignment::Top, px(1000.)).measure_all(),
             items,
             measured_content_height: None,
+            measured_rem_size: px(16.),
             selection_revision: 0,
             selection_adapter,
             #[cfg(test)]
@@ -526,6 +528,11 @@ fn contains_potential_link_reference_definition(source: &str) -> bool {
 
 impl Render for MarkdownState {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.measured_rem_size != window.rem_size() {
+            self.measured_rem_size = window.rem_size();
+            self.measured_content_height = None;
+            self.list_state.remeasure();
+        }
         let state = cx.entity();
         let measured_content_height = self.measured_content_height;
         v_flex()

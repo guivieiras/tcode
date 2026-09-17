@@ -1,9 +1,10 @@
+use crate::sizing::design;
 use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Edges, FocusHandle, InteractiveElement as _, IntoElement,
-    ParentElement, Pixels, RenderOnce, SharedString, StyleRefinement, Styled, WeakFocusHandle,
-    Window, div, prelude::FluentBuilder as _, px,
+    ParentElement, RenderOnce, SharedString, StyleRefinement, Styled, WeakFocusHandle, Window, div,
+    prelude::FluentBuilder as _,
 };
 
 use crate::{
@@ -226,8 +227,8 @@ pub struct Dialog {
     footer: Option<AnyElement>,
     content: Option<ContentBuilder>,
     children: Vec<AnyElement>,
-    width: Pixels,
-    max_width: Option<Pixels>,
+    width: gpui::AbsoluteLength,
+    max_width: Option<gpui::AbsoluteLength>,
     close_button: bool,
     overlay: bool,
     overlay_closable: bool,
@@ -247,7 +248,7 @@ impl Dialog {
             footer: None,
             content: None,
             children: Vec::new(),
-            width: px(448.),
+            width: design(448.).into(),
             max_width: None,
             close_button: true,
             overlay: true,
@@ -289,14 +290,14 @@ impl Dialog {
         self.close_button = value;
         self
     }
-    pub fn w(mut self, width: impl Into<Pixels>) -> Self {
+    pub fn w(mut self, width: impl Into<gpui::AbsoluteLength>) -> Self {
         self.width = width.into();
         self
     }
-    pub fn width(self, width: impl Into<Pixels>) -> Self {
+    pub fn width(self, width: impl Into<gpui::AbsoluteLength>) -> Self {
         self.w(width)
     }
-    pub fn max_w(mut self, width: impl Into<Pixels>) -> Self {
+    pub fn max_w(mut self, width: impl Into<gpui::AbsoluteLength>) -> Self {
         self.max_width = Some(width.into());
         self
     }
@@ -364,10 +365,12 @@ impl RenderOnce for Dialog {
         // off-screen, because `x` is derived from the same width. The height cap
         // below keeps the footer actions reachable; `DialogContent` is already
         // `flex_1 min_h_0`, so a scrolling body shrinks into it.
-        let width = crate::sizing::fit_viewport(f32::from(self.width), viewport.width);
+        let width =
+            crate::sizing::fit_viewport(self.width.to_pixels(window.rem_size()), viewport.width);
         let x = viewport.width / 2. - width / 2.;
-        let y = viewport.height / 10. + px(self.layer as f32 * 16.);
-        let padding = Edges::all(px(16.));
+        let y =
+            viewport.height / 10. + design(self.layer as f32 * 16.).to_pixels(window.rem_size());
+        let padding = Edges::all(design(16.).to_pixels(window.rem_size()));
         let content = self
             .content
             .map(|builder| builder(DialogContent::new(), window, cx));
@@ -382,7 +385,7 @@ impl RenderOnce for Dialog {
             .top(y)
             .w(width)
             .when_some(self.max_width, |el, width| el.max_w(width))
-            .max_h(viewport.height - y - px(16.))
+            .max_h(viewport.height - y - design(16.).to_pixels(window.rem_size()))
             .min_h_24()
             .flex()
             .flex_col()
@@ -465,7 +468,7 @@ impl AlertDialog {
         self.button_props = props;
         self
     }
-    pub fn width(mut self, width: impl Into<Pixels>) -> Self {
+    pub fn width(mut self, width: impl Into<gpui::AbsoluteLength>) -> Self {
         self.base = self.base.width(width);
         self
     }

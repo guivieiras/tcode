@@ -7,6 +7,7 @@
 //! and the attachment is local, and never as a substitute for the host's own
 //! judgment about a path.
 
+use crate::sizing::design;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -20,7 +21,7 @@ use crate::widgets::progress::Progress;
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, Role, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -62,7 +63,7 @@ pub(super) fn open(store: Entity<WorkspaceStore>, window: &mut Window, cx: &mut 
     window.open_dialog(cx, move |builder, window, cx| {
         let dialog_content = content.clone();
         builder
-            .w(px(680.))
+            .w(design(680.))
             .rounded(crate::material::radius_overlay())
             .bg(cx.theme().popover)
             .border_1()
@@ -235,7 +236,7 @@ impl AddProjectDialog {
                 window.open_dialog(cx, move |builder, _, cx| {
                     let progress_content = content.clone();
                     builder
-                        .w(px(480.))
+                        .w(design(480.))
                         .rounded(crate::material::radius_overlay())
                         .bg(cx.theme().popover)
                         .border_1()
@@ -257,20 +258,20 @@ impl AddProjectDialog {
             RecentState::Loading => v_flex()
                 .gap_3()
                 .py_4()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().muted_foreground)
                 .child(crate::tr!("sidebar.recent_loading"))
                 .child(Progress::new("recent-directories-loading").loading(true))
                 .into_any_element(),
             RecentState::Failed(error) => div()
                 .py_4()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().danger)
                 .child(crate::tr!("sidebar.recent_failed", reason = error.clone()).into_owned())
                 .into_any_element(),
             RecentState::Ready(recent) if recent.is_empty() => div()
                 .py_4()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().muted_foreground)
                 .child(crate::tr!("sidebar.recent_empty"))
                 .into_any_element(),
@@ -300,7 +301,7 @@ impl AddProjectDialog {
                         .px_3()
                         .py_2()
                         .rounded(crate::material::radius_card())
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .cursor_pointer()
                         .hover(|style| style.bg(cx.theme().list_hover))
                         .on_click(cx.listener(move |dialog, _, window, cx| {
@@ -315,20 +316,20 @@ impl AddProjectDialog {
                                 .child(
                                     div()
                                         .flex_none()
-                                        .text_size(px(11.))
+                                        .text_size(design(11.))
                                         .text_color(cx.theme().muted_foreground)
                                         .child(ago),
                                 ),
                         )
                         .child(
                             div()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(path),
                         )
                         .child(
                             div()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(counts),
                         ),
@@ -336,8 +337,12 @@ impl AddProjectDialog {
                 }
                 let visible_rows = recent.len().min(RECENT_LIMIT) as f32;
                 let viewport_height = fit_viewport(
-                    (visible_rows * RECENT_ROW_HEIGHT_ESTIMATE).min(RECENT_VIEWPORT_MAX_HEIGHT),
-                    window.viewport_size().height - px(RECENT_VIEWPORT_CHROME),
+                    design(
+                        (visible_rows * RECENT_ROW_HEIGHT_ESTIMATE).min(RECENT_VIEWPORT_MAX_HEIGHT),
+                    )
+                    .to_pixels(window.rem_size()),
+                    window.viewport_size().height
+                        - design(RECENT_VIEWPORT_CHROME).to_pixels(window.rem_size()),
                 );
                 div()
                     .id("recent-directory-list")
@@ -367,7 +372,12 @@ impl Render for AddProjectDialog {
             .child(
                 v_flex()
                     .gap_2()
-                    .child(div().text_size(px(13.)).font_semibold().child(recent_label))
+                    .child(
+                        div()
+                            .text_size(design(13.))
+                            .font_semibold()
+                            .child(recent_label),
+                    )
                     .child(self.render_recent(window, cx)),
             )
             .child(
@@ -396,7 +406,7 @@ impl Render for AddProjectDialog {
                     .when_some(path_hint, |column, hint| {
                         column.child(
                             div()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(hint),
                         )
@@ -404,7 +414,7 @@ impl Render for AddProjectDialog {
                     .when_some(self.error.clone(), |column, error| {
                         column.child(
                             div()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(cx.theme().danger)
                                 .child(error),
                         )
@@ -479,7 +489,7 @@ impl Render for ImportProgress {
             .when_some(running, |column, (done, total, tool)| {
                 column.child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!(
                             "sidebar.import_progress",
@@ -493,7 +503,7 @@ impl Render for ImportProgress {
                 column
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .font_semibold()
                             .text_color(cx.theme().foreground)
                             .child(crate::tr!(

@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::{
     sizing::{Sizable, Size},
     theme::ActiveTheme,
@@ -171,7 +172,7 @@ impl Render for Icon {
 
 fn apply_size(icon: Svg, size: Size) -> Svg {
     match size {
-        Size::Size(px) => icon.size(px),
+        Size::Size(px) => icon.size(design(f32::from(px))),
         Size::XSmall => icon.size_3(),
         Size::Small => icon.size_3p5(),
         Size::Medium => icon.size_4(),

@@ -7,6 +7,7 @@
 //! the window is currently attached to, so **Connect** and **Back to local**
 //! never stop it and never disturb another attached client.
 
+use crate::sizing::design;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -14,7 +15,7 @@ use gpui::prelude::FluentBuilder as _;
 use gpui::{
     Action, AnyElement, App, AppContext as _, BorrowAppContext as _, ClipboardItem, Context,
     Entity, Global, InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString,
-    Styled as _, Task, Window, div, px,
+    Styled as _, Task, Window, div,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 use serde::Deserialize;
@@ -51,8 +52,8 @@ enum SelectTraverse {
 fn section_caption(label: SharedString, cx: &App) -> AnyElement {
     div()
         .pl_3()
-        .pb(px(6.))
-        .text_size(px(11.))
+        .pb(design(6.))
+        .text_size(design(11.))
         .font_medium()
         .text_color(cx.theme().muted_foreground)
         .child(label)
@@ -65,7 +66,7 @@ fn note(text: SharedString, cx: &App) -> AnyElement {
         .w_full()
         .px_3()
         .py_3()
-        .text_size(px(13.))
+        .text_size(design(13.))
         .text_color(cx.theme().muted_foreground)
         .child(text)
         .into_any_element()
@@ -294,7 +295,7 @@ fn row(compact: bool) -> gpui::Div {
     if compact {
         v_flex()
             .w_full()
-            .min_h(px(44.))
+            .min_h(design(44.))
             .px_3()
             .py_2p5()
             .gap_2()
@@ -309,7 +310,7 @@ fn row(compact: bool) -> gpui::Div {
 fn switch_row() -> gpui::Div {
     h_flex()
         .w_full()
-        .min_h(px(44.))
+        .min_h(design(44.))
         .px_3()
         .py_2p5()
         .gap_3()
@@ -323,10 +324,10 @@ fn labels(title: SharedString, description: Option<SharedString>, cx: &App) -> g
         .flex_1()
         .min_w_0()
         .gap_0p5()
-        .child(div().text_size(px(15.)).font_medium().child(title))
+        .child(div().text_size(design(15.)).font_medium().child(title))
         .children(description.map(|description| {
             div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().muted_foreground)
                 .child(description)
         }))
@@ -606,7 +607,7 @@ impl HostingPanel {
             .child(
                 div()
                     .when(compact, |field| field.w_full())
-                    .when(!compact, |field| field.w(px(240.)))
+                    .when(!compact, |field| field.w(design(240.)))
                     .child(
                         Input::new(&self.host_name_input)
                             .small()
@@ -632,11 +633,11 @@ impl HostingPanel {
                     .compact()
                     .child(
                         h_flex()
-                            .w(px(180.))
+                            .w(design(180.))
                             .items_center()
                             .justify_between()
                             .gap_2()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .child(traverse_label(&selected))
                             .child(
                                 Icon::new(IconName::ChevronDown)
@@ -683,7 +684,7 @@ impl HostingPanel {
                 .child(
                     div()
                         .when(compact, |field| field.w_full())
-                        .when(!compact, |field| field.w(px(240.)))
+                        .when(!compact, |field| field.w(design(240.)))
                         .child(
                             Input::new(&self.traverse_url_input)
                                 .small()
@@ -746,7 +747,7 @@ impl HostingPanel {
                             .when(compact, |controls| controls.w_full().justify_between())
                             .child(
                                 div()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .text_color(status_color)
                                     .child(status),
                             )
@@ -820,13 +821,13 @@ pub(super) fn invitation_card<V: 'static>(
         .gap_3()
         .child(
             div()
-                .text_size(px(15.))
-                .line_height(px(20.))
+                .text_size(design(15.))
+                .line_height(design(20.))
                 .child(crate::tr!("hosts.invite.description")),
         )
         .child(
             div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().muted_foreground)
                 .child(crate::tr!(
                     "remote.invite.expires",
@@ -865,8 +866,8 @@ pub(super) fn invitation_card<V: 'static>(
         h_flex().items_start().child(text).children(qr)
     };
     card.w_full()
-        .px(px(inset))
-        .py(px(8.))
+        .px(design(inset))
+        .py(design(8.))
         .gap_4()
         .debug_selector(|| "remote-invitation".into())
         .into_any_element()
@@ -876,8 +877,8 @@ pub(super) fn invitation_card<V: 'static>(
 pub(super) fn expired_invitation_row<V: 'static>(inset: f32, cx: &mut Context<V>) -> AnyElement {
     h_flex()
         .w_full()
-        .px(px(inset))
-        .py(px(8.))
+        .px(design(inset))
+        .py(design(8.))
         .gap_3()
         .items_center()
         .debug_selector(|| "remote-invitation-expired".into())
@@ -885,7 +886,7 @@ pub(super) fn expired_invitation_row<V: 'static>(inset: f32, cx: &mut Context<V>
             div()
                 .flex_1()
                 .min_w_0()
-                .text_size(px(15.))
+                .text_size(design(15.))
                 .child(crate::tr!("remote.invite.expired")),
         )
         .child(new_invitation_button("remote-new-invitation", cx).primary())
@@ -907,7 +908,7 @@ impl Render for HostingPanel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui::TestAppContext;
+    use gpui::{TestAppContext, px};
 
     struct Probe(Entity<HostingPanel>);
 

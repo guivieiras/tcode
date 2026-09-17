@@ -1,6 +1,5 @@
 //! GPUI application lifetime and the `tcode_ios_start` entry point.
 
-use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::rc::Rc;
 
@@ -35,7 +34,7 @@ pub extern "C" fn tcode_ios_start() {
                             window_background: WindowBackgroundAppearance::Opaque,
                             ..Default::default()
                         },
-                        theme_json: Cow::Owned(tcode_ui::flattened_theme_json()),
+                        opaque_canvas: true,
                         activate: true,
                         system_locale,
                         // UIKit suspends the app; the shell reconnects on return.

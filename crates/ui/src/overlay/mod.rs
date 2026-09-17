@@ -1,3 +1,4 @@
+use crate::sizing::design;
 mod dialog;
 mod notification;
 
@@ -9,7 +10,7 @@ use std::rc::Rc;
 use gpui::{
     App, AppContext as _, Context, Div, ElementId, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, Refineable as _, Render, Stateful, StyleRefinement, Styled as _, Window,
-    div, prelude::FluentBuilder as _, px,
+    div, prelude::FluentBuilder as _,
 };
 
 use crate::theme::ActiveTheme as _;
@@ -117,6 +118,10 @@ impl Overlays {
 }
 
 impl gpui_base::RootPlugin for Overlays {
+    fn prepare(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        crate::zoom::apply(window, cx);
+    }
+
     fn style(&self, surface: &mut Stateful<Div>, _window: &mut Window, cx: &mut App) {
         surface.style().refine(
             &StyleRefinement::default()
@@ -169,17 +174,17 @@ impl Render for Overlays {
                     .debug_selector(|| "notification-position".into())
                     .absolute()
                     .when(compact, |el| {
-                        el.left(seam.left + px(16.))
-                            .right(seam.right + px(16.))
-                            .bottom(seam.bottom + px(16.))
+                        el.left(seam.left + design(16.).to_pixels(window.rem_size()))
+                            .right(seam.right + design(16.).to_pixels(window.rem_size()))
+                            .bottom(seam.bottom + design(16.).to_pixels(window.rem_size()))
                             .flex()
                             .justify_center()
                     })
                     .when(!compact, |el| {
                         el.top_0()
                             .right_0()
-                            .mt(seam.top + px(16.))
-                            .mr(seam.right + px(16.))
+                            .mt(seam.top + design(16.).to_pixels(window.rem_size()))
+                            .mr(seam.right + design(16.).to_pixels(window.rem_size()))
                     })
                     .child(self.notifications.clone()),
             )
@@ -296,7 +301,7 @@ impl OverlayExt for Window {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui::{TestAppContext, VisualTestContext, size};
+    use gpui::{TestAppContext, VisualTestContext, px, size};
 
     struct Body;
 

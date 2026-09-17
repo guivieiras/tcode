@@ -1,6 +1,7 @@
 //! First-class ACP provider cards and the modal agent marketplace.
 
 use crate::overlay::OverlayExt as _;
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::widgets::button::{Button, ButtonVariant, ButtonVariants as _};
 use crate::widgets::input::{Input, InputState};
@@ -76,7 +77,7 @@ impl AcpAgentCard {
         let glyph = div()
             .relative()
             .flex_none()
-            .size(px(20.))
+            .size(design(20.))
             .child(
                 Icon::empty()
                     .path("icons/box.svg")
@@ -86,9 +87,9 @@ impl AcpAgentCard {
             .child(
                 div()
                     .absolute()
-                    .left(px(-3.))
-                    .top(px(-3.))
-                    .size(px(7.))
+                    .left(design(-3.))
+                    .top(design(-3.))
+                    .size(design(7.))
                     .rounded_full()
                     .bg(dot_color),
             );
@@ -97,7 +98,7 @@ impl AcpAgentCard {
             .items_center()
             .child(
                 div()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .font_semibold()
                     .child(agent.name.clone()),
             )
@@ -105,7 +106,7 @@ impl AcpAgentCard {
                 row.child(
                     div()
                         .font_family("monospace")
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(format!("v{}", agent.version.trim_start_matches('v'))),
                 )
@@ -121,7 +122,7 @@ impl AcpAgentCard {
             .child(
                 v_flex().flex_1().min_w_0().gap_0p5().child(title).child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(launch_summary(agent)),
                 ),
@@ -160,7 +161,7 @@ impl AcpAgentCard {
             .px_4()
             .py_3()
             .gap_1p5()
-            .child(div().text_size(px(13.)).font_medium().child(label))
+            .child(div().text_size(design(13.)).font_medium().child(label))
             .child(control)
             .into_any_element()
     }
@@ -381,7 +382,7 @@ impl AcpPanel {
                             .items_center()
                             .child(
                                 div()
-                                    .text_size(px(15.))
+                                    .text_size(design(15.))
                                     .font_medium()
                                     .child(agent.name.clone()),
                             )
@@ -389,7 +390,7 @@ impl AcpPanel {
                                 row.child(
                                     div()
                                         .font_family("monospace")
-                                        .text_size(px(13.))
+                                        .text_size(design(13.))
                                         .text_color(cx.theme().muted_foreground)
                                         .child(format!("v{}", agent.version)),
                                 )
@@ -397,7 +398,7 @@ impl AcpPanel {
                     )
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(agent.description.clone()),
                     ),
@@ -406,7 +407,7 @@ impl AcpPanel {
                 div()
                     .rounded_full()
                     .bg(cx.theme().success.opacity(0.12))
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().success_foreground)
                     .child(crate::tr!("providers.acp.installed").into_owned())
                     .into_any_element()
@@ -414,7 +415,7 @@ impl AcpPanel {
                 div()
                     .rounded_full()
                     .bg(cx.theme().muted)
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("providers.acp.unsupported").into_owned())
                     .into_any_element()
@@ -463,14 +464,14 @@ impl AcpPanel {
         let rows = if let Some(error) = error.filter(|_| empty) {
             div()
                 .p_3()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().danger_foreground)
                 .child(error)
                 .into_any_element()
         } else if empty && loading {
             div()
                 .p_3()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().muted_foreground)
                 .child(crate::tr!("providers.acp.loading").into_owned())
                 .into_any_element()
@@ -521,7 +522,7 @@ impl AcpPanel {
                     .child(Icon::new(IconName::Plus).text_color(cx.theme().muted_foreground))
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .child(crate::tr!("providers.acp.custom").into_owned()),
                     )
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -563,7 +564,7 @@ impl AcpPanel {
                         .gap_0p5()
                         .child(
                             div()
-                                .text_size(px(14.))
+                                .text_size(design(14.))
                                 .font_medium()
                                 .text_color(if enabled {
                                     cx.theme().foreground
@@ -572,7 +573,12 @@ impl AcpPanel {
                                 })
                                 .child(title),
                         )
-                        .child(div().text_size(px(12.)).text_color(muted).child(subtitle)),
+                        .child(
+                            div()
+                                .text_size(design(12.))
+                                .text_color(muted)
+                                .child(subtitle),
+                        ),
                 );
             if enabled {
                 row = row
@@ -587,7 +593,7 @@ impl AcpPanel {
                     div()
                         .rounded_full()
                         .px_2()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .bg(cx.theme().muted)
                         .text_color(muted)
                         .child(crate::tr!("providers.third_party.soon").into_owned()),
@@ -601,7 +607,7 @@ impl AcpPanel {
             .gap_2()
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .font_medium()
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("providers.third_party.section").into_owned()),
@@ -643,7 +649,7 @@ impl AcpPanel {
                 .cursor_pointer()
                 .when(active, |s| s.bg(cx.theme().accent).font_medium())
                 .hover(|s| s.bg(cx.theme().accent))
-                .child(div().text_size(px(13.)).child(label))
+                .child(div().text_size(design(13.)).child(label))
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.open_third_party(preset, window, cx);
                 }))
@@ -653,7 +659,7 @@ impl AcpPanel {
             v_flex()
                 .w_full()
                 .gap_1()
-                .child(div().text_size(px(12.)).font_medium().child(label))
+                .child(div().text_size(design(12.)).font_medium().child(label))
                 .child(control)
                 .into_any_element()
         };
@@ -693,7 +699,7 @@ impl AcpPanel {
             )
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(if is_kimi {
                         crate::tr!("providers.third_party.kimi_help").into_owned()
@@ -783,13 +789,13 @@ impl AcpPanel {
             )
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_medium()
                     .child(crate::tr!("providers.acp.custom").into_owned()),
             )
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("providers.acp.custom_help").into_owned()),
             )
