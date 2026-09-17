@@ -5002,6 +5002,51 @@ fn provider_switch_mid_turn_relays_the_partial_answer() {
     });
 }
 
+/// A sidebar row times a working thread from the start of the turn it runs,
+/// whether the thread is open or parked, and starts over with the next turn.
+#[test]
+fn working_activity_carries_the_running_turn_start_across_parking() {
+    let cx = &mut TestAppContext::default();
+    let store = TestStore::new("tcode-sidebar-working-start");
+    let state = cx.new_entity(TestClientState::new((*store).clone()));
+    state.update(cx, |state, _| {
+        let start_turn = |session: &mut ActiveSession, start_ts| {
+            session.turn_in_flight = true;
+            session.timeline.turn_running = true;
+            session.timeline.turns.push(tcode_core::session::TurnMeta {
+                start_ts: Some(start_ts),
+                running: true,
+                ..Default::default()
+            });
+        };
+        let mut active = live_session(ProviderKind::Codex, smol::channel::unbounded().0);
+        start_turn(&mut active, 1_000);
+        let id = active.meta.id.clone();
+        state.sessions.push(active.meta.clone());
+        state.install_selected(active);
+        let started = |state: &TestClientState| {
+            state.index_snapshot().summary.activity[&id].working_started_at
+        };
+        assert_eq!(started(state), Some(1_000));
+
+        let active = state.take_selected().unwrap();
+        state.residents.parked.insert(id.clone(), active);
+        assert_eq!(
+            started(state),
+            Some(1_000),
+            "parking keeps the turn's clock"
+        );
+
+        let parked = state.residents.parked.get_mut(&id).unwrap();
+        parked.turn_in_flight = false;
+        parked.timeline.mark_idle();
+        assert_eq!(started(state), None, "an idle thread has no working time");
+
+        start_turn(state.residents.parked.get_mut(&id).unwrap(), 100_000);
+        assert_eq!(started(state), Some(100_000));
+    });
+}
+
 /// A live session with `provider`, nothing queued, no turn in flight.
 fn live_session(
     provider: ProviderKind,

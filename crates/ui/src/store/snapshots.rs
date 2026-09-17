@@ -230,6 +230,7 @@ mod tests {
             delivery_in_flight: None,
             activity: tcode_protocol::SessionActivity {
                 working: false,
+                working_started_at: None,
                 turn_running: false,
                 waiting: false,
                 waiting_for_approval: false,

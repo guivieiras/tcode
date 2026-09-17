@@ -458,18 +458,23 @@ impl<'a> ActivityProjection<'a> {
         let (approvals, input) = resident.map_or((&[][..], None), |session| {
             self.state.open_requests(&meta.id, session)
         });
+        let working = resident.is_some_and(|session| {
+            session.preparing_worktree
+                || matches!(session.runtime, Runtime::Starting { .. })
+                || session.turn_in_flight
+                || session.delivery_in_flight.is_some()
+                || (meta.native_subagent.is_some() && session.timeline.turn_running)
+                || session
+                    .queue
+                    .iter()
+                    .any(|message| message.origin == MessageOrigin::Human)
+        });
         SessionActivity {
-            working: resident.is_some_and(|session| {
-                session.preparing_worktree
-                    || matches!(session.runtime, Runtime::Starting { .. })
-                    || session.turn_in_flight
-                    || session.delivery_in_flight.is_some()
-                    || (meta.native_subagent.is_some() && session.timeline.turn_running)
-                    || session
-                        .queue
-                        .iter()
-                        .any(|message| message.origin == MessageOrigin::Human)
-            }),
+            working,
+            working_started_at: resident
+                .filter(|_| working)
+                .and_then(|session| session.timeline.running_turn())
+                .and_then(|turn| turn.started_at),
             turn_running: resident.is_some_and(|session| {
                 session.turn_in_flight && session.timeline.turn_retry.is_none()
             }),

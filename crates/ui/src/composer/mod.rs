@@ -137,6 +137,7 @@ pub struct Composer {
     input_destination: Option<ComposerDestination>,
     input_cache: std::collections::HashMap<ComposerDestination, Entity<TextareaState>>,
     input_subscription: Subscription,
+    unsent_threads: Entity<UnsentThreads>,
     model_search: Entity<InputState>,
     /// `None` = follow the active session's provider (set on first open).
     picker_rail: Option<PickerRail>,
@@ -199,6 +200,10 @@ pub struct Composer {
 impl EventEmitter<ComposerEvent> for Composer {}
 
 impl Composer {
+    pub(crate) fn unsent_threads(&self) -> Entity<UnsentThreads> {
+        self.unsent_threads.clone()
+    }
+
     fn interactive(&self, cx: &App) -> bool {
         !self.workspace_store.read(cx).native_subagent_readonly()
             && !matches!(self.workspace_store.read(cx).connection_state(),
@@ -332,6 +337,7 @@ impl Composer {
             input_destination: None,
             input_cache: Default::default(),
             input_subscription,
+            unsent_threads: cx.new(|_| UnsentThreads::default()),
             model_search,
             picker_rail: None,
             approval_expanded: compact,
@@ -380,6 +386,13 @@ impl Composer {
             }
             InputEvent::Change => {
                 self.queued_refill = None;
+                let text = input.read(cx).value();
+                let destination = self.input_destination.as_ref();
+                self.unsent_threads.update(cx, |unsent, cx| {
+                    if unsent.record(destination, &text) {
+                        cx.notify();
+                    }
+                });
                 // An edit that did not come from the transcript writer
                 // ends dictation (see `components::voice`).
                 #[cfg(feature = "voice")]
@@ -1470,6 +1483,7 @@ mod replica_tests {
             let (store, incoming, outgoing, mut status) = attach(cx);
             status.draft = is_draft;
             status.project_id = Some("project-a".into());
+            let first = status.session_id.clone();
             let mut restored_status = status.clone();
             replace(
                 &incoming,
@@ -1486,8 +1500,16 @@ mod replica_tests {
                 window.draw(cx).clear(cx);
                 composer.update(cx, |composer, cx| composer.focus(window, cx));
             });
+            // The sidebar marks a thread with unsent text; a project's New
+            // thread page is not a thread yet.
+            let unsent = |id: &str, cx: &mut gpui::VisualTestContext| {
+                composer.read_with(cx, |composer, cx| {
+                    composer.unsent_threads().read(cx).contains(id)
+                })
+            };
             cx.simulate_input("Keep this prompt");
             cx.update(|window, cx| window.draw(cx).clear(cx));
+            assert_eq!(unsent(&first, cx), !is_draft);
             let send = cx.debug_bounds("send-message").expect("send button");
             cx.simulate_click(send.center(), Modifiers::default());
             cx.update(|window, cx| {
@@ -1498,6 +1520,7 @@ mod replica_tests {
                 composer.read_with(cx, |composer, cx| composer.draft(cx)),
                 ""
             );
+            assert!(!unsent(&first, cx), "a sent prompt is not unsent text");
             assert!(
                 std::iter::from_fn(|| outgoing.try_recv().ok()).any(|line| matches!(
                     tcode_protocol::decode_client_line(&line).unwrap().payload,
@@ -1515,6 +1538,7 @@ mod replica_tests {
                 composer.read_with(cx, |composer, cx| composer.draft(cx)),
                 "Keep this prompt"
             );
+            assert_eq!(unsent(&first, cx), !is_draft);
             status.session_id = "other-thread".into();
             status.project_id = Some("project-b".into());
             store.update(cx, |store, _| {
@@ -1538,6 +1562,12 @@ mod replica_tests {
             );
             cx.update(|window, cx| composer.update(cx, |composer, cx| composer.focus(window, cx)));
             cx.simulate_input("Other destination draft");
+            assert_eq!(unsent("other-thread", cx), !is_draft);
+            assert_eq!(
+                unsent(&first, cx),
+                !is_draft,
+                "a thread keeps its mark while another is shown"
+            );
             let outgoing = composer.read_with(cx, |composer, _| composer.input.clone());
             cx.update(|window, cx| {
                 outgoing.update(cx, |input, cx| {
@@ -1583,6 +1613,7 @@ mod replica_tests {
                 composer.read_with(cx, |composer, cx| composer.draft(cx)),
                 ""
             );
+            assert!(!unsent(&first, cx));
             for (destination, expected) in [
                 (status, "Other destination draft，你好"),
                 (restored_status, ""),

@@ -1,9 +1,13 @@
+mod thread_row;
+
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     rc::Rc,
+    time::Duration,
 };
 
+use crate::composer::model::UnsentThreads;
 use crate::overlay::{DialogButtons, Notification, OverlayExt as _};
 use crate::remote::spaces::{self, ShareTarget, SpacesObserver};
 use crate::scroll::ScrollableElement as _;
@@ -21,10 +25,11 @@ use gpui::{
     Action, AnimationExt as _, App, AppContext as _, Context, Entity, InteractiveElement as _,
     IntoElement, ListAlignment, ListState, ParentElement as _, Render, Role, SharedString,
     SpringAnimation, SpringConfig, StatefulInteractiveElement as _, Styled as _, Subscription,
-    Window, div, list, prelude::FluentBuilder as _, px,
+    Task, Window, div, list, prelude::FluentBuilder as _, px,
 };
 use gpui_base::{Scrollbar, StyledExt as _, h_flex, v_flex};
 use serde::Deserialize;
+use tcode_client::host::ThreadAppearance;
 use tcode_core::settlement::AgentDelivery;
 use tcode_core::thread_sort::{ThreadSection, ThreadSections, partition_threads};
 use tcode_protocol::{Command, ThreadExportFormat};
@@ -36,7 +41,7 @@ use tcode_core::{
 
 use crate::shortcut::format_secondary_shortcut;
 use crate::store::{ForkAvailability, StoreChange, TopicKind, WorkspaceStore};
-use crate::time::{humanize_ago, now_secs};
+use crate::time::{format_duration, humanize_age, now_millis, now_secs};
 use crate::window_drag_area;
 use crate::window_state::{Destination, Route, WindowState};
 
@@ -70,9 +75,9 @@ fn thread_list_toggle_label(total: usize, expanded: bool) -> Option<Cow<'static,
     })
 }
 
-/// Flat-list row geometry, including the 2px gap reserved below every row.
-const FLAT_ROW_HEIGHT: f32 = 50.;
-/// The clickable row inside each flat slot (the slot adds 2px of spacing).
+/// Space reserved below every wide thread row.
+const THREAD_ROW_GAP: f32 = 4.;
+/// The clickable two-line row of the threads view, without its gap.
 const FLAT_ROW_INNER_HEIGHT: f32 = 48.;
 const SETTLED_HEADER_HEIGHT: f32 = 34.;
 
@@ -121,18 +126,48 @@ struct ThreadRowState {
     failed: bool,
     auto_settle_enabled: bool,
     is_worktree: bool,
-    show_unread: bool,
-    renaming: Option<Entity<InputState>>,
+    show_completed: bool,
     menu_can_fork: bool,
     title_generating: bool,
     /// Numbers of the pull requests a watch keeps this thread waiting on.
     watching: Vec<u64>,
+    working_started_at: Option<u64>,
 }
 
 impl ThreadRowState {
     fn waiting(&self) -> bool {
         self.waiting_for_approval || self.waiting_for_input
     }
+
+    fn working_duration(&self) -> String {
+        let elapsed = self
+            .working_started_at
+            .map_or(0, |start| now_millis().saturating_sub(start) / 1000);
+        format_duration(elapsed)
+    }
+}
+
+/// The dot beside a row's time: working, waiting on its own work, or completed.
+fn thread_time_dot(state: &ThreadRowState, working: bool, cx: &App) -> Option<gpui::AnyElement> {
+    let color = if state.waiting() || state.failed {
+        return None;
+    } else if working {
+        cx.theme().primary
+    } else if state.waiting {
+        cx.theme().muted_foreground
+    } else if state.show_completed {
+        cx.theme().success
+    } else {
+        return None;
+    };
+    Some(
+        div()
+            .flex_none()
+            .size(px(6.))
+            .rounded_full()
+            .bg(color)
+            .into_any_element(),
+    )
 }
 
 /// What a Waiting thread waits on, from the agents its host reports: those
@@ -247,7 +282,7 @@ struct ThreadFork(String);
 struct ThreadMergeWorktree(String);
 #[derive(Action, Clone, PartialEq, Eq, Deserialize)]
 #[action(namespace = tcode_thread, no_json)]
-struct ThreadMarkUnread(String);
+struct ThreadMarkCompleted(String);
 
 #[derive(Action, Clone, PartialEq, Deserialize)]
 #[action(namespace = tcode_sidebar, no_json)]
@@ -396,13 +431,11 @@ struct CompactThreadRow {
     meta: SessionMeta,
     state: ThreadRowState,
     working: bool,
-    title: SharedString,
     row_id: SharedString,
     label: SharedString,
     project_name: Option<SharedString>,
     /// The time the row shows, the one its list sorts it by.
     timestamp: u64,
-    relative_time: SharedString,
     separator: bool,
 }
 
@@ -505,12 +538,12 @@ struct CompactListModel {
     rows: Vec<CompactListRow>,
     has_projects: bool,
     locale: String,
-    minute: u64,
 }
 
 pub struct SessionsSidebar {
     store: Entity<WorkspaceStore>,
     window_state: Entity<WindowState>,
+    unsent_threads: Entity<UnsentThreads>,
     /// Project ids whose thread list is expanded past the collapsed limit.
     expanded_groups: HashSet<String>,
     expanded_settled: HashSet<String>,
@@ -543,10 +576,14 @@ pub struct SessionsSidebar {
     /// Returning from a thread scrolls its row into the upper part of the
     /// list; the row's next paint performs the scroll and clears this.
     compact_reveal_active: bool,
+    /// The row appearance the lists last measured their rows in.
+    last_appearance: ThreadAppearance,
     #[cfg(test)]
     compact_rows_rendered: std::cell::Cell<usize>,
     spaces_observer: SpacesObserver,
     _subscriptions: Vec<Subscription>,
+    /// Repaints working durations each second while a thread works.
+    _working_tick: Option<Task<()>>,
 }
 
 /// Included desktop rows plus the pre-disclosure counts used by list controls.
@@ -735,13 +772,15 @@ impl SessionsSidebar {
     fn compact(&self, cx: &gpui::App) -> bool {
         self.window_state.read(cx).compact
     }
-    pub fn new(
+    pub(crate) fn new(
         store: Entity<WorkspaceStore>,
         window_state: Entity<WindowState>,
+        unsent_threads: Entity<UnsentThreads>,
         cx: &mut Context<Self>,
     ) -> Self {
         let mut last_destination = window_state.read(cx).destination();
         let subscriptions = vec![
+            cx.observe(&unsent_threads, |_, _, cx| cx.notify()),
             cx.subscribe(&store, |this, _, change: &StoreChange, cx| {
                 if matches!(
                     change.topic,
@@ -770,6 +809,7 @@ impl SessionsSidebar {
         Self {
             store,
             window_state,
+            unsent_threads,
             expanded_groups: HashSet::new(),
             expanded_settled: HashSet::new(),
             settled_limits: HashMap::new(),
@@ -792,10 +832,12 @@ impl SessionsSidebar {
             compact_model: None,
             compact_model_dirty: true,
             compact_reveal_active: false,
+            last_appearance: ThreadAppearance::default(),
             #[cfg(test)]
             compact_rows_rendered: std::cell::Cell::new(0),
             spaces_observer: SpacesObserver::default(),
             _subscriptions: subscriptions,
+            _working_tick: None,
         }
     }
 
@@ -952,15 +994,24 @@ impl SessionsSidebar {
         }
     }
 
+    /// The inline rename field of `session_id`'s row, read at paint so a
+    /// cached phone row shows it too.
+    fn renaming_input(&self, session_id: &str) -> Option<&Entity<InputState>> {
+        self.renaming
+            .as_ref()
+            .filter(|rename| rename.session_id == session_id)
+            .map(|rename| &rename.input)
+    }
+
     fn cancel_rename(&mut self, cx: &mut Context<Self>) {
         if self.renaming.take().is_some() {
             cx.notify();
         }
     }
 
-    fn on_mark_unread(
+    fn on_mark_completed(
         &mut self,
-        action: &ThreadMarkUnread,
+        action: &ThreadMarkCompleted,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -2075,9 +2126,11 @@ impl SessionsSidebar {
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let project_id = group.project.id.clone();
-        let has_unread = group.sessions.iter().any(|meta| {
+        let has_completed = group.sessions.iter().any(|meta| {
             meta.parent_session_id.is_none()
-                && flags.get(&meta.id).is_some_and(|flags| flags.unread)
+                && flags
+                    .get(&meta.id)
+                    .is_some_and(|flags| flags.unread && !flags.working)
         });
         let group_key = format!("group-{project_id}");
 
@@ -2145,14 +2198,14 @@ impl SessionsSidebar {
                 .child(name),
         )
         .children(self.shared_badge(&project_id, cx))
-        // Unread dot when any child thread is unread (hidden on hover so
-        // the "+" can take the slot).
-        .when(has_unread, |row| {
+        // Completed dot when a project thread has finished (hidden on hover
+        // so the "+" can take the slot).
+        .when(has_completed, |row| {
             row.child(
                 div()
                     .flex_none()
                     .group_hover(group_key.clone(), |s| s.invisible())
-                    .child(div().size(px(6.)).rounded_full().bg(cx.theme().primary)),
+                    .child(div().size(px(6.)).rounded_full().bg(cx.theme().success)),
             )
         })
         .child(
@@ -2332,11 +2385,6 @@ impl SessionsSidebar {
         let session_id = meta.id.clone();
         let own_flags = flags.get(&session_id).copied().unwrap_or_default();
         ThreadRowState {
-            renaming: self
-                .renaming
-                .as_ref()
-                .filter(|rename| rename.session_id == session_id)
-                .map(|rename| rename.input.clone()),
             session_id,
             row_key,
             waiting_for_approval: own_flags.waiting_for_approval,
@@ -2345,12 +2393,13 @@ impl SessionsSidebar {
             failed: own_flags.failed,
             auto_settle_enabled: meta.auto_settle_disabled_at.is_none(),
             is_worktree: meta.worktree.is_some(),
-            show_unread: own_flags.unread && !own_flags.working,
+            show_completed: own_flags.unread && !own_flags.working,
             menu_can_fork: meta.provider.caps().supports_fork,
             title_generating: self.store.read(cx).title_generating(&meta.id),
             watching: tcode_core::pull_request::watched(&meta.pull_requests)
                 .map(|link| link.key.number)
                 .collect(),
+            working_started_at: self.store.read(cx).working_started_at_for(&meta.id),
         }
     }
 
@@ -2437,10 +2486,7 @@ impl SessionsSidebar {
                 .update(cx, |state, cx| state.open_thread(cx));
             cx.notify();
         }));
-        let row = match self
-            .dragged_thread(meta, state, cx)
-            .filter(|_| !self.compact(cx))
-        {
+        let row = match self.dragged_thread(meta, cx).filter(|_| !self.compact(cx)) {
             Some(dragged) => Self::drag_source(row, dragged, cx),
             None => row,
         };
@@ -2465,29 +2511,41 @@ impl SessionsSidebar {
         &self,
         meta: &SessionMeta,
         state: &ThreadRowState,
-        emphasize_unread: bool,
+        emphasize_completed: bool,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
-        let title = if let Some(input) = &state.renaming {
+        let compact = self.compact(cx);
+        let title = if let Some(input) = self.renaming_input(&meta.id) {
             div()
                 .flex_1()
                 .min_w_0()
+                .debug_selector({
+                    let id = meta.id.clone();
+                    move || format!("thread-rename-{id}")
+                })
                 .on_mouse_down_out(cx.listener(|this, _, _, cx| this.cancel_rename(cx)))
                 .child(Input::new(input))
                 .into_any_element()
         } else {
             truncated_sidebar_label()
-                .text_size(px(13.))
-                .line_height(px(18.))
+                .text_size(px(if compact { 16. } else { 13. }))
+                .line_height(px(if compact { 21. } else { 18. }))
                 .text_color(if meta.is_settled() {
                     cx.theme().muted_foreground
+                } else if compact {
+                    cx.theme().foreground
                 } else {
                     cx.theme().sidebar_foreground
                 })
+                .when(compact && !meta.is_settled(), |title| title.font_medium())
                 .when(
-                    emphasize_unread && state.show_unread && !meta.is_settled(),
+                    emphasize_completed && state.show_completed && !meta.is_settled(),
                     |title| title.font_semibold(),
                 )
+                .debug_selector({
+                    let id = meta.id.clone();
+                    move || format!("compact-title-{id}")
+                })
                 .child(meta.title.clone())
                 .into_any_element()
         };
@@ -2606,22 +2664,22 @@ impl SessionsSidebar {
         })
     }
 
-    fn thread_status_badge(
+    /// The status badge of a row that needs the user or failed; other states
+    /// show beside the row's time.
+    fn thread_attention_badge(
         state: &ThreadRowState,
-        working: bool,
-        store: &Entity<WorkspaceStore>,
         cx: &Context<Self>,
     ) -> Option<gpui::AnyElement> {
-        let (color, label, waiting) = Self::thread_status_label(state, working, cx)?;
+        if !state.waiting() && !state.failed {
+            return None;
+        }
+        let (color, label, _) = Self::thread_status_label(state, false, cx)?;
         Some(
             h_flex()
                 .id(SharedString::from(format!(
                     "thread-status-{}",
                     state.session_id
                 )))
-                .when(waiting, |badge| {
-                    Self::waiting_tooltip(badge, store, &state.session_id, &state.watching)
-                })
                 .flex_none()
                 .items_center()
                 .gap_1()
@@ -2700,8 +2758,8 @@ impl SessionsSidebar {
                 Box::new(ThreadLinkPullRequest(id.clone())),
             )
             .menu(
-                crate::tr!("sidebar.ctx_mark_unread").into_owned(),
-                Box::new(ThreadMarkUnread(id.clone())),
+                crate::tr!("sidebar.ctx_mark_completed").into_owned(),
+                Box::new(ThreadMarkCompleted(id.clone())),
             )
             .separator()
             .menu(
@@ -2807,125 +2865,137 @@ impl SessionsSidebar {
     ) -> impl IntoElement + use<> {
         let working = flags.get(&meta.id).is_some_and(|flags| flags.working);
         let state = self.thread_row_state(meta, flags, format!("thread-{}", meta.id), cx);
-        let session_id = state.session_id.clone();
-        let row_key = state.row_key.clone();
-        let is_worktree = state.is_worktree;
-        let show_unread = state.show_unread;
-
+        let height = thread_row::wide_height(
+            self.store.read(cx).thread_appearance(),
+            thread_row::Kind::Grouped,
+        );
+        let body = thread_row::render(
+            thread_row::Row {
+                sidebar: self,
+                meta,
+                state: &state,
+                working,
+                project_name: None,
+                timestamp: project_view_timestamp(meta),
+                kind: thread_row::Kind::Grouped,
+            },
+            cx,
+        );
         let row = self
             .thread_clickable_row(
                 h_flex(),
-                gpui::SharedString::from(format!("thread-row-{session_id}")),
+                SharedString::from(format!("thread-row-{}", meta.id)),
                 meta,
                 &state,
                 is_active,
                 cx,
             )
+            .h(px(height))
+            .mb(px(THREAD_ROW_GAP))
             // Indent threads beneath their project header's icon and chevron.
             .pl(px(30.))
             // First child so the row's content paints over the mark.
             .relative()
-            .child(self.provider_mark(
-                meta,
-                crate::material::selectable_row_height(false),
-                THREAD_ROW_PADDING_X,
-                cx,
-            ))
-            .when_some(
-                Self::thread_status_badge(&state, working, &self.store, cx),
-                |row, badge| row.child(badge),
-            );
-
-        // Row body: rename input, or the (unread dot + worktree glyph + title).
-        let row = if state.renaming.is_some() {
-            row.child(self.thread_title_or_input(meta, &state, false, cx))
-        } else {
-            row.when(show_unread, |row| {
-                row.child(
-                    div()
-                        .flex_none()
-                        .size(px(6.))
-                        .rounded_full()
-                        .bg(cx.theme().primary),
-                )
-            })
-            .when(is_worktree, |row| {
-                row.child(
-                    Icon::empty()
-                        .path("icons/git-branch.svg")
-                        .xsmall()
-                        .text_color(cx.theme().muted_foreground),
-                )
-            })
-            .child(self.thread_title_or_input(meta, &state, false, cx))
-            .children(self.pin_glyph(meta, &row_key, cx))
-            .when_some(
-                (state.renaming.is_none())
-                    .then(|| {
-                        crate::pull_requests::sidebar_badge(
-                            &meta.pull_requests,
-                            meta.branch_pull_request.as_deref(),
-                            &meta.id,
-                            self.store.clone(),
-                            cx,
-                        )
-                    })
-                    .flatten(),
-                |row, badge| row.child(badge),
-            )
-            .when(!working, |row| {
-                row.child(self.render_flat_thread_right_slot(
-                    meta,
-                    &row_key,
-                    project_view_timestamp(meta),
-                    true,
-                    cx,
-                ))
-            })
-        };
-
+            .child(self.provider_mark(meta, height, THREAD_ROW_PADDING_X, cx))
+            .child(body);
         self.thread_context_menu(row, meta, &state, working, false, cx)
     }
 
-    /// `timestamp` is the time the row shows: the one its list sorts it by.
-    fn render_flat_thread_right_slot(
+    fn unsent_text_indicator(&self, session_id: &str, cx: &App) -> Option<gpui::AnyElement> {
+        self.unsent_threads.read(cx).contains(session_id).then(|| {
+            let label = crate::tr!("sidebar.unsent_text").into_owned();
+            div()
+                .id(SharedString::from(format!("thread-draft-{session_id}")))
+                .flex_none()
+                .flex()
+                .items_center()
+                .role(Role::Image)
+                .aria_label(label.clone())
+                .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
+                .child(
+                    Icon::empty()
+                        .path("icons/pencil.svg")
+                        .size(px(12.))
+                        .text_color(cx.theme().muted_foreground),
+                )
+                .into_any_element()
+        })
+    }
+
+    /// A row's time: how long a working thread has worked, otherwise the age
+    /// of `timestamp`, the time its list sorts it by. Wide rows reveal the
+    /// settle action over it on hover.
+    fn render_thread_time(
         &self,
         meta: &SessionMeta,
-        row_key: &str,
+        state: &ThreadRowState,
+        working: bool,
         timestamp: u64,
-        action_on_hover: bool,
+        font_size: f32,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let session_id = meta.id.clone();
         let action_id = session_id.clone();
+        let compact = self.compact(cx);
         let settled = meta.is_settled();
-        let ago = humanize_ago(now_secs().saturating_sub(timestamp));
-        let action_on_hover = settled
-            || (action_on_hover
-                && !self.store.read(cx).pending_approval_for(&meta.id)
-                && !self.store.read(cx).pending_user_input_for(&meta.id));
+        let action_on_hover = !compact && (settled || (!working && !state.waiting()));
+        let time = if working && (!compact || !state.waiting()) {
+            state.working_duration()
+        } else {
+            humanize_age(now_secs().saturating_sub(timestamp))
+        };
+        let color = if compact {
+            if working && !state.waiting() {
+                cx.theme().primary
+            } else {
+                cx.theme().muted_foreground
+            }
+        } else if state.waiting_for_approval {
+            cx.theme().warning
+        } else if state.waiting_for_input || working {
+            cx.theme().primary
+        } else {
+            cx.theme().muted_foreground
+        };
         let label = if settled {
             crate::tr!("sidebar.unsettle_tooltip")
         } else {
             crate::tr!("sidebar.settle_tooltip")
         };
-        let row_key = row_key.to_string();
+        let row_key = state.row_key.clone();
+        let waiting_on_work = state.waiting && !working && !state.waiting();
         div()
             .relative()
             .flex_none()
-            .h(px(20.))
-            .min_w(px(20.))
+            .debug_selector({
+                let id = session_id.clone();
+                move || format!("thread-time-{id}")
+            })
+            .h(px((font_size + 4.).max(if compact { 18. } else { 20. })))
+            .when(!compact, |time| time.min_w(px(20.)))
             .child(
                 h_flex()
+                    .id(SharedString::from(format!("thread-time-{session_id}")))
                     .h_full()
                     .items_center()
+                    .justify_end()
+                    .gap(px(6.))
                     .whitespace_nowrap()
-                    .text_size(px(11.))
-                    .text_color(cx.theme().muted_foreground)
-                    .when(action_on_hover, |time| {
-                        time.group_hover(row_key.clone(), |time| time.invisible())
+                    .text_size(px(font_size))
+                    .text_color(color)
+                    .when(waiting_on_work, |time| {
+                        Self::waiting_tooltip(time, &self.store, &session_id, &state.watching)
                     })
-                    .child(ago),
+                    .children(self.unsent_text_indicator(&session_id, cx))
+                    .children(thread_time_dot(state, working, cx))
+                    .child(
+                        div()
+                            .when(!compact, |time| time.min_w(px(20.)).text_right())
+                            .when(action_on_hover, |time| {
+                                time.group_hover(row_key.clone(), |time| time.invisible())
+                            })
+                            .child(time),
+                    ),
             )
             .when(action_on_hover, |slot| {
                 slot.child(
@@ -2975,135 +3045,37 @@ impl SessionsSidebar {
     ) -> impl IntoElement + use<> {
         let working = flags.get(&meta.id).is_some_and(|flags| flags.working);
         let state = self.thread_row_state(meta, flags, format!("flat-thread-{}", meta.id), cx);
-        let session_id = state.session_id.clone();
-        let row_key = state.row_key.clone();
-        let waiting = state.waiting();
-        let show_unread = state.show_unread;
-        let renaming = state.renaming.is_some();
-        let status = Self::thread_status_label(&state, working, cx);
-
+        let height = thread_row::wide_height(
+            self.store.read(cx).thread_appearance(),
+            thread_row::Kind::Recent,
+        );
+        let body = thread_row::render(
+            thread_row::Row {
+                sidebar: self,
+                meta,
+                state: &state,
+                working,
+                project_name: project_name.map(Into::into),
+                timestamp: tcode_core::thread_sort::shown_timestamp(meta),
+                kind: thread_row::Kind::Recent,
+            },
+            cx,
+        );
         let row = self
             .thread_clickable_row(
-                v_flex(),
-                gpui::SharedString::from(format!("flat-thread-row-{session_id}")),
+                h_flex(),
+                SharedString::from(format!("flat-thread-row-{}", meta.id)),
                 meta,
                 &state,
                 is_active,
                 cx,
             )
-            .debug_selector({
-                let id = session_id.clone();
-                move || format!("sidebar-thread-{id}")
-            })
-            // Two lines need the taller flat slot; the rail supplies its surface.
-            .h(px(FLAT_ROW_INNER_HEIGHT))
-            .items_stretch()
-            .justify_center()
-            .gap(px(2.))
+            .h(px(height))
+            .items_center()
             // First child so the row's content paints over the mark.
             .relative()
-            .child(self.provider_mark(meta, FLAT_ROW_INNER_HEIGHT, THREAD_ROW_PADDING_X, cx));
-
-        let row = {
-            let title_or_input = self.thread_title_or_input(meta, &state, true, cx);
-            // Unread wins over the status colour; renaming hides the dot so the
-            // input keeps the row's leading width (same as render_thread).
-            let dot = (!renaming)
-                .then(|| {
-                    show_unread
-                        .then(|| cx.theme().primary)
-                        .or(status.as_ref().map(|(color, _, _)| *color))
-                })
-                .flatten();
-            let line_one = h_flex()
-                .w_full()
-                .min_w_0()
-                .items_center()
-                .gap(px(6.))
-                .when_some(dot, |line, color| {
-                    line.child(div().flex_none().size(px(6.)).rounded_full().bg(color))
-                })
-                .child(title_or_input)
-                .when(!renaming, |line| {
-                    line.children(self.pin_glyph(meta, &row_key, cx)).child(
-                        self.render_flat_thread_right_slot(
-                            meta,
-                            &row_key,
-                            tcode_core::thread_sort::shown_timestamp(meta),
-                            !working,
-                            cx,
-                        ),
-                    )
-                });
-
-            let has_project = project_name.is_some();
-            let watching: Vec<u64> = tcode_core::pull_request::watched(&meta.pull_requests)
-                .map(|link| link.key.number)
-                .collect();
-            let line_two = h_flex()
-                .w_full()
-                .min_w_0()
-                .items_center()
-                .gap_1()
-                .text_size(px(11.))
-                .text_color(cx.theme().muted_foreground)
-                .when_some(status, |line, (color, label, waiting)| {
-                    line.child(
-                        div()
-                            .id(SharedString::from(format!("thread-status-{session_id}")))
-                            .flex_none()
-                            .text_color(color)
-                            .when(waiting, |status| {
-                                Self::waiting_tooltip(status, &self.store, &session_id, &watching)
-                            })
-                            .child(label),
-                    )
-                })
-                .when((waiting || working) && has_project, |line| {
-                    line.child(div().flex_none().child("·"))
-                })
-                .when_some(project_name, |line, project_name| {
-                    line.child(
-                        self.store
-                            .read(cx)
-                            .project(meta.project_id.as_deref().unwrap_or_default())
-                            .map(|project| {
-                                crate::project_icon::artwork(project, 12.).into_any_element()
-                            })
-                            .unwrap_or_else(|| {
-                                Icon::new(IconName::Folder).size_3().into_any_element()
-                            }),
-                    )
-                    .child(truncated_sidebar_label().child(project_name))
-                })
-                // Without a project label there is no flex-1 element on the
-                // line, so a spacer keeps the worktree glyph bottom-right.
-                .when(!has_project, |line| line.child(div().flex_1()))
-                .when(meta.worktree.is_some(), |line| {
-                    line.child(
-                        Icon::empty()
-                            .path("icons/git-branch.svg")
-                            .xsmall()
-                            .text_color(cx.theme().muted_foreground),
-                    )
-                });
-            let line_two = line_two.when_some(
-                (!renaming)
-                    .then(|| {
-                        crate::pull_requests::sidebar_badge(
-                            &meta.pull_requests,
-                            meta.branch_pull_request.as_deref(),
-                            &meta.id,
-                            self.store.clone(),
-                            cx,
-                        )
-                    })
-                    .flatten(),
-                |line, badge| line.child(badge),
-            );
-            row.child(line_one).child(line_two)
-        };
-
+            .child(self.provider_mark(meta, height, THREAD_ROW_PADDING_X, cx))
+            .child(body);
         self.thread_context_menu(row, meta, &state, working, false, cx)
     }
 
@@ -3316,7 +3288,6 @@ impl SessionsSidebar {
     /// navigation-animation frames only clone the shared snapshot; ListState
     /// measures the visible rows, including project captions of different height.
     fn compact_model(&mut self, cx: &mut Context<Self>) -> Rc<CompactListModel> {
-        let now = now_secs();
         let locale = rust_i18n::locale();
         if self.compact_model_dirty
             || self
@@ -3364,13 +3335,11 @@ impl SessionsSidebar {
                         project_view_timestamp(meta)
                     };
                     rows.push(CompactListRow::Thread(Rc::new(CompactThreadRow {
-                        title: meta.title.clone().into(),
                         row_id: format!("compact-thread-row-{}", meta.id).into(),
                         label: crate::tr!("sidebar.thread", title = meta.title.clone())
                             .into_owned()
                             .into(),
                         timestamp,
-                        relative_time: humanize_ago(now.saturating_sub(timestamp)).into(),
                         working: flags.get(&meta.id).is_some_and(|flags| flags.working),
                         state,
                         meta: meta.clone(),
@@ -3511,25 +3480,13 @@ impl SessionsSidebar {
                 rows,
                 has_projects: !groups.is_empty(),
                 locale: locale.to_string(),
-                minute: now / 60,
             }));
             self.compact_model_dirty = false;
         }
-        let model = self
-            .compact_model
-            .as_mut()
-            .expect("compact model initialized");
-        if model.minute != now / 60 {
-            let model = Rc::make_mut(model);
-            model.minute = now / 60;
-            for row in &mut model.rows {
-                if let CompactListRow::Thread(row) = row {
-                    let row = Rc::make_mut(row);
-                    row.relative_time = humanize_ago(now.saturating_sub(row.timestamp)).into();
-                }
-            }
-        }
-        model.clone()
+        self.compact_model
+            .as_ref()
+            .expect("compact model initialized")
+            .clone()
     }
 
     /// Compact thread list with shared layout preference. Navigation replaces
@@ -3728,7 +3685,7 @@ impl SessionsSidebar {
             .on_action(cx.listener(Self::on_regenerate_title))
             .on_action(cx.listener(Self::on_fork))
             .on_action(cx.listener(Self::on_merge_worktree))
-            .on_action(cx.listener(Self::on_mark_unread))
+            .on_action(cx.listener(Self::on_mark_completed))
             .on_action(cx.listener(Self::on_copy_path))
             .on_action(cx.listener(Self::on_copy_id))
             .on_action(cx.listener(Self::on_export_jsonl))
@@ -3885,22 +3842,24 @@ impl SessionsSidebar {
         let meta = &cached.meta;
         let state = &cached.state;
         let working = cached.working;
-        let project_name = cached.project_name.clone();
-        let project = if project_name.is_some() {
-            self.store
-                .read(cx)
-                .project(meta.project_id.as_deref().unwrap_or_default())
-                .cloned()
-        } else {
-            None
-        };
         let session_id = state.session_id.clone();
-        let status = compact_status_line(state, working, cx);
         let click_id = session_id.clone();
         let mark = self.provider_mark(
             meta,
             crate::material::LIST_ROW_MIN_HEIGHT,
             crate::material::COMPACT_PAGE_INSET,
+            cx,
+        );
+        let body = thread_row::render(
+            thread_row::Row {
+                sidebar: self,
+                meta,
+                state,
+                working,
+                project_name: cached.project_name.clone(),
+                timestamp: cached.timestamp,
+                kind: thread_row::Kind::Compact,
+            },
             cx,
         );
 
@@ -3947,96 +3906,16 @@ impl SessionsSidebar {
                 this.window_state
                     .update(cx, |state, cx| state.open_thread(cx));
             }))
-            .child(compact_status_glyph(state, working, project.as_ref(), cx))
-            .child(
-                v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap(px(2.))
-                    .child(
-                        h_flex()
-                            .w_full()
-                            .min_w_0()
-                            .gap(px(6.))
-                            .child(
-                                truncated_sidebar_label()
-                                    .text_size(px(16.))
-                                    .line_height(px(21.))
-                                    .text_color(if meta.is_settled() {
-                                        cx.theme().muted_foreground
-                                    } else {
-                                        cx.theme().foreground
-                                    })
-                                    .when(!meta.is_settled(), |title| title.font_medium())
-                                    .when(state.show_unread && !meta.is_settled(), |title| {
-                                        title.font_semibold()
-                                    })
-                                    .debug_selector({
-                                        let id = session_id.clone();
-                                        move || format!("compact-title-{id}")
-                                    })
-                                    .child(cached.title.clone()),
-                            )
-                            .when(meta.pinned_at.is_some() && !meta.is_settled(), |row| {
-                                row.child(
-                                    Icon::new(IconName::Pin)
-                                        .size(px(14.))
-                                        .flex_none()
-                                        .text_color(cx.theme().muted_foreground),
-                                )
-                            })
-                            .when(state.title_generating, |row| {
-                                row.child(div().flex_none().child(
-                                    Spinner::new().xsmall().color(cx.theme().muted_foreground),
-                                ))
-                            }),
-                    )
-                    .child(
-                        h_flex()
-                            .w_full()
-                            .min_w_0()
-                            .gap(px(4.))
-                            .text_size(px(13.))
-                            .line_height(px(18.))
-                            .text_color(cx.theme().muted_foreground)
-                            .when_some(project_name, |line, name| {
-                                line.child(
-                                    div()
-                                        .min_w_0()
-                                        .truncate()
-                                        .debug_selector({
-                                            let name = name.clone();
-                                            move || format!("compact-project-{name}")
-                                        })
-                                        .child(name),
-                                )
-                                .child(div().flex_none().child("·"))
-                            })
-                            .when_some(status, |line, (label, color)| {
-                                line.child(div().flex_none().text_color(color).child(label))
-                                    .child(div().flex_none().child("·"))
-                            })
-                            .when_some(
-                                crate::pull_requests::badge(
-                                    &meta.pull_requests,
-                                    meta.branch_pull_request.as_deref(),
-                                    14.,
-                                    cx,
-                                ),
-                                |line, badge| line.child(badge).child("·"),
-                            )
-                            .child(div().flex_none().child(cached.relative_time.clone())),
-                    ),
-            );
+            .child(body);
         self.thread_context_menu(row, meta, state, working, true, cx)
     }
 }
 
-/// The 20×20 status slot at the head of a compact row. The slot is
-/// always taken so titles line up. Idle ungrouped rows show their project artwork.
-fn compact_status_glyph(
+/// The 20×20 slot at the head of a compact row: what needs the user, or the
+/// project artwork of an ungrouped row. The slot is always taken so titles
+/// line up; work and completion show beside the time.
+fn compact_waiting_glyph(
     state: &ThreadRowState,
-    working: bool,
     project: Option<&tcode_core::project::Project>,
     cx: &App,
 ) -> gpui::AnyElement {
@@ -4079,23 +3958,6 @@ fn compact_status_glyph(
             )
             .into_any_element();
     }
-    if working || state.waiting {
-        let color = if !working && state.waiting {
-            cx.theme().muted_foreground
-        } else {
-            cx.theme().primary
-        };
-        return slot
-            .justify_center()
-            .child(Spinner::new().small().color(color))
-            .into_any_element();
-    }
-    if state.show_unread {
-        return slot
-            .justify_center()
-            .child(div().size(px(8.)).rounded_full().bg(cx.theme().primary))
-            .into_any_element();
-    }
     slot.justify_center()
         .text_color(cx.theme().muted_foreground)
         .when_some(project, |slot, project| {
@@ -4120,8 +3982,8 @@ fn compact_status_line(
         Some((crate::tr!("mobile.working"), cx.theme().primary))
     } else if state.waiting {
         Some((crate::tr!("sidebar.waiting"), cx.theme().muted_foreground))
-    } else if state.show_unread {
-        Some((crate::tr!("mobile.unread"), cx.theme().primary))
+    } else if state.show_completed {
+        Some((crate::tr!("mobile.completed"), cx.theme().success))
     } else {
         None
     }
@@ -4138,6 +4000,31 @@ impl Render for SessionsSidebar {
             self.expanded_settled.clear();
             self.settled_limits.clear();
             self.compact_model_dirty = true;
+        }
+        let appearance = self.store.read(cx).thread_appearance();
+        if appearance != self.last_appearance {
+            for list in [
+                &self.flat_list_state,
+                &self.grouped_list_state,
+                &self.compact_list_state,
+            ] {
+                let anchor = list.logical_scroll_top();
+                list.reset(list.item_count());
+                list.scroll_to(anchor);
+            }
+            self.last_appearance = appearance;
+        }
+        if self.store.read(cx).working_sessions_count() == 0 {
+            self._working_tick = None;
+        } else if self._working_tick.is_none() {
+            self._working_tick = Some(cx.spawn(async move |this, cx| {
+                loop {
+                    cx.background_executor().timer(Duration::from_secs(1)).await;
+                    if this.update(cx, |_, cx| cx.notify()).is_err() {
+                        break;
+                    }
+                }
+            }));
         }
         self.reveal_selected_settled(cx);
         self.clear_finished_drag(cx);
@@ -4234,7 +4121,8 @@ impl Render for SessionsSidebar {
                             list.child(thread_list_scrollbar(
                                 "grouped-thread-scrollbar",
                                 &self.grouped_list_state,
-                                crate::material::selectable_row_height(false),
+                                thread_row::wide_height(appearance, thread_row::Kind::Grouped)
+                                    + THREAD_ROW_GAP,
                             ))
                         })
                         .into_any_element()
@@ -4287,6 +4175,7 @@ impl Render for SessionsSidebar {
                 } else {
                     // Each row's resting top, so a row moved by a drag or a
                     // section change springs from where it was.
+                    let row_height = thread_row::wide_height(appearance, thread_row::Kind::Recent);
                     let mut top = 0.;
                     let mut visible = Vec::new();
                     for (section, rows) in [
@@ -4298,7 +4187,7 @@ impl Render for SessionsSidebar {
                         top += self.drag_boundary_height(empty, scope.as_deref());
                         for meta in rows.iter() {
                             visible.push(FlatListRow::Thread(Box::new((*meta).clone()), top));
-                            top += FLAT_ROW_HEIGHT;
+                            top += row_height + THREAD_ROW_GAP;
                         }
                     }
                     if settled_count > 0 {
@@ -4309,7 +4198,7 @@ impl Render for SessionsSidebar {
                         top += SETTLED_HEADER_HEIGHT;
                         for meta in settled_visible {
                             visible.push(FlatListRow::Thread(Box::new(meta.clone()), top));
-                            top += FLAT_ROW_HEIGHT;
+                            top += row_height + THREAD_ROW_GAP;
                         }
                     }
                     if let Some(count) = self.settled_more_count("recent", settled_hidden_count) {
@@ -4394,13 +4283,13 @@ impl Render for SessionsSidebar {
                                 FlatListRow::Empty => return this.render_active_empty(cx),
                             };
                             let target_top = *target_top;
-                            let row = div().w_full().px_2().pb(px(2.));
+                            let row = div().w_full().px_2().pb(px(THREAD_ROW_GAP));
                             let row = if this
                                 .drag
                                 .as_ref()
                                 .is_some_and(|drag| drag.session_id == meta.id)
                             {
-                                row.child(Self::render_drag_gap(FLAT_ROW_INNER_HEIGHT))
+                                row.child(Self::render_drag_gap(row_height))
                             } else {
                                 let project_name = meta
                                     .project_id
@@ -4457,7 +4346,7 @@ impl Render for SessionsSidebar {
                                 list.child(thread_list_scrollbar(
                                     "flat-thread-scrollbar",
                                     &self.flat_list_state,
-                                    FLAT_ROW_HEIGHT,
+                                    row_height + THREAD_ROW_GAP,
                                 ))
                             })
                             .into_any_element(),
@@ -4475,7 +4364,7 @@ impl Render for SessionsSidebar {
             .on_action(cx.listener(Self::on_regenerate_title))
             .on_action(cx.listener(Self::on_fork))
             .on_action(cx.listener(Self::on_merge_worktree))
-            .on_action(cx.listener(Self::on_mark_unread))
+            .on_action(cx.listener(Self::on_mark_completed))
             .on_action(cx.listener(Self::on_copy_path))
             .on_action(cx.listener(Self::on_copy_id))
             .on_action(cx.listener(Self::on_export_jsonl))
@@ -4532,6 +4421,8 @@ mod tests {
     use tcode_core::project::Project;
     use tcode_runtime::pipe::{HostServices, spawn_host};
     use tcode_services::store::SessionStore;
+
+    const FLAT_ROW_HEIGHT: f32 = FLAT_ROW_INNER_HEIGHT + THREAD_ROW_GAP;
 
     struct WorkingThreadRowProbe;
 
@@ -4635,6 +4526,7 @@ mod tests {
                 "background".into(),
                 SessionActivity {
                     working: !waiting,
+                    working_started_at: None,
                     turn_running: !waiting,
                     waiting,
                     waiting_for_approval: false,
@@ -4684,8 +4576,14 @@ mod tests {
         crate::store::tests::seed_full_scope(&store, &incoming, deferred, cx);
         store.update(cx, |store, _| store.select_session("background".into()));
         let window_state = cx.new(|_| WindowState::new(false).with_compact(true));
-        let (sidebar, cx) = cx
-            .add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         cx.simulate_resize(size(px(393.), px(852.)));
         for (waiting, expected) in [(true, "Waiting"), (false, "Working")] {
             send(
@@ -4817,8 +4715,14 @@ mod tests {
         });
 
         let window_state = cx.new(|_| WindowState::new(false));
-        let (sidebar, cx) = cx
-            .add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         let cx: &mut VisualTestContext = cx;
         cx.simulate_resize(size(px(360.), px(800.)));
         draw(cx);
@@ -4890,8 +4794,14 @@ mod tests {
             store.read_with(cx, |store, _| store.baseline_ready())
         });
         let window_state = cx.new(|_| WindowState::new(false));
-        let (_, cx) =
-            cx.add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state, cx));
+        let (_, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state,
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         let cx: &mut VisualTestContext = cx;
         cx.simulate_resize(size(px(320.), px(600.)));
         store.update(cx, |store, _| store.select_session("codex-thread".into()));
@@ -5037,8 +4947,14 @@ mod tests {
             store.read_with(cx, |store, _| store.baseline_ready())
         });
         let navigation = cx.new(|_| WindowState::new(false).with_compact(true));
-        let (_, cx) =
-            cx.add_window_view(|_, cx| SessionsSidebar::new(store.clone(), navigation.clone(), cx));
+        let (_, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                navigation.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         cx.simulate_resize(size(px(393.), px(852.)));
         draw(cx);
         // A remote host may not have sent status yet. Selection must repaint
@@ -5165,8 +5081,14 @@ mod tests {
             store.read_with(cx, |store, _| store.baseline_ready())
         });
         let window_state = cx.new(|_| WindowState::new(false).with_compact(true));
-        let (sidebar, cx) =
-            cx.add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state, cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state,
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         let cx: &mut VisualTestContext = cx;
         cx.simulate_resize(size(px(393.), px(852.)));
         sidebar.update(cx, |_, cx| {
@@ -5340,8 +5262,14 @@ mod tests {
             store.read_with(cx, |store, _| store.flat_sessions().len() == 60)
         });
         let window_state = cx.new(|_| WindowState::new(false));
-        let (sidebar, cx) = cx
-            .add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
 
         for compact in [false, true] {
             window_state.update(cx, |state, cx| {
@@ -5483,7 +5411,14 @@ mod tests {
         store.update(cx, |store, _| store.select_session("virtual-0".into()));
         let window_state = cx.new(|_| WindowState::new(false).with_compact(true));
         let (page, cx) = cx.add_window_view(|_, cx| SlidingPage {
-            sidebar: cx.new(|cx| SessionsSidebar::new(store.clone(), window_state, cx)),
+            sidebar: cx.new(|cx| {
+                SessionsSidebar::new(
+                    store.clone(),
+                    window_state,
+                    cx.new(|_| Default::default()),
+                    cx,
+                )
+            }),
             offset: px(0.),
         });
         let sidebar = page.read_with(cx, |page, _| page.sidebar.clone());
@@ -5492,8 +5427,8 @@ mod tests {
         cx.simulate_resize(size(px(393.), px(852.)));
         draw(cx);
         // Only the address is kept: a second strong reference, which the app never
-        // holds, would turn the wall-clock minute refresh of relative times into a
-        // copy of the whole model.
+        // holds, would turn a later in-place model update into a copy of the
+        // whole model.
         let model = sidebar.read_with(cx, |sidebar, _| {
             let model = sidebar.compact_model.as_ref().unwrap();
             assert_eq!(model.rows.len(), 301);
@@ -5624,8 +5559,14 @@ mod tests {
         crate::store::tests::seed_full_scope(&store, &incoming, deferred, cx);
         store.update(cx, |store, _| store.select_session("virtual-0".into()));
         let window_state = cx.new(|_| WindowState::new(false));
-        let (sidebar, cx) =
-            cx.add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state, cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state,
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         cx.run_until_parked();
         store.update(cx, |store, cx| store.drain_host_events_for_test(cx));
         cx.simulate_resize(size(px(300.), px(800.)));
@@ -5722,6 +5663,158 @@ mod tests {
         assert!(cx.debug_bounds("sidebar-thread-other-0").is_some());
     }
 
+    /// Each row appearance lays its wide rows out at the pitch the list
+    /// reserves and animates them from, keeps their content inside the row,
+    /// and a phone row shows the rename field opened from its menu.
+    #[gpui::test]
+    fn row_appearances_fill_the_slots_their_lists_reserve(cx: &mut TestAppContext) {
+        use tcode_protocol::{
+            EventEnvelope, HostMessage, IndexSnapshot, ServerEvent, Topic, encode_line,
+        };
+        cx.update(crate::theme::init);
+        let (to_host, _outgoing) = async_channel::unbounded();
+        let (incoming, from_host) = async_channel::unbounded();
+        let send = |topic, event| {
+            incoming
+                .try_send(
+                    encode_line(&HostMessage::Event(EventEnvelope {
+                        request_id: None,
+                        topic,
+                        event,
+                    }))
+                    .unwrap(),
+                )
+                .unwrap()
+        };
+        let mut project = Project::from_root(PathBuf::from("/project"));
+        project.id = "project".into();
+        let sessions = (0..3)
+            .map(|index| {
+                let mut meta = session(&format!("row-{index}"), None);
+                meta.project_id = Some(project.id.clone());
+                meta.updated_at = 1_000 - index;
+                meta.created_at = meta.updated_at;
+                meta
+            })
+            .collect::<Vec<_>>();
+        let layout = |layout| {
+            ServerEvent::SettingsSnapshot(tcode_core::settings::Settings {
+                sidebar_layout: layout,
+                ..Default::default()
+            })
+        };
+        send(Topic::Settings, layout(SidebarLayout::Flat));
+        send(
+            Topic::Index,
+            ServerEvent::IndexSnapshot(IndexSnapshot {
+                summary: Default::default(),
+                sessions,
+                projects: vec![project],
+            }),
+        );
+        let deferred = std::iter::from_fn(|| from_host.try_recv().ok()).collect();
+        let link = tcode_client::HostLink::new(to_host, from_host);
+        let pump_link = link.clone();
+        let executor = cx.background_executor.clone();
+        let _pump = cx.background_executor.spawn(async move {
+            pump_link
+                .pump_with_timer(|| executor.timer(std::time::Duration::from_millis(25)))
+                .await;
+        });
+        let store = cx.new(|cx| {
+            WorkspaceStore::new_attached(
+                link,
+                crate::store::WorkspaceAttachment::Local,
+                None,
+                None,
+                false,
+                cx,
+            )
+        });
+        crate::store::tests::seed_full_scope(&store, &incoming, deferred, cx);
+        let window_state = cx.new(|_| WindowState::new(false));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
+        cx.simulate_resize(size(px(320.), px(800.)));
+        let refresh = |cx: &mut VisualTestContext| {
+            cx.run_until_parked();
+            store.update(cx, |store, cx| store.drain_host_events_for_test(cx));
+            sidebar.update(cx, |_, cx| cx.notify());
+            draw(cx);
+        };
+        for appearance in [ThreadAppearance::Inline, ThreadAppearance::IconColumn] {
+            store.update(cx, |store, cx| store.set_thread_appearance(appearance, cx));
+            for (sidebar_layout, kind) in [
+                (SidebarLayout::Flat, thread_row::Kind::Recent),
+                (SidebarLayout::Grouped, thread_row::Kind::Grouped),
+            ] {
+                send(Topic::Settings, layout(sidebar_layout));
+                refresh(cx);
+                let rows = (0..3)
+                    .map(|index| {
+                        cx.debug_bounds(format!("sidebar-thread-row-{index}").leak())
+                            .unwrap_or_else(|| panic!("{appearance:?} {sidebar_layout:?} row"))
+                    })
+                    .collect::<Vec<_>>();
+                let height = thread_row::wide_height(appearance, kind);
+                for (index, pair) in rows.windows(2).enumerate() {
+                    assert_eq!(pair[0].size.height, px(height));
+                    assert_eq!(
+                        pair[1].top() - pair[0].top(),
+                        px(height + THREAD_ROW_GAP),
+                        "{appearance:?} {sidebar_layout:?}: row {index} pitch"
+                    );
+                }
+                for (index, row) in rows.iter().enumerate() {
+                    for part in ["compact-title", "thread-time"] {
+                        let part = cx
+                            .debug_bounds(format!("{part}-row-{index}").leak())
+                            .unwrap();
+                        assert!(
+                            part.top() >= row.top()
+                                && part.bottom() <= row.bottom()
+                                && part.right() <= row.right(),
+                            "{appearance:?} {sidebar_layout:?}: {part:?} escapes {row:?}"
+                        );
+                    }
+                }
+                // Only the icon column names the project under its header.
+                assert_eq!(
+                    cx.debug_bounds("thread-project-row-0").is_some(),
+                    sidebar_layout == SidebarLayout::Flat
+                        || appearance == ThreadAppearance::IconColumn,
+                    "{appearance:?} {sidebar_layout:?}"
+                );
+            }
+        }
+
+        window_state.update(cx, |state, cx| {
+            state.set_compact(true, cx);
+        });
+        refresh(cx);
+        assert!(cx.debug_bounds("compact-row-row-0").is_some());
+        cx.update(|window, cx| {
+            sidebar.update(cx, |sidebar, cx| {
+                sidebar.on_rename(&ThreadRename("row-0".into()), window, cx);
+            });
+        });
+        draw(cx);
+        assert!(
+            cx.debug_bounds("thread-rename-row-0").is_some(),
+            "a cached phone row reads the live rename"
+        );
+        sidebar.update(cx, |sidebar, cx| sidebar.cancel_rename(cx));
+        draw(cx);
+        assert!(cx.debug_bounds("thread-rename-row-0").is_none());
+        assert!(cx.debug_bounds("compact-title-row-0").is_some());
+    }
+
     #[gpui::test]
     fn agents_are_not_listed_and_an_open_agent_selects_its_lead(cx: &mut TestAppContext) {
         use tcode_protocol::{
@@ -5793,8 +5886,14 @@ mod tests {
         // this fake transport never answers.
         store.update(cx, |store, _| store.select_session("other".into()));
         let window_state = cx.new(|_| WindowState::new(false).with_compact(true));
-        let (sidebar, cx) = cx
-            .add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         cx.simulate_resize(size(px(393.), px(852.)));
         cx.run_until_parked();
         store.update(cx, |store, cx| store.drain_host_events_for_test(cx));
@@ -5885,8 +5984,14 @@ mod tests {
             store.read_with(cx, |store, _| store.baseline_ready())
         });
         let window_state = cx.new(|_| WindowState::new(false));
-        let (sidebar, cx) = cx
-            .add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         cx.simulate_resize(size(px(320.), px(900.)));
         draw(cx);
         assert!(cx.debug_bounds("project-header-a").is_some());
@@ -6007,8 +6112,14 @@ mod tests {
         crate::store::tests::seed_full_scope(&store, &incoming, deferred, cx);
         store.update(cx, |store, _| store.select_session("settled-39".into()));
         let window_state = cx.new(|_| WindowState::new(false));
-        let (sidebar, cx) = cx
-            .add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         cx.simulate_resize(size(px(393.), px(6000.)));
         for compact in [false, true] {
             window_state.update(cx, |state, cx| {
@@ -6177,8 +6288,14 @@ mod tests {
         // The open thread is settled, so the closed shelf shows its row.
         store.update(cx, |store, _| store.select_session("settled-20".into()));
         let window_state = cx.new(|_| WindowState::new(false));
-        let (sidebar, cx) = cx
-            .add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         cx.run_until_parked();
         store.update(cx, |store, cx| store.drain_host_events_for_test(cx));
         cx.simulate_resize(size(px(393.), px(852.)));
@@ -6374,8 +6491,14 @@ mod tests {
         crate::store::tests::seed_full_scope(&store, &incoming, deferred, cx);
         store.update(cx, |store, _| store.select_session("mixed-a".into()));
         let window_state = cx.new(|_| WindowState::new(false));
-        let (sidebar, cx) = cx
-            .add_window_view(|_, cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+        let (sidebar, cx) = cx.add_window_view(|_, cx| {
+            SessionsSidebar::new(
+                store.clone(),
+                window_state.clone(),
+                cx.new(|_| Default::default()),
+                cx,
+            )
+        });
         cx.run_until_parked();
         store.update(cx, |store, cx| store.drain_host_events_for_test(cx));
         cx.simulate_resize(size(px(393.), px(2000.)));
@@ -6660,7 +6783,14 @@ mod tests {
         let window_state = cx.new(|_| WindowState::new(false));
         let mut sidebar = None;
         let (_, cx) = cx.add_window_view(|window, cx| {
-            let view = cx.new(|cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+            let view = cx.new(|cx| {
+                SessionsSidebar::new(
+                    store.clone(),
+                    window_state.clone(),
+                    cx.new(|_| Default::default()),
+                    cx,
+                )
+            });
             sidebar = Some(view.clone());
             gpui_base::Root::new(view, window, cx)
         });
@@ -6918,7 +7048,14 @@ mod tests {
         let window_state = cx.new(|_| WindowState::new(false));
         let mut sidebar = None;
         let (_, cx) = cx.add_window_view(|window, cx| {
-            let view = cx.new(|cx| SessionsSidebar::new(store.clone(), window_state.clone(), cx));
+            let view = cx.new(|cx| {
+                SessionsSidebar::new(
+                    store.clone(),
+                    window_state.clone(),
+                    cx.new(|_| Default::default()),
+                    cx,
+                )
+            });
             sidebar = Some(view.clone());
             gpui_base::Root::new(view, window, cx)
         });

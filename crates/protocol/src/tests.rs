@@ -958,6 +958,7 @@ fn version_six_index_visits_output_and_elision_literal_json() {
                     "cold".into(),
                     SessionActivity {
                         working: false,
+                        working_started_at: None,
                         turn_running: false,
                         waiting: false,
                         waiting_for_approval: false,
@@ -972,6 +973,7 @@ fn version_six_index_visits_output_and_elision_literal_json() {
                     "child".into(),
                     SessionActivity {
                         working: false,
+                        working_started_at: None,
                         turn_running: false,
                         waiting: false,
                         waiting_for_approval: false,

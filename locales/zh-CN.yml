@@ -123,6 +123,7 @@ markdown:
   image_copy_address: "复制图片地址"
   mermaid_diagram: "Mermaid 图表"
 sidebar:
+  unsent_text: "未发送的文字"
   failed: "失败"
   show_more_settled: "再显示 %{count} 个"
   show_more: "显示更多"
@@ -265,7 +266,7 @@ sidebar:
   fork_unsupported: "此提供商不支持分叉对话。"
   fork_empty: "此对话为空，无法分叉。"
   fork_running: "请等待当前轮次结束后再分叉此对话。"
-  ctx_mark_unread: "标记为未读"
+  ctx_mark_completed: "标记为已完成"
   ctx_copy_path: "复制工作区路径"
   ctx_copy_id: "复制对话 ID"
   ctx_export_jsonl: "导出为 Tcode JSONL"
@@ -384,6 +385,11 @@ settings:
     system: "跟随系统"
     light: "浅色"
     dark: "深色"
+  thread_appearance:
+    title: "对话外观"
+    description: "选择此设备上的对话列表样式。"
+    inline: "行内"
+    icon_column: "图标列"
   device_name:
     title: "设备名称"
     description: "这台设备连接主机时显示的名称。"
@@ -1124,6 +1130,9 @@ usage:
     minutes: "%{count} 分钟"
     scoped: "%{window} · %{scope}"
 time:
+  minutes: "%{count} 分钟"
+  hours: "%{count} 小时"
+  days: "%{count} 天"
   just_now: "刚刚"
   minutes_ago: "%{count} 分钟前"
   hours_ago: "%{count} 小时前"
@@ -1406,7 +1415,7 @@ mobile:
   working: "工作中"
   approval: "待审批"
   answer: "待回答"
-  unread: "未读"
+  completed: "已完成"
   message: "输入消息…"
   offline_message: "离线，重连后可发送"
   offline_action: "离线，重连后可操作"

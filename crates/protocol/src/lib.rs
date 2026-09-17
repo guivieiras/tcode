@@ -179,7 +179,9 @@ pub use wire::{
 // Unreleased: AgentStatus gains `report`, what a dispatched child owes its
 // lead (none, expected, reported, unreported, failed), and SessionMeta carries
 // the child's `expectation`; the protocol adds the CompactContext command,
-// which asks a provider with a native compaction operation to compact now.
+// which asks a provider with a native compaction operation to compact now;
+// SessionActivity carries `working_started_at`, when a working thread's
+// running turn began.
 pub const PROTOCOL_VERSION: u32 = 14;
 
 #[cfg(test)]

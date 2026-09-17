@@ -13,7 +13,6 @@ use std::rc::Rc;
 
 pub(crate) mod components;
 pub(crate) mod model;
-pub(crate) use model::format_duration;
 mod residency;
 
 use crate::overlay::OverlayExt as _;
@@ -661,7 +660,6 @@ impl ChatView {
             .update(cx, |composer, cx| composer.focus(window, cx));
     }
 
-    #[cfg(test)]
     pub(crate) fn composer(&self) -> Entity<crate::composer::Composer> {
         self.composer.clone()
     }
