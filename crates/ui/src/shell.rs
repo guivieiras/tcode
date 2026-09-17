@@ -3523,6 +3523,7 @@ mod tests {
             id: "project".into(),
             name: "My project".into(),
             root: root.join("project"),
+            icon_path: None,
             created_at: 0,
         };
         let mut thread = SessionMeta::new(agent::ProviderKind::Codex, root.join("worktree"), None);
