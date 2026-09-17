@@ -281,7 +281,7 @@ settings:
     dark: "Dark"
   thread_appearance:
     title: "Thread appearance"
-    description: "Choose how thread rows look on this device."
+    description: "Choose how thread rows look in the wide sidebar. Compact mode always uses Inline."
     inline: "Inline"
     icon_column: "Icon column"
   device_name:

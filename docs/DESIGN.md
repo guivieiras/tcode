@@ -667,7 +667,8 @@ in both states.
    at both widths. Regeneration preserves the thread's activity timestamp and
    list position; a manual rename wins over a late result. Failure preserves the
    title and shows an error.
-   Wide thread rows have a 4px gap. Relative ages omit the suffix ("5m", "2h", "3d").
+   Wide thread rows have a 4px gap. Relative ages omit the suffix ("5m", "2h", "3d"),
+   except compact rows, which retain "ago" ("5m ago", "2h ago", "3d ago").
    Trailing time labels align to the same right edge regardless of their width.
    On hover, an idle, unsettled thread swaps its time for a circle-check Settle
    action; settled rows keep their time. Active = persistent accent bg. A running
@@ -724,22 +725,30 @@ labels use 11px wide and 13px compact.
 Wide Inline project metadata includes 12px project artwork; compact metadata is text only, with project artwork in the leading slot when idle.
 
 Settings → General → Appearance offers **Thread appearance**, a client-local
-choice independent of Recent / By project and light / dark mode. **Inline** is
-the default arrangement described above. **Icon column** places 18px project artwork
-(or a child arrow) in a 28px column beside both lines, with 16px project metadata
-and a 14px time label, on the title line in wide layout and in the subtitle on
-compact. Wide Icon column rows are 60px tall; compact rows grow with content
-and retain a separate 44px disclosure target beside both lines.
+choice for the wide sidebar, independent of Recent / By project and light / dark
+mode. **Inline** is the default arrangement described above. **Icon column** places
+18px project artwork (or a child arrow) in a 20px column aligned with the title
+and offset 2px into the row's left padding, with an 8px gap before the text,
+11px project metadata and an 11px time label on the
+title line. Wide Icon column rows are 48px tall with a 2px gap between title and metadata.
+Compact mode always uses the shared Inline layout, with 13px project metadata and
+time labels, and a separate 44px disclosure target. The saved wide appearance is
+restored when returning to a wide window.
 Child rows omit the project label in both appearances because their parent
 provides that context. Children whose parent is unavailable keep the project
 label when displayed as top-level rows.
+Both appearances show **Working** or **Completed** immediately after the project
+name in their metadata line. Compact Working labels precede the blue status dot
+and elapsed duration; completed labels use the success color. Waiting-for-approval
+and input labels keep priority over these labels. Wide Inline grouped and child
+rows retain their single-line arrangement without a repeated project name.
 Switching is immediate and keeps thread selection, drafts and grouping; native
 clients and browsers remember the choice locally. Existing profiles use Inline.
 
 The built-in layouts are ordinary Rust modules under
 `crates/ui/src/sidebar/thread_row/`, selected by `ThreadAppearance`. Each owns its
-arrangement and wide row height. Shared controls own title editing, time/status
-and draft indicators, metadata and child disclosure; the sidebar retains list
+wide arrangement and row height; compact rows always use Inline. Shared controls
+own title editing, time/status and draft indicators, metadata and child disclosure; the sidebar retains list
 ordering, navigation and context menus. Adding a variant means adding a Rust
 module, enum/match arms and a localized settings option, then rebuilding the
 app. There is no external layout file or runtime plugin loader.

@@ -38,7 +38,7 @@ use tcode_core::{
 
 use crate::shortcut::format_secondary_shortcut;
 use crate::store::{ForkAvailability, StoreChange, TopicKind, WorkspaceStore};
-use crate::time::{format_duration, humanize_age, now_millis, now_secs};
+use crate::time::{format_duration, humanize_age, humanize_ago, now_millis, now_secs};
 use crate::window_drag_area;
 use crate::window_state::{Destination, Route, WindowState};
 
@@ -2579,7 +2579,12 @@ impl SessionsSidebar {
             state.working_duration()
         } else {
             let timestamp = self.store.read(cx).thread_sort().timestamp(meta);
-            humanize_age(now_secs().saturating_sub(timestamp))
+            let age = now_secs().saturating_sub(timestamp);
+            if compact {
+                humanize_ago(age)
+            } else {
+                humanize_age(age)
+            }
         };
         let color = if compact {
             if working && !state.waiting() {
@@ -3391,15 +3396,23 @@ fn compact_waiting_glyph(
         .into_any_element()
 }
 
-/// Optional waiting or completed label; the time is rendered separately.
-fn compact_status_line(
+/// Metadata status; the time and status dot are rendered separately.
+fn thread_status_line(
     state: &ThreadRowState,
+    working: bool,
     cx: &App,
 ) -> Option<(Cow<'static, str>, gpui::Hsla)> {
     if state.waiting_for_approval {
         Some((crate::tr!("mobile.approval"), cx.theme().warning))
     } else if state.waiting_for_input {
         Some((crate::tr!("mobile.answer"), cx.theme().primary))
+    } else if working {
+        let color = if state.background {
+            cx.theme().muted_foreground
+        } else {
+            cx.theme().primary
+        };
+        Some((crate::tr!("mobile.working"), color))
     } else if state.show_completed {
         Some((crate::tr!("mobile.completed"), cx.theme().success))
     } else {
@@ -3411,11 +3424,10 @@ impl Render for SessionsSidebar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let appearance = self.store.read(cx).thread_appearance();
         if appearance != self.last_appearance {
-            for list in [&self.flat_list_state, &self.compact_list_state] {
-                let anchor = list.logical_scroll_top();
-                list.reset(list.item_count());
-                list.scroll_to(anchor);
-            }
+            let list = &self.flat_list_state;
+            let anchor = list.logical_scroll_top();
+            list.reset(list.item_count());
+            list.scroll_to(anchor);
             self.last_appearance = appearance;
         }
         if self.store.read(cx).working_sessions_count() > 0 {
@@ -5081,8 +5093,7 @@ mod tests {
                 assert!(cx.debug_bounds("compact-parent-unavailable").is_some());
                 assert!(cx.debug_bounds("thread-project-running-child").is_none());
                 assert!(cx.debug_bounds("thread-project-older-child").is_none());
-                let shows_project =
-                    appearance == ThreadAppearance::IconColumn || layout == SidebarLayout::Flat;
+                let shows_project = layout == SidebarLayout::Flat;
                 assert_eq!(
                     cx.debug_bounds("thread-project-parent").is_some(),
                     shows_project
@@ -5524,7 +5535,7 @@ mod tests {
         );
         assert_eq!(
             flat_thread_top_offsets(&visible, &sessions, ThreadAppearance::IconColumn),
-            vec![0., 64., 128.]
+            vec![0., 52., 104.]
         );
     }
 

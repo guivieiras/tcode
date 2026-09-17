@@ -24,6 +24,9 @@ pub(super) struct Row<'a> {
 }
 
 pub(super) fn render(row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpui::AnyElement {
+    if row.kind == Kind::Compact {
+        return inline::render(row, cx);
+    }
     match row.sidebar.store.read(cx).thread_appearance() {
         ThreadAppearance::Inline => inline::render(row, cx),
         ThreadAppearance::IconColumn => icon_column::render(row, cx),
@@ -123,6 +126,12 @@ impl Row<'_> {
     ) -> gpui::Div {
         let compact = self.kind == Kind::Compact;
         let has_project = project.is_some();
+        let status = if compact || !self.state.waiting() {
+            thread_status_line(self.state, self.working, cx)
+        } else {
+            None
+        };
+        let has_status = status.is_some();
         let mut line = h_flex()
             .min_w_0()
             .items_center()
@@ -148,18 +157,11 @@ impl Row<'_> {
                             .debug_selector(|| "compact-parent-unavailable".into())
                             .child(crate::tr!("sidebar.parent_unavailable")),
                     )
-                    .when(
-                        has_project || compact_status_line(self.state, cx).is_some(),
-                        |line| line.child(div().flex_none().child("·")),
-                    );
+                    .when(has_project || has_status, |line| {
+                        line.child(div().flex_none().child("·"))
+                    });
             }
             line = line.children(project);
-            if has_project && compact_status_line(self.state, cx).is_some() {
-                line = line.child(div().flex_none().child("·"));
-            }
-            if let Some((label, color)) = compact_status_line(self.state, cx) {
-                line = line.child(div().flex_none().text_color(color).child(label));
-            }
         } else {
             line = line
                 .children(SessionsSidebar::thread_waiting_badge(self.state, cx))
@@ -167,6 +169,12 @@ impl Row<'_> {
                     line.child(div().flex_none().child("·"))
                 })
                 .children(project);
+        }
+        if has_project && has_status {
+            line = line.child(div().flex_none().child("·"));
+        }
+        if let Some((label, color)) = status {
+            line = line.child(div().flex_none().text_color(color).child(label));
         }
         line = line.when(self.state.is_worktree, |line| {
             line.child(
@@ -179,16 +187,17 @@ impl Row<'_> {
         line.when_some(time, |line, time| {
             let has_metadata = has_project
                 || self.state.is_worktree
-                || compact_status_line(self.state, cx).is_some()
+                || has_status
                 || (self.meta.parent_session_id.is_some() && !self.state.is_child)
                 || self
                     .sidebar
                     .store
                     .read(cx)
                     .session_has_pending_writes(&self.meta.id);
-            line.when(has_metadata, |line| {
-                line.child(div().flex_none().child("·"))
-            })
+            line.when(
+                has_metadata && (!has_status || self.state.waiting()),
+                |line| line.child(div().flex_none().child("·")),
+            )
             .child(time)
         })
     }

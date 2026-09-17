@@ -281,7 +281,7 @@ settings:
     dark: "深色"
   thread_appearance:
     title: "对话外观"
-    description: "选择此设备上的对话列表样式。"
+    description: "选择宽侧边栏中的对话列表样式。紧凑模式始终使用行内布局。"
     inline: "行内"
     icon_column: "图标列"
   device_name:
