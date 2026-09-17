@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::path::Path;
 
 use crate::icon::{Icon, IconName};
@@ -63,20 +64,24 @@ pub(crate) fn work_log(
     )
     .aria_expanded(expanded)
     .self_start()
-    .h(px(28.))
-    .when(compact, |row| row.h_auto().min_h(px(44.)))
+    .h(design(28.))
+    .when(compact, |row| row.h_auto().min_h(design(44.)))
     .when(compact, |row| row.max_w_full().flex_wrap())
     .px_1p5()
     .gap_1p5()
     .items_center()
     .rounded(crate::material::radius_button())
-    .text_size(px(12.5))
+    .text_size(design(12.5))
     .font_medium()
     .text_color(muted)
     .cursor_pointer()
     .hover(|row| row.bg(cx.theme().accent))
     .on_click(on_toggle)
-    .child(Icon::new(chevron(expanded)).size(px(12.)).text_color(muted))
+    .child(
+        Icon::new(chevron(expanded))
+            .size(design(12.))
+            .text_color(muted),
+    )
     .child(capsule_label)
     .when(running, |row| {
         row.child(Spinner::new().xsmall().color(cx.theme().primary))
@@ -92,15 +97,15 @@ pub(crate) fn work_log(
             row.child(
                 h_flex()
                     .flex_none()
-                    .h(px(22.))
+                    .h(design(22.))
                     .px_2()
                     .gap_1()
                     .items_center()
                     .rounded(crate::material::radius_chip())
                     .bg(cx.theme().danger.opacity(0.12))
                     .text_color(cx.theme().danger)
-                    .text_size(px(11.5))
-                    .child(Icon::new(IconName::CircleX).size(px(12.)))
+                    .text_size(design(11.5))
+                    .child(Icon::new(IconName::CircleX).size(design(12.)))
                     .child(label),
             )
         })
@@ -108,7 +113,7 @@ pub(crate) fn work_log(
             div()
                 .flex_none()
                 .font_family(cx.theme().mono_font_family.clone())
-                .text_size(px(11.))
+                .text_size(design(11.))
                 // Baseline compensation: flex can't baseline-align text boxes,
                 // and the 11px digits sit visibly high beside the 12.5px label.
                 .relative()
@@ -119,7 +124,7 @@ pub(crate) fn work_log(
 
     // Rows line up under the header label: 6px header padding + 12px chevron
     // + 6px gap, minus the 4px an activity row keeps for its hover pill.
-    let body = v_flex().w_full().gap_1().pl(px(20.)).children(rows);
+    let body = v_flex().w_full().gap_1().pl(design(20.)).children(rows);
 
     v_flex()
         .w_full()

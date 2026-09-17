@@ -5,12 +5,13 @@
 //! terminal modes as hardware key events.
 
 use crate::material;
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::touch_scroll::TouchScrollExt as _;
 use gpui::{
     App, Context, EventEmitter, FocusHandle, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, Role, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex};
 use tcode_protocol::terminal::{
@@ -205,13 +206,13 @@ impl TerminalKeyBar {
         material::accessible_clickable(div(), id, Role::Button, accessibility_label, cx)
             .debug_selector(move || id.into())
             .flex_none()
-            .size(px(material::TOUCH_TARGET))
+            .size(design(material::TOUCH_TARGET))
             .flex()
             .items_center()
             .justify_center()
             .cursor_pointer()
             .rounded(material::radius_button())
-            .text_size(px(13.))
+            .text_size(design(13.))
             .hover(|style| style.bg(cx.theme().accent))
             .on_click(cx.listener(move |_, _, window, cx| {
                 focus.focus(window, cx);
@@ -235,13 +236,13 @@ impl TerminalKeyBar {
             .debug_selector(move || id.into())
             .aria_selected(selected)
             .flex_none()
-            .size(px(material::TOUCH_TARGET))
+            .size(design(material::TOUCH_TARGET))
             .flex()
             .items_center()
             .justify_center()
             .cursor_pointer()
             .rounded(material::radius_button())
-            .text_size(px(12.))
+            .text_size(design(12.))
             .font_medium()
             .when(selected, |style| {
                 style
@@ -322,7 +323,7 @@ impl Render for TerminalKeyBar {
                 TerminalKey::Right,
             ),
         ];
-        let mut tail = h_flex().flex_none().pr(px(16.));
+        let mut tail = h_flex().flex_none().pr(design(16.));
         for (id, label, translation, key) in arrows {
             tail = tail.child(self.key_button(
                 id,
@@ -377,7 +378,7 @@ impl Render for TerminalKeyBar {
             .w_full()
             .min_w_0()
             .overflow_hidden()
-            .h(px(KEY_BAR_HEIGHT))
+            .h(design(KEY_BAR_HEIGHT))
             .border_t_1()
             .border_color(cx.theme().border)
             .bg(cx.theme().popover)
@@ -403,6 +404,7 @@ pub(crate) fn should_show_terminal_key_bar(terminal_focused: bool, cx: &App) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gpui::px;
     use gpui::{AppContext as _, Entity, TestAppContext, VisualTestContext};
 
     #[test]

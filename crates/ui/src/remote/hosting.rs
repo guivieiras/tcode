@@ -6,6 +6,7 @@
 //! host the window is currently attached to, so **Connect** and **Back to local**
 //! never stop it and never disturb another attached client.
 
+use crate::sizing::design;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -14,7 +15,7 @@ use gpui::prelude::FluentBuilder as _;
 use gpui::{
     AnyElement, App, AppContext as _, BorrowAppContext as _, Context, Entity, Global,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Task, Window, div, px,
+    Task, Window, div,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 use tcode_client::HostLink;
@@ -38,8 +39,8 @@ use crate::widgets::switch::Switch;
 fn section_caption(label: SharedString, cx: &App) -> AnyElement {
     div()
         .pl_3()
-        .pb(px(6.))
-        .text_size(px(11.))
+        .pb(design(6.))
+        .text_size(design(11.))
         .font_medium()
         .text_color(cx.theme().muted_foreground)
         .child(label)
@@ -52,7 +53,7 @@ fn note(text: SharedString, cx: &App) -> AnyElement {
         .w_full()
         .px_3()
         .py_3()
-        .text_size(px(13.))
+        .text_size(design(13.))
         .text_color(cx.theme().muted_foreground)
         .child(text)
         .into_any_element()
@@ -207,7 +208,7 @@ fn row(compact: bool) -> gpui::Div {
     if compact {
         v_flex()
             .w_full()
-            .min_h(px(44.))
+            .min_h(design(44.))
             .px_3()
             .py_2p5()
             .gap_2()
@@ -222,7 +223,7 @@ fn row(compact: bool) -> gpui::Div {
 fn switch_row() -> gpui::Div {
     h_flex()
         .w_full()
-        .min_h(px(44.))
+        .min_h(design(44.))
         .px_3()
         .py_2p5()
         .gap_3()
@@ -234,10 +235,10 @@ fn labels(title: SharedString, description: SharedString, cx: &App) -> gpui::Div
         .flex_1()
         .min_w_0()
         .gap_0p5()
-        .child(div().text_size(px(15.)).font_medium().child(title))
+        .child(div().text_size(design(15.)).font_medium().child(title))
         .child(
             div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().muted_foreground)
                 .child(description),
         )
@@ -406,7 +407,7 @@ impl HostingPanel {
                     .child(
                         div()
                             .when(compact, |field| field.flex_1().min_w_0())
-                            .when(!compact, |field| field.w(px(110.)))
+                            .when(!compact, |field| field.w(design(110.)))
                             .child(
                                 Input::new(&self.port_input)
                                     .small()
@@ -436,7 +437,7 @@ impl HostingPanel {
             .child(
                 div()
                     .when(compact, |field| field.w_full())
-                    .when(!compact, |field| field.w(px(240.)))
+                    .when(!compact, |field| field.w(design(240.)))
                     .child(
                         Input::new(&self.host_name_input)
                             .small()
@@ -534,7 +535,7 @@ impl HostingPanel {
                             .gap_2()
                             .child(
                                 div()
-                                    .text_size(px(11.))
+                                    .text_size(design(11.))
                                     .font_medium()
                                     .text_color(cx.theme().muted_foreground)
                                     .child(crate::tr!("remote.code.title")),
@@ -542,13 +543,13 @@ impl HostingPanel {
                             .child(
                                 div()
                                     .font_family("Lilex")
-                                    .text_size(px(34.))
+                                    .text_size(design(34.))
                                     .font_semibold()
                                     .child(digits),
                             )
                             .child(
                                 div()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .text_color(cx.theme().muted_foreground)
                                     .child(crate::tr!(
                                         "remote.code.expires",
@@ -557,7 +558,7 @@ impl HostingPanel {
                             )
                             .child(
                                 div()
-                                    .text_size(px(11.))
+                                    .text_size(design(11.))
                                     .text_color(cx.theme().muted_foreground)
                                     .child(crate::tr!(
                                         "remote.code.listening",

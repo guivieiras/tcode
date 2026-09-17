@@ -74,7 +74,7 @@ pub fn android_main(app: android_activity::AndroidApp) {
                         window_background: WindowBackgroundAppearance::Opaque,
                         ..Default::default()
                     },
-                    theme_json: Cow::Owned(tcode_ui::flattened_theme_json()),
+                    opaque_canvas: true,
                     activate: true,
                     system_locale,
                     setup: ShellSetup {

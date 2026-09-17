@@ -1,6 +1,7 @@
 //! Configure a draft's named worktree without creating it before the first send.
 use super::super::*;
 use crate::overlay::DialogActions;
+use crate::sizing::design;
 use crate::store::{TopicKind, observe_store_topics};
 use gpui::ScrollHandle;
 use gpui_base::{Scrollbar, ScrollbarMode};
@@ -16,8 +17,8 @@ pub(super) fn open(store: Entity<WorkspaceStore>, window: &mut Window, cx: &mut 
         dialog
             .title(crate::tr!("composer.new_worktree"))
             .width(crate::sizing::fit_viewport(
-                440.,
-                window.viewport_size().width - px(32.),
+                design(440.).to_pixels(window.rem_size()),
+                window.viewport_size().width - design(32.).to_pixels(window.rem_size()),
             ))
             .content(move |content_el, _, _| content_el.child(content.clone()))
             .on_ok(move |_, window, cx| {
@@ -155,14 +156,14 @@ impl Render for WorktreeDialog {
                 let mut list = v_flex()
                     .id("worktree-base-list")
                     .w(crate::sizing::fit_viewport(
-                        360.,
-                        window.viewport_size().width - px(64.),
+                        design(360.).to_pixels(window.rem_size()),
+                        window.viewport_size().width - design(64.).to_pixels(window.rem_size()),
                     ))
-                    .max_h(px(240.))
+                    .max_h(design(240.))
                     .touch_overflow_y_scroll()
                     .track_scroll(&scroll)
                     .p_1()
-                    .pr(px(16.))
+                    .pr(design(16.))
                     .gap_0p5();
                 if branches.is_empty() {
                     list = list.child(div().p_2().child(crate::tr!("composer.loading")));
@@ -205,7 +206,7 @@ impl Render for WorktreeDialog {
                     .gap_1p5()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .child(crate::tr!("composer.worktree_name")),
                     )
                     .child(Input::new(&self.name).aria_label(crate::tr!("composer.worktree_name"))),
@@ -215,21 +216,21 @@ impl Render for WorktreeDialog {
                     .gap_1p5()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .child(crate::tr!("composer.worktree_base")),
                     )
                     .child(picker),
             )
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("composer.worktree_on_send")),
             )
             .when_some(self.error.clone(), |form, error| {
                 form.child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(cx.theme().danger)
                         .child(error),
                 )

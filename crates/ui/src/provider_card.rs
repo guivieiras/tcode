@@ -6,6 +6,7 @@
 //! settings dialog, a transactional modal form.
 
 use crate::icon::Icon;
+use crate::sizing::design;
 use crate::{
     icon::IconName,
     overlay::OverlayExt as _,
@@ -75,7 +76,7 @@ impl ProviderCard {
         window.open_dialog(cx, move |dlg, window, cx| {
             let content = dialog.clone();
             dlg.title(title.clone())
-                .w(px(560.))
+                .w(design(560.))
                 // Opaque panel over the library's translucent default.
                 .bg(cx.theme().popover)
                 .shadow_xl()
@@ -109,17 +110,22 @@ impl ProviderCard {
             Some(accent) => provider_icon.text_color(rgb(accent)),
             None => provider_icon,
         };
-        let glyph = div().flex_none().size(px(20.)).child(provider_icon);
+        let glyph = div().flex_none().size(design(20.)).child(provider_icon);
 
         let title = h_flex()
             .gap_2()
             .items_center()
-            .child(div().text_size(px(15.)).font_semibold().child(name.clone()))
+            .child(
+                div()
+                    .text_size(design(15.))
+                    .font_semibold()
+                    .child(name.clone()),
+            )
             .when_some(version, |this, version| {
                 this.child(
                     div()
                         .font_family("monospace")
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .child(format!("v{}", version.trim_start_matches('v'))),
                 )
@@ -148,7 +154,7 @@ impl ProviderCard {
                     .when(!provider.caps().mcp_servers, |this| {
                         this.child(
                             div()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(muted)
                                 .child(crate::tr!("providers.mcp_unavailable")),
                         )
@@ -165,7 +171,7 @@ impl ProviderCard {
 
         h_flex()
             .w_full()
-            .min_h(px(44.))
+            .min_h(design(44.))
             .px_3()
             .py_3()
             .gap_3()
@@ -235,7 +241,7 @@ impl ProviderCard {
             .py(px(1.))
             .rounded_full()
             .bg(status_bg)
-            .text_size(px(11.))
+            .text_size(design(11.))
             .font_medium()
             .text_color(status_fg);
 
@@ -311,17 +317,17 @@ impl ProviderCard {
                 // The Popover panel supplies the fill, border, shadow and p_3
                 // padding; the pane itself stays transparent (single surface).
                 let mut pane = v_flex()
-                    .w(px(320.))
+                    .w(design(320.))
                     .gap_2()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .font_semibold()
                             .child(crate::tr!("providers.update_title")),
                     )
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(muted)
                             .child(crate::tr!("providers.update_message")),
                     );
@@ -352,7 +358,7 @@ impl ProviderCard {
                         .child(
                             div()
                                 .pt_1()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(muted)
                                 .child(crate::tr!("providers.update_manual")),
                         )
@@ -374,7 +380,7 @@ impl ProviderCard {
                                         .overflow_hidden()
                                         .text_ellipsis()
                                         .font_family("monospace")
-                                        .text_size(px(11.))
+                                        .text_size(design(11.))
                                         .child(command.clone()),
                                 )
                                 .child(

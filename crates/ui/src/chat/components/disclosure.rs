@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 use std::borrow::Cow;
 use std::path::Path;
@@ -11,7 +12,7 @@ use crate::{
 use gpui::{
     AnyElement, App, ClickEvent, Div, Entity, InteractiveElement as _, IntoElement as _,
     ParentElement as _, Role, SharedString, StatefulInteractiveElement as _, Styled as _, Window,
-    div, prelude::FluentBuilder as _, px,
+    div, prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -75,17 +76,21 @@ pub(crate) fn disclosure(
     )
     .aria_expanded(expanded)
     .flex_none()
-    .h(px(24.))
+    .h(design(24.))
     .px_1p5()
     .gap_1p5()
     .items_center()
     .rounded(crate::material::radius_button())
-    .text_size(px(11.))
+    .text_size(design(11.))
     .text_color(muted)
     .cursor_pointer()
     .hover(|row| row.bg(cx.theme().accent))
     .on_click(on_toggle)
-    .child(Icon::new(chevron(expanded)).size(px(12.)).text_color(muted))
+    .child(
+        Icon::new(chevron(expanded))
+            .size(design(12.))
+            .text_color(muted),
+    )
     .child(label);
 
     let row = h_flex()
@@ -111,7 +116,7 @@ fn disclosure_body(key: &str, full_text: &str, cx: &App) -> Div {
         .map(|line| {
             div()
                 .w_full()
-                .line_height(px(DISCLOSURE_LINE_HEIGHT))
+                .line_height(design(DISCLOSURE_LINE_HEIGHT))
                 .child(if line.is_empty() {
                     " ".to_string()
                 } else {
@@ -130,12 +135,12 @@ fn disclosure_body(key: &str, full_text: &str, cx: &App) -> Div {
             div()
                 .id(SharedString::from(format!("disclosure-body-{key}")))
                 .w_full()
-                .max_h(px(DISCLOSURE_CARD_MAX_HEIGHT))
+                .max_h(design(DISCLOSURE_CARD_MAX_HEIGHT))
                 .touch_overflow_y_scroll()
                 .child(
                     v_flex()
                         .w_full()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .children(lines),
                 ),
@@ -186,8 +191,8 @@ pub(crate) fn proposed_plan_card(
     } else if let Some(markdown_state) = markdown_state {
         div()
             .w_full()
-            .text_size(px(15.))
-            .line_height(px(22.))
+            .text_size(design(15.))
+            .line_height(design(22.))
             .child(
                 MarkdownView::new(&markdown_state)
                     .selectable(true)
@@ -213,14 +218,14 @@ pub(crate) fn proposed_plan_card(
                 .items_center()
                 .child(
                     div()
-                        .h(px(22.))
+                        .h(design(22.))
                         .px_2()
                         .flex()
                         .items_center()
                         .rounded_full()
                         .bg(cx.theme().info.opacity(0.12))
                         .text_color(cx.theme().info_foreground)
-                        .text_size(px(11.5))
+                        .text_size(design(11.5))
                         .font_medium()
                         .child(crate::tr!("plan.badge")),
                 )
@@ -230,7 +235,7 @@ pub(crate) fn proposed_plan_card(
                         .min_w_0()
                         .overflow_hidden()
                         .text_ellipsis()
-                        .text_size(px(15.))
+                        .text_size(design(15.))
                         .font_semibold()
                         .child(title),
                 )
@@ -293,9 +298,9 @@ pub(crate) fn proposed_plan_card(
         .child(
             div()
                 .flex_none()
-                .w(px(2.))
-                .ml(px(8.))
-                .my(px(8.))
+                .w(design(2.))
+                .ml(design(8.))
+                .my(design(8.))
                 .rounded_full()
                 .bg(cx.theme().info),
         )

@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 use gpui::ScrollHandle;
 use gpui_base::{Scrollbar, ScrollbarMode};
@@ -46,7 +47,7 @@ impl Composer {
                     h_flex()
                         .gap_1p5()
                         .items_center()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(Icon::empty().path("icons/git-branch.svg").xsmall())
                         .child(picker_current.clone()),
@@ -64,7 +65,7 @@ impl Composer {
                     h_flex()
                         .gap_1p5()
                         .items_center()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(Icon::empty().path("icons/git-branch.svg").xsmall())
                         .child(picker_current.clone())
@@ -90,7 +91,7 @@ impl Composer {
                                 .flex_none()
                                 .px_2()
                                 .py_1p5()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .text_color(muted)
                                 .child(crate::tr!("composer.loading")),
                         );
@@ -109,9 +110,9 @@ impl Composer {
                                     .py_1p5()
                                     .gap_2()
                                     .items_center()
-                                    .rounded(px(6.))
+                                    .rounded(design(6.))
                                     .cursor_pointer()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .hover(|s| s.bg(cx.theme().muted))
                                     .child(
                                         div()
@@ -139,8 +140,8 @@ impl Composer {
                     }
                     div()
                         .id("branch-list")
-                        .w(px(220.))
-                        .max_h(px(280.))
+                        .w(design(220.))
+                        .max_h(design(280.))
                         .touch_overflow_y_scroll()
                         .child(col)
                         .into_any_element()
@@ -156,7 +157,7 @@ impl Composer {
                 .px_2()
                 .items_center()
                 .justify_between()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(muted)
                 .child(left)
                 .child(right)
@@ -204,10 +205,10 @@ impl Composer {
                 h_flex()
                     .gap_1p5()
                     .items_center()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(Icon::empty().path("icons/folder-closed.svg").xsmall())
-                    .child(div().max_w(px(180.)).truncate().child(label))
+                    .child(div().max_w(design(180.)).truncate().child(label))
                     .child(Icon::new(IconName::ChevronDown).xsmall().text_color(muted)),
             );
         crate::material::overlay_popover("workspace-popover")
@@ -242,19 +243,19 @@ impl Composer {
                     .id("workspace-list")
                     .role(Role::Menu)
                     .aria_label(crate::tr!("composer.workspace"))
-                    .w(px(260.))
-                    .max_h(px(280.))
+                    .w(design(260.))
+                    .max_h(design(280.))
                     .touch_overflow_y_scroll()
                     .track_scroll(&scroll)
                     .p_1()
-                    .pr(px(16.))
+                    .pr(design(16.))
                     .gap_0p5()
                     .child(
                         div()
                             .flex_none()
                             .px_2()
                             .py_1()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .font_medium()
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("composer.workspace")),

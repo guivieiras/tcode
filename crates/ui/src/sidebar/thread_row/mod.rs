@@ -61,7 +61,7 @@ impl Row<'_> {
         if self.state.is_child {
             div()
                 .flex_none()
-                .text_size(px(size))
+                .text_size(design(size))
                 .text_color(cx.theme().muted_foreground)
                 .child("↳")
                 .into_any_element()
@@ -78,7 +78,7 @@ impl Row<'_> {
             .map(|project| crate::project_icon::artwork(project, size).into_any_element())
             .unwrap_or_else(|| {
                 Icon::new(IconName::Folder)
-                    .size(px(size))
+                    .size(design(size))
                     .into_any_element()
             })
     }
@@ -96,7 +96,7 @@ impl Row<'_> {
         Some(
             h_flex()
                 .min_w_0()
-                .gap(px(4.))
+                .gap(design(4.))
                 .debug_selector({
                     let id = self.meta.id.clone();
                     move || format!("thread-project-{id}")
@@ -106,8 +106,8 @@ impl Row<'_> {
                 })
                 .child(
                     truncated_sidebar_label()
-                        .text_size(px(font_size))
-                        .line_height(px((font_size + 4.).max(18.)))
+                        .text_size(design(font_size))
+                        .line_height(design((font_size + 4.).max(18.)))
                         .debug_selector({
                             let name = name.clone();
                             move || format!("compact-project-{name}")
@@ -135,9 +135,9 @@ impl Row<'_> {
         let mut line = h_flex()
             .min_w_0()
             .items_center()
-            .gap(px(4.))
-            .text_size(px(if compact { 13. } else { 11. }))
-            .line_height(px(18.))
+            .gap(design(4.))
+            .text_size(design(if compact { 13. } else { 11. }))
+            .line_height(design(18.))
             .text_color(cx.theme().muted_foreground);
         if compact {
             if self
@@ -217,7 +217,7 @@ impl Row<'_> {
             return Some(
                 h_flex()
                     .flex_none()
-                    .gap(px(2.))
+                    .gap(design(2.))
                     .child(chevron)
                     .child(badge)
                     .into_any_element(),
@@ -239,11 +239,11 @@ impl Row<'_> {
             })
             .aria_expanded(!self.state.children_collapsed)
             .flex_none()
-            .min_w(px(44.))
-            .h(px(44.))
+            .min_w(design(44.))
+            .h(design(44.))
             .justify_center()
-            .gap(px(2.))
-            .text_size(px(12.))
+            .gap(design(2.))
+            .text_size(design(12.))
             .text_color(cx.theme().muted_foreground)
             .on_click(cx.listener(move |this, _, _, cx| {
                 cx.stop_propagation();

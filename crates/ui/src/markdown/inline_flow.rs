@@ -1,6 +1,7 @@
 //! Mixed text, image and badge inline layout adapted from gpui-component's Apache-2.0
 //! `text/inline_flow.rs` implementation.
 
+use crate::sizing::design;
 use std::{
     ops::Range,
     sync::{Arc, Mutex},
@@ -24,8 +25,6 @@ use super::{
 };
 
 const ELEMENT_LEN: usize = 1;
-const INLINE_CODE_PADDING_X: Pixels = px(3.);
-const INLINE_CODE_PADDING_Y: Pixels = px(1.);
 
 #[derive(Clone)]
 pub(super) struct InlineCodeStyle {
@@ -36,8 +35,8 @@ pub(super) struct InlineCodeStyle {
 }
 
 impl InlineCodeStyle {
-    fn line_height(&self) -> Pixels {
-        self.font_size + px(3.)
+    fn line_height(&self, window: &Window) -> Pixels {
+        self.font_size + design(3.).to_pixels(window.rem_size())
     }
 }
 
@@ -344,11 +343,11 @@ impl Element for InlineFlow {
                     );
                     let mut element = match code_style {
                         Some(code) => {
-                            let line_height = code.line_height();
+                            let line_height = code.line_height(window);
                             div()
                                 .flex_none()
-                                .px(INLINE_CODE_PADDING_X)
-                                .py(INLINE_CODE_PADDING_Y)
+                                .px(design(3.))
+                                .py(design(1.))
                                 .rounded(code.radius)
                                 .bg(code.background)
                                 .font_family(code.font_family)
@@ -526,8 +525,9 @@ fn layout_flow(
                                 (
                                     text_style,
                                     code.font_size,
-                                    INLINE_CODE_PADDING_X * 2.,
-                                    code.line_height() + INLINE_CODE_PADDING_Y * 2.,
+                                    design(6.).to_pixels(window.rem_size()),
+                                    code.line_height(window)
+                                        + design(2.).to_pixels(window.rem_size()),
                                 )
                             })
                             .unwrap_or_else(|| {
@@ -634,7 +634,7 @@ fn line_ranges(
                 code_text_style.font_size = AbsoluteLength::Pixels(code.font_size);
                 let runs = runs_for_highlights(text, &code_text_style, highlights);
                 let width = shape_line(text.clone(), code.font_size, &runs, window).width()
-                    + INLINE_CODE_PADDING_X * 2.;
+                    + design(6.).to_pixels(window.rem_size());
                 WrapLineFragment::element(width, text.len())
             }
             MeasureItem::Text { text, .. } => WrapLineFragment::text(text),

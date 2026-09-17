@@ -1611,6 +1611,29 @@ impl WorkspaceStore {
         cx.notify();
     }
 
+    #[cfg(feature = "native-dialogs")]
+    pub(crate) fn supports_client_files(&self) -> bool {
+        self.client_host
+            .as_ref()
+            .is_some_and(|host| host.supports_local_files())
+    }
+
+    #[cfg(feature = "native-dialogs")]
+    pub(crate) fn read_client_text(
+        &self,
+        path: PathBuf,
+    ) -> tcode_client::host::HostFuture<'static, Result<String, String>> {
+        self.client_host
+            .as_ref()
+            .expect("file picker requires a client host")
+            .read_local_text(path)
+    }
+
+    pub(crate) fn save_theme_preferences(&mut self, value: serde_json::Value) {
+        self.client_preferences.theme = Some(value);
+        self.save_client_preferences();
+    }
+
     pub fn client_theme_override(&self) -> Option<ThemeMode> {
         match self.client_preferences.appearance.as_deref() {
             Some("system") => Some(ThemeMode::System),
@@ -1664,9 +1687,11 @@ impl WorkspaceStore {
     fn save_client_preferences(&self) {
         if let Some(host) = &self.client_host {
             let mut preferences = self.client_preferences.clone();
-            // Navigation is written by the shell while this store is alive.
+            // Navigation and zoom are written by the window while this store is alive.
             // Appearance edits must not replace it with our startup snapshot.
-            preferences.navigation = host.load_preferences().navigation;
+            let current = host.load_preferences();
+            preferences.navigation = current.navigation;
+            preferences.zoom_percent = current.zoom_percent;
             host.save_preferences(&preferences);
         }
     }

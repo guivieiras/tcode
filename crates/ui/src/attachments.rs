@@ -1,8 +1,9 @@
 //! Attachment presentation with core-owned validation semantics and localized errors.
 
 use crate::overlay::OverlayExt as _;
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
-use gpui::{App, ImageSource, ParentElement as _, Styled as _, Window, div, img, px};
+use gpui::{App, ImageSource, ParentElement as _, Styled as _, Window, div, img};
 use tcode_core::attachments::AttachError;
 
 /// Open an image as a window-level lightbox. The dialog lives on the Root
@@ -18,10 +19,11 @@ pub(crate) fn open_image_lightbox(
     window.open_dialog(cx, move |builder, window, cx| {
         let viewport = window.viewport_size();
         // Leave room for the dialog header, padding and bottom margin in short windows.
-        let max_h = (viewport.height * 0.75).min(viewport.height * 0.9 - px(96.));
+        let max_h = (viewport.height * 0.75)
+            .min(viewport.height * 0.9 - design(96.).to_pixels(window.rem_size()));
         let source = source.clone();
         builder
-            .w(px(1200.))
+            .w(design(1200.))
             .rounded(crate::material::radius_overlay())
             .bg(cx.theme().popover)
             .border_1()

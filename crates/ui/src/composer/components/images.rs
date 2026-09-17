@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 
 #[derive(Clone)]
 /// A pending image attachment: validated, persisted to the session attachments
@@ -271,11 +272,11 @@ impl Composer {
                 h_flex()
                     .id(("thumb", index))
                     .flex_none()
-                    .h(px(22.))
-                    .max_w(px(220.))
+                    .h(design(22.))
+                    .max_w(design(220.))
                     .gap_1()
                     .items_center()
-                    .pl(px(2.))
+                    .pl(design(2.))
                     .pr_1()
                     .rounded(crate::material::radius_chip())
                     .overflow_hidden()
@@ -283,14 +284,14 @@ impl Composer {
                     .cursor_pointer()
                     .child(
                         img(crate::store::host_image(path))
-                            .size(px(18.))
+                            .size(design(18.))
                             .rounded(crate::material::radius_chip()),
                     )
                     .child(
                         div()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(11.5))
+                            .text_size(design(11.5))
                             .font_family(cx.theme().mono_font_family.clone())
                             .child(name),
                     )
@@ -301,7 +302,7 @@ impl Composer {
                         div()
                             .id(("thumb-x", index))
                             .flex_none()
-                            .size(px(18.))
+                            .size(design(18.))
                             .flex()
                             .items_center()
                             .justify_center()

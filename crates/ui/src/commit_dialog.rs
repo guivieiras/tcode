@@ -2,6 +2,7 @@
 //! current branch, a default-branch safeguard banner, and a commit-message
 //! textarea pre-filled by AI generation (with a regenerate button).
 
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 use std::collections::HashSet;
 
@@ -16,7 +17,7 @@ use crate::{
 use gpui::{
     App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, ScrollHandle, StatefulInteractiveElement as _, Styled as _, Task,
-    Window, div, prelude::FluentBuilder as _, px,
+    Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -182,7 +183,7 @@ impl CommitDialog {
                     .min_w_0()
                     .overflow_hidden()
                     .text_ellipsis()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_family(cx.theme().mono_font_family.clone())
                     .child(path),
             )
@@ -190,7 +191,7 @@ impl CommitDialog {
                 this.child(
                     div()
                         .flex_none()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().success)
                         .child(format!("+{}", file.insertions)),
                 )
@@ -199,7 +200,7 @@ impl CommitDialog {
                 this.child(
                     div()
                         .flex_none()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().danger)
                         .child(format!("-{}", file.deletions)),
                 )
@@ -219,7 +220,7 @@ impl Render for CommitDialog {
             .w_full()
             .gap_1p5()
             .items_center()
-            .text_size(px(13.))
+            .text_size(design(13.))
             .text_color(muted)
             .child(
                 Icon::empty()
@@ -252,7 +253,7 @@ impl Render for CommitDialog {
                         h_flex()
                             .gap_1p5()
                             .items_center()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .font_medium()
                             .text_color(cx.theme().warning)
                             .child(Icon::new(IconName::TriangleAlert).xsmall())
@@ -260,7 +261,7 @@ impl Render for CommitDialog {
                     )
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(muted)
                             .child(crate::tr!("git.commit.default_warning_body")),
                     )
@@ -278,7 +279,7 @@ impl Render for CommitDialog {
 
         let files_header = h_flex().w_full().justify_between().items_center().child(
             div()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .font_medium()
                 .text_color(muted)
                 .child(crate::tr!(
@@ -291,7 +292,7 @@ impl Render for CommitDialog {
             file_rows = file_rows.child(
                 div()
                     .p_2()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(crate::tr!("git.commit.no_changes")),
             );
@@ -305,7 +306,7 @@ impl Render for CommitDialog {
             .touch_overflow_y_scroll()
             .track_scroll(&self.scroll)
             .w_full()
-            .max_h(px(180.))
+            .max_h(design(180.))
             .child(file_rows);
         body = body.child(
             v_flex().w_full().gap_1().child(files_header).child(
@@ -325,7 +326,7 @@ impl Render for CommitDialog {
             .items_center()
             .child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_medium()
                     .text_color(muted)
                     .child(crate::tr!("git.commit.message_label")),
@@ -357,7 +358,7 @@ impl Render for CommitDialog {
         crate::material::overlay_contour(
             div()
                 .w_full()
-                .min_w(px(520.))
+                .min_w(design(520.))
                 .rounded(crate::material::radius_overlay()),
             cx,
         )

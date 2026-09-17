@@ -4,6 +4,7 @@
 //! JS evaluation and snapshots. The panel's chrome, URL state and copy/open
 //! actions stay in the parent module and compile everywhere.
 
+use crate::sizing::design;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -433,7 +434,7 @@ impl PreviewPanel {
                         .flex_none()
                         .px_2()
                         .py_1()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(cx.theme().danger)
                         .child(
                             crate::tr!(
@@ -457,7 +458,7 @@ impl PreviewPanel {
                         .flex_none()
                         .px_2()
                         .py_1()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("preview.remote_forwarding").into_owned()),
                 )

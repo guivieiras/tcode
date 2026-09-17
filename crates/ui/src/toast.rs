@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 use std::rc::Rc;
 
@@ -8,7 +9,7 @@ use crate::widgets::spinner::Spinner;
 use crate::{icon::IconName, sizing::Sizable as _};
 use gpui::{
     App, ClipboardItem, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
-    Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    Styled as _, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 
@@ -68,7 +69,7 @@ pub fn notification(
                             .gap_3()
                             .items_center()
                             .child(Spinner::new().small())
-                            .child(div().text_size(px(14.)).child(title)),
+                            .child(div().text_size(design(14.)).child(title)),
                     )
                 });
             if let Some(detail) = detail.clone() {

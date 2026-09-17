@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::{
     sizing::{Sizable, Size},
     theme::ActiveTheme as _,
@@ -6,7 +7,6 @@ use crate::{
 use gpui::{
     App, ElementId, Hsla, IntoElement, ParentElement as _, RenderOnce, SharedString,
     StatefulInteractiveElement, StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _,
-    px,
 };
 use gpui_base::StyledExt as _;
 use gpui_base::{SwitchThumb, SwitchTrack};
@@ -77,13 +77,21 @@ impl Styled for Switch {
 }
 
 impl RenderOnce for Switch {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let checked = self.checked;
         let (width, height, thumb) = match self.size {
-            Size::XSmall | Size::Small => (px(28.), px(16.), px(12.)),
-            _ => (px(36.), px(20.), px(16.)),
+            Size::XSmall | Size::Small => (
+                design(28.).to_pixels(window.rem_size()),
+                design(16.).to_pixels(window.rem_size()),
+                design(12.).to_pixels(window.rem_size()),
+            ),
+            _ => (
+                design(36.).to_pixels(window.rem_size()),
+                design(20.).to_pixels(window.rem_size()),
+                design(16.).to_pixels(window.rem_size()),
+            ),
         };
-        let inset = px(2.);
+        let inset = design(2.).to_pixels(window.rem_size());
         let checked_bg = self.color.unwrap_or(cx.theme().primary);
         let unchecked_bg = cx.theme().muted;
         let thumb_bg = cx.theme().background;
@@ -129,7 +137,7 @@ impl RenderOnce for Switch {
                             .left(if checked {
                                 width - thumb - inset * 2
                             } else {
-                                px(0.)
+                                design(0.).to_pixels(window.rem_size())
                             }),
                     )
                     .when_some(self.tooltip, |this, text| {

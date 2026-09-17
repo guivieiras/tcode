@@ -10,6 +10,7 @@
 //! can actually lay content out in. Under 900px the shell is a navigation stack
 //! — hosts, threads, thread, panel — and at or above it the desktop split.
 
+use crate::sizing::design;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -177,6 +178,7 @@ struct ShellAttachment {
     /// The width the right panel opens at: the default until the user drags a
     /// handle, then whatever they chose (for this run).
     right_width: Rc<Cell<Pixels>>,
+    layout_zoom: u16,
     /// Whether the open right panel has already been given its width.
     right_sized: bool,
     /// Stable expanded-sidebar width. The resizable component otherwise scales
@@ -348,6 +350,16 @@ impl AppShell {
             state.set_compact(compact, cx);
         });
         let subscriptions = vec![
+            cx.observe_window_appearance(window, |this, window, cx| {
+                let mode = this
+                    .attachment
+                    .as_ref()
+                    .map(|a| a.link.store.read(cx).settings().theme_mode)
+                    .unwrap_or_default();
+                if mode == tcode_core::settings::ThemeMode::System {
+                    crate::theme::sync_system_appearance(Some(window), cx);
+                }
+            }),
             // The one place navigation reaches the stack: whoever moved the
             // history — a nav bar, the sidebar, the palette, Android Back —
             // gets the same push or pop out of it.
@@ -739,9 +751,14 @@ impl AppShell {
             preview,
             sidebar,
             split: cx.new(|_| ResizableState::default()),
-            right_width: Rc::new(Cell::new(px(RIGHT_PANEL_WIDTH))),
+            right_width: Rc::new(Cell::new(
+                design(RIGHT_PANEL_WIDTH).to_pixels(window.rem_size()),
+            )),
+            layout_zoom: crate::zoom::percent(cx),
             right_sized: false,
-            sidebar_width: Rc::new(Cell::new(px(SIDEBAR_WIDTH))),
+            sidebar_width: Rc::new(Cell::new(
+                design(SIDEBAR_WIDTH).to_pixels(window.rem_size()),
+            )),
             sidebar_restore_pending: false,
             sidebar_overlay_visible: false,
             observed_session_id,
@@ -1208,8 +1225,10 @@ fn nav_bar(
     let leading = h_flex()
         .absolute()
         .inset_0()
-        .px(px(4.))
-        .when(clears_traffic_lights, |row| row.pl(px(TRAFFIC_LIGHT_INSET)))
+        .px(design(4.))
+        .when(clears_traffic_lights, |row| {
+            row.pl(design(TRAFFIC_LIGHT_INSET))
+        })
         .items_center()
         .children(back)
         .child(window_caption::drag_region(div().flex_1().h_full()))
@@ -1223,7 +1242,7 @@ fn nav_bar(
             window_drag_area("compact-nav-drag", div(), window, cx)
                 .relative()
                 .w_full()
-                .h(px(52.))
+                .h(design(52.))
                 .child(leading)
                 .child(
                     // Centered in the room the controls leave it: the back
@@ -1233,12 +1252,12 @@ fn nav_bar(
                     v_flex()
                         .absolute()
                         .inset_0()
-                        .pl(px(if clears_traffic_lights {
+                        .pl(design(if clears_traffic_lights {
                             TRAFFIC_LIGHT_INSET + NAV_CONTROL_WIDTH
                         } else {
                             NAV_CONTROL_WIDTH
                         }))
-                        .pr(px(NAV_CONTROL_WIDTH))
+                        .pr(design(NAV_CONTROL_WIDTH))
                         .items_center()
                         .justify_center()
                         .child(
@@ -1246,8 +1265,8 @@ fn nav_bar(
                                 .max_w_full()
                                 .min_w_0()
                                 .truncate()
-                                .text_size(px(17.))
-                                .line_height(px(22.))
+                                .text_size(design(17.))
+                                .line_height(design(22.))
                                 .font_semibold()
                                 .child(title),
                         )
@@ -1262,27 +1281,27 @@ fn back_button(id: &'static str, parent: SharedString, cx: &App) -> gpui::Statef
     crate::material::accessible_clickable(h_flex(), id, Role::Button, parent.clone(), cx)
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .flex_none()
-        .h(px(44.))
-        .pl(px(4.))
-        .pr(px(10.))
-        .gap(px(2.))
+        .h(design(44.))
+        .pl(design(4.))
+        .pr(design(10.))
+        .gap(design(2.))
         .items_center()
-        .rounded(px(12.))
+        .rounded(design(12.))
         .cursor_pointer()
         .text_color(cx.theme().foreground)
         .active(|s| s.bg(cx.theme().foreground.opacity(0.08)))
         .child(
             Icon::empty()
                 .path("icons/chevron-left.svg")
-                .size(px(20.))
+                .size(design(20.))
                 .flex_none(),
         )
         .child(
             // A fixed label is short by construction: it is never truncated.
             div()
                 .flex_none()
-                .text_size(px(15.))
-                .line_height(px(20.))
+                .text_size(design(15.))
+                .line_height(design(20.))
                 .child(parent),
         )
 }
@@ -1299,12 +1318,12 @@ fn nav_icon_button(
     let theme = cx.theme();
     crate::material::accessible_clickable(div(), id, Role::Button, aria_label.into(), cx)
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .size(px(44.))
+        .size(design(44.))
         .flex_none()
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(12.))
+        .rounded(design(12.))
         .cursor_pointer()
         .text_color(if enabled {
             theme.foreground
@@ -1312,7 +1331,7 @@ fn nav_icon_button(
             theme.muted_foreground
         })
         .active(|s| s.bg(theme.foreground.opacity(0.08)))
-        .child(Icon::new(icon).size(px(20.)))
+        .child(Icon::new(icon).size(design(20.)))
 }
 
 /// The muted machine name beneath the thread-list title.
@@ -1321,8 +1340,8 @@ fn nav_subtitle(text: impl Into<SharedString>, cx: &App) -> AnyElement {
         .max_w_full()
         .min_w_0()
         .truncate()
-        .text_size(px(13.))
-        .line_height(px(18.))
+        .text_size(design(13.))
+        .line_height(design(18.))
         .text_color(cx.theme().muted_foreground)
         .child(text.into())
         .into_any_element()
@@ -1688,7 +1707,13 @@ impl AppShell {
                 window,
                 cx,
             ))
-            .child(div().flex_none().px(px(16.)).py(px(8.)).child(segments))
+            .child(
+                div()
+                    .flex_none()
+                    .px(design(16.))
+                    .py(design(8.))
+                    .child(segments),
+            )
             .child(div().flex_1().min_h_0().child(body))
             .into_any_element()
     }
@@ -1804,8 +1829,8 @@ impl AppShell {
                 ]));
                 element
             })
-            .text_size(px(16.))
-            .line_height(px(22.))
+            .text_size(design(16.))
+            .line_height(design(22.))
             .on_action(cx.listener(Self::on_toggle_palette))
             .child(gpui_base::TextSelectionLayer)
             // Every compact page, settings included, is one entry of the same
@@ -1881,7 +1906,7 @@ impl AppShell {
             "hosts-header-drag",
             h_flex()
                 .flex_none()
-                .h(px(52.))
+                .h(design(52.))
                 .w_full()
                 .px_2()
                 .gap_2()
@@ -1891,7 +1916,11 @@ impl AppShell {
             cx,
         )
         .child(window_caption::drag_region(
-            div().flex_1().text_size(px(15.)).font_medium().child(title),
+            div()
+                .flex_1()
+                .text_size(design(15.))
+                .font_medium()
+                .child(title),
         ))
         .children(hosts_caption.then(|| {
             div()
@@ -1957,7 +1986,7 @@ impl AppShell {
             h_flex()
                 .flex_none()
                 .w_full()
-                .min_h(px(28.))
+                .min_h(design(28.))
                 .py_1()
                 .px_3()
                 .gap_2()
@@ -1965,7 +1994,7 @@ impl AppShell {
                 .border_b_1()
                 .border_color(cx.theme().border)
                 .bg(accent.opacity(0.12))
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .text_color(cx.theme().foreground)
                 .when(reconnecting, |bar| {
                     bar.child({
@@ -1997,6 +2026,23 @@ impl AppShell {
         let Some(attachment) = &mut self.attachment else {
             unreachable!("checked above");
         };
+        let zoom = crate::zoom::percent(cx);
+        if attachment.layout_zoom != zoom {
+            let ratio = f32::from(zoom) / f32::from(attachment.layout_zoom);
+            attachment.layout_zoom = zoom;
+            attachment
+                .sidebar_width
+                .set(attachment.sidebar_width.get() * ratio);
+            attachment
+                .right_width
+                .set(attachment.right_width.get() * ratio);
+            // Discard the split's measured pixel sizes while retaining the user's
+            // chosen widths in design units. New panels measure at the new scale.
+            attachment.split = cx.new(|_| ResizableState::default());
+            attachment.sidebar_restore_pending = false;
+            attachment.right_sized = false;
+        }
+
         let collapsed = self.window_state.read(cx).sidebar_collapsed;
         // The overlay is workspace-only transient state. Clear it synchronously
         // on route/expanded transitions rather than waiting for pointer input.
@@ -2183,8 +2229,11 @@ impl AppShell {
         let attachment = self.attachment.as_ref().expect("attachment checked above");
         let right = resizable_panel()
             .visible(diff_open)
-            .size(px(RIGHT_PANEL_WIDTH))
-            .size_range(px(320.)..px(1400.))
+            .size(attachment.right_width.get())
+            .size_range(
+                design(320.).to_pixels(window.rem_size())
+                    ..design(1400.).to_pixels(window.rem_size()),
+            )
             .child(
                 div()
                     .size_full()
@@ -2249,7 +2298,7 @@ impl AppShell {
                         .left_0()
                         .top_0()
                         .h_full()
-                        .w(px(SIDEBAR_HOVER_EDGE))
+                        .w(design(SIDEBAR_HOVER_EDGE))
                         .occlude()
                         .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                             this.update_sidebar_overlay(
@@ -2292,8 +2341,11 @@ impl AppShell {
                 .child(
                     resizable_panel()
                         .flex_none()
-                        .size(px(SIDEBAR_WIDTH))
-                        .size_range(px(220.)..px(380.))
+                        .size(attachment.sidebar_width.get())
+                        .size_range(
+                            design(220.).to_pixels(window.rem_size())
+                                ..design(380.).to_pixels(window.rem_size()),
+                        )
                         .child(sidebar),
                 )
                 .child(chat_panel)
@@ -3643,6 +3695,7 @@ mod tests {
         cx: &mut TestAppContext,
         initial: Option<AttachmentTarget>,
     ) -> (Entity<AppShell>, MountedShell, &mut VisualTestContext) {
+        cx.update(crate::theme::init);
         let (to_host, outgoing) = async_channel::unbounded();
         let (incoming, from_host) = async_channel::unbounded();
         let (_, state) = async_channel::unbounded();

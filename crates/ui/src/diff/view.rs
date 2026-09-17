@@ -1,6 +1,7 @@
 //! The right-side diff panel view: scope controls, virtualized unified/split
 //! lists, expandable gaps, and line-anchored review comments.
 
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -119,12 +120,12 @@ fn render_file(
 }
 
 /// Cache of rendered files, invalidated when the session, selected turn, or
-/// theme brightness changes (highlight colors are theme-resolved).
+/// theme changes (highlight colors are theme-resolved).
 struct DiffCache {
     session: String,
     scope: DiffScope,
     revision: u64,
-    dark: bool,
+    theme_revision: u64,
     ignore_ws: bool,
     show_invisibles: bool,
     files: Vec<RenderedFile>,
@@ -201,7 +202,7 @@ struct RenderKey {
     session: String,
     scope: DiffScope,
     revision: u64,
-    dark: bool,
+    theme_revision: u64,
     ignore_ws: bool,
     show_invisibles: bool,
 }
@@ -265,7 +266,7 @@ impl DiffPanel {
         cx: &mut Context<Self>,
     ) -> Self {
         let plan = cx.new(|cx| PlanPanel::new(workspace_store.clone(), cx));
-        let subscriptions = vec![cx.observe(&workspace_store, |this, store, cx| {
+        let mut subscriptions = vec![cx.observe(&workspace_store, |this, store, cx| {
             let comments = store.read(cx).review_comments();
             if this.observed_review_comments != comments {
                 this.observed_review_comments = comments;
@@ -273,6 +274,10 @@ impl DiffPanel {
             }
             cx.notify();
         })];
+        subscriptions.push(cx.observe_global::<crate::zoom::Zoom>(|this, cx| {
+            this.remeasure_lists();
+            cx.notify();
+        }));
         Self {
             workspace_store,
             window_state,
@@ -517,7 +522,7 @@ impl DiffPanel {
                         session: key.session.clone(),
                         scope: key.scope,
                         revision: key.revision,
-                        dark: key.dark,
+                        theme_revision: key.theme_revision,
                         ignore_ws: key.ignore_ws,
                         show_invisibles: key.show_invisibles,
                         files,
@@ -558,7 +563,7 @@ impl DiffPanel {
                 });
             }
         }
-        let dark = cx.theme().mode.is_dark();
+        let theme_revision = cx.theme().revision;
         let (session, scope, revision, cwd) = {
             let store = self.workspace_store.read(cx);
             let Some(active) = store.diff_active_state() else {
@@ -603,7 +608,7 @@ impl DiffPanel {
             c.session != session
                 || c.scope != scope
                 || c.revision != revision
-                || c.dark != dark
+                || c.theme_revision != theme_revision
                 || c.ignore_ws != self.ignore_ws
                 || c.show_invisibles != self.show_invisibles
         });
@@ -644,7 +649,7 @@ impl DiffPanel {
                     session,
                     scope,
                     revision,
-                    dark,
+                    theme_revision,
                     ignore_ws: self.ignore_ws,
                     show_invisibles: self.show_invisibles,
                 },
@@ -698,13 +703,13 @@ impl DiffPanel {
          -> gpui::Stateful<gpui::Div> {
             material::accessible_clickable(h_flex(), id, Role::Tab, label.clone(), cx)
                 .aria_selected(is_active)
-                .h(px(28.))
+                .h(design(28.))
                 .px_2p5()
                 .gap_1p5()
                 .items_center()
                 .rounded(material::radius_button())
                 .cursor_pointer()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .font_medium()
                 .when(is_active, |s| s.bg(tab_active))
                 .when(!is_active, |s| {
@@ -720,7 +725,7 @@ impl DiffPanel {
             .role(Role::TabList)
             .aria_label(crate::tr!("diff.panel_tabs"))
             .flex_none()
-            .h(px(if hosts_caption {
+            .h(design(if hosts_caption {
                 window_caption::CAPTION_STRIP_HEIGHT
             } else {
                 40.
@@ -880,7 +885,7 @@ impl DiffPanel {
                 h_flex()
                     .gap_1p5()
                     .items_center()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_medium()
                     .child(label)
                     .child(Icon::new(IconName::ChevronDown).xsmall().text_color(muted)),
@@ -911,8 +916,8 @@ impl DiffPanel {
                         .px_2()
                         .py_1()
                         .items_center()
-                        .rounded(px(6.))
-                        .text_size(px(13.))
+                        .rounded(design(6.))
+                        .text_size(design(13.))
                         .cursor_pointer()
                         .hover(|row| row.bg(cx.theme().list_hover))
                         .when(selected_scope == Some(scope), |row| {
@@ -960,7 +965,7 @@ impl DiffPanel {
                             .px_2()
                             .pt_2()
                             .pb_1()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("diff.turns")),
                     );
@@ -988,8 +993,8 @@ impl DiffPanel {
                         .py_1()
                         .gap_2()
                         .items_center()
-                        .rounded(px(6.))
-                        .text_size(px(13.))
+                        .rounded(design(6.))
+                        .text_size(design(13.))
                         .cursor_pointer()
                         .hover(|s| s.bg(cx.theme().list_hover))
                         .when(is_sel, |this| this.bg(cx.theme().list_active))
@@ -1018,8 +1023,8 @@ impl DiffPanel {
                     .id("diff-turn-list")
                     .role(Role::Menu)
                     .aria_label(crate::tr!("diff.scope_menu"))
-                    .min_w(px(190.))
-                    .max_h(px(320.))
+                    .min_w(design(190.))
+                    .max_h(design(320.))
                     .touch_overflow_y_scroll()
                     .child(list)
             })
@@ -1083,7 +1088,7 @@ impl DiffPanel {
                             .w_full()
                             .px_2()
                             .py_1()
-                            .rounded(px(6.))
+                            .rounded(design(6.))
                             .cursor_pointer()
                             .hover(|row| row.bg(cx.theme().list_hover))
                             .when(selected, |row| row.bg(cx.theme().list_active))
@@ -1109,8 +1114,8 @@ impl DiffPanel {
                         .id("diff-base-list")
                         .role(Role::Menu)
                         .aria_label(crate::tr!("diff.base_branches"))
-                        .min_w(px(180.))
-                        .max_h(px(280.))
+                        .min_w(design(180.))
+                        .max_h(design(280.))
                         .touch_overflow_y_scroll()
                         .child(list)
                 })
@@ -1164,9 +1169,9 @@ impl DiffPanel {
         ];
         let mut toolbar = h_flex()
             .flex_none()
-            .h(px(if compact { material::TOUCH_TARGET } else { 40. }))
+            .h(design(if compact { material::TOUCH_TARGET } else { 40. }))
             .w_full()
-            .px(px(if compact {
+            .px(design(if compact {
                 material::COMPACT_PAGE_INSET
             } else {
                 8.
@@ -1391,12 +1396,12 @@ impl DiffPanel {
         .flex_1()
         .min_h_0()
         .h_full()
-        .text_size(px(13.))
+        .text_size(design(13.))
         .font_family(cx.theme().mono_font_family.clone());
         if wrap {
             rows = rows.w_full();
         } else {
-            rows = rows.min_w(px(content_width));
+            rows = rows.min_w(design(content_width));
         }
 
         let mut viewport = div()
@@ -1421,7 +1426,7 @@ impl DiffPanel {
             .size_full()
             .min_h_0()
             .when(self.compact(cx), |body| {
-                body.px(px(material::COMPACT_PAGE_INSET))
+                body.px(design(material::COMPACT_PAGE_INSET))
             })
             .child(viewport);
 
@@ -1543,7 +1548,7 @@ impl DiffPanel {
         };
         h_flex()
             .min_w_full()
-            .h(px(34.))
+            .h(design(34.))
             .px_3()
             .gap_2()
             .items_center()
@@ -1555,9 +1560,9 @@ impl DiffPanel {
                     div()
                         .absolute()
                         .left(px(0.))
-                        .top(px(6.))
-                        .bottom(px(6.))
-                        .w(px(2.))
+                        .top(design(6.))
+                        .bottom(design(6.))
+                        .w(design(2.))
                         .rounded_full()
                         .bg(color),
                 )
@@ -1566,16 +1571,16 @@ impl DiffPanel {
             .child(Icon::new(IconName::File).xsmall().text_color(muted))
             .child(
                 div()
-                    .text_size(px(13.))
-                    .line_height(px(18.))
+                    .text_size(design(13.))
+                    .line_height(design(18.))
                     .font_medium()
                     .child(file.path.clone()),
             )
             .when_some(kind_label, |this, (label, foreground)| {
                 this.child(
                     div()
-                        .text_size(px(11.))
-                        .line_height(px(18.))
+                        .text_size(design(11.))
+                        .line_height(design(18.))
                         .text_color(foreground)
                         .child(label),
                 )
@@ -1585,7 +1590,7 @@ impl DiffPanel {
                 h_flex()
                     .flex_none()
                     .gap_2()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .child(
                         div()
                             .text_color(cx.theme().success)
@@ -1610,11 +1615,11 @@ impl DiffPanel {
     ) -> AnyElement {
         let row = h_flex()
             .min_w_full()
-            .h(px(24.))
+            .h(design(24.))
             .px_3()
             .items_center()
             .bg(cx.theme().muted)
-            .text_size(px(11.))
+            .text_size(design(11.))
             .text_color(cx.theme().muted_foreground)
             .font_family(cx.theme().font_family.clone());
         if !expandable {
@@ -1668,13 +1673,13 @@ impl DiffPanel {
     fn render_notice(&self, message: String, cx: &mut Context<Self>) -> AnyElement {
         h_flex()
             .min_w_full()
-            .px(px(material::CARD_INSET))
+            .px(design(material::CARD_INSET))
             .py_2()
             .gap_1p5()
             .items_start()
             .bg(cx.theme().warning.opacity(0.12))
             .rounded(material::radius_card())
-            .text_size(px(11.))
+            .text_size(design(11.))
             .text_color(cx.theme().warning_foreground)
             .font_family(cx.theme().font_family.clone())
             .child(
@@ -1725,14 +1730,14 @@ impl DiffPanel {
                     .rounded(material::radius_card())
                     .bg(cx.theme().muted)
                     .font_family(cx.theme().font_family.clone())
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .child(
                         div()
                             .absolute()
                             .left(px(0.))
-                            .top(px(6.))
-                            .bottom(px(6.))
-                            .w(px(2.))
+                            .top(design(6.))
+                            .bottom(design(6.))
+                            .w(design(2.))
                             .rounded_full()
                             .bg(cx.theme().primary),
                     )
@@ -1816,7 +1821,11 @@ impl DiffPanel {
             .is_some_and(|(left, right)| file.all_rows[left].text == file.all_rows[right].text);
         let cell = |row_index: Option<usize>, side: ReviewSide, cx: &mut Context<Self>| {
             let Some(index) = row_index else {
-                return div().flex_1().min_w_0().min_h(px(18.)).into_any_element();
+                return div()
+                    .flex_1()
+                    .min_w_0()
+                    .min_h(design(18.))
+                    .into_any_element();
             };
             self.render_code_row(
                 file,
@@ -1871,10 +1880,10 @@ impl DiffPanel {
             let file_move = file.path.clone();
             div()
                 .flex_none()
-                .w(px(if split { 42. } else { 44. }))
+                .w(design(if split { 42. } else { 44. }))
                 .px_1()
                 .text_right()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(cx.theme().muted_foreground)
                 .child(line.map(|value| value.to_string()).unwrap_or_default())
                 .cursor_pointer()
@@ -1898,12 +1907,12 @@ impl DiffPanel {
         let code = div()
             .flex_1()
             .px_2()
-            .text_color(cx.theme().foreground)
+            .text_color(cx.theme().editor_foreground)
             .child(StyledText::new(row.text.clone()).with_highlights(row.runs.iter().cloned()))
             .when(split || wrap, |code| code.min_w_0())
             .when(!wrap, |code| code.whitespace_nowrap());
         let mut cell = h_flex()
-            .min_h(px(18.))
+            .min_h(design(18.))
             .items_start()
             .when_some(bg, |cell, color| cell.bg(color));
         if let Some(side) = split_side {
@@ -1928,7 +1937,7 @@ impl DiffPanel {
             .gap_1()
             .child(
                 div()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("diff.empty")),
             )
@@ -1948,7 +1957,7 @@ impl Render for DiffPanel {
         let mut root = v_flex()
             .size_full()
             .min_w_0()
-            .text_color(cx.theme().foreground)
+            .text_color(cx.theme().editor_foreground)
             .on_action(cx.listener(Self::on_view_option))
             .when(!compact, |root| {
                 root.child(self.render_tab_strip(window, cx))

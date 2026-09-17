@@ -7,6 +7,7 @@
 //! saves through the platform panel, a browser downloads a Blob, and every
 //! client can copy the text. Nothing is written on the host.
 
+use crate::sizing::design;
 use std::path::PathBuf;
 
 use gpui::{App, ClipboardItem, Context, Entity, Window};
@@ -16,7 +17,7 @@ use crate::overlay::{DialogActions, Notification, OverlayExt as _};
 use crate::store::{ThreadExportArtifact, WorkspaceStore};
 use crate::theme::ActiveTheme as _;
 use crate::widgets::button::{Button, ButtonVariants as _};
-use gpui::{IntoElement, ParentElement as _, Styled as _, div, prelude::FluentBuilder as _, px};
+use gpui::{IntoElement, ParentElement as _, Styled as _, div, prelude::FluentBuilder as _};
 use gpui_base::v_flex;
 
 pub(crate) fn prompt_thread_export<V: 'static>(
@@ -76,7 +77,7 @@ fn open_delivery_dialog(
         let download_store = store.clone();
         let directory = directory.clone();
         builder
-            .w(px(420.))
+            .w(design(420.))
             .rounded(crate::material::radius_overlay())
             .bg(cx.theme().popover)
             .border_1()
@@ -87,7 +88,7 @@ fn open_delivery_dialog(
                 content.child(
                     v_flex().gap_1().child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(summary.clone()),
                     ),

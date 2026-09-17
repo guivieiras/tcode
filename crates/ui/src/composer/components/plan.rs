@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 
 impl Composer {
     /// Whether a send right now continues planning rather than starting work.
@@ -32,7 +33,7 @@ impl Composer {
                 let store = store_main.clone();
                 let popover = cx.entity();
                 v_flex()
-                    .w(px(220.))
+                    .w(design(220.))
                     .p_1()
                     .child(
                         h_flex()
@@ -42,9 +43,9 @@ impl Composer {
                             .py_1p5()
                             .gap_2()
                             .items_center()
-                            .rounded(px(6.))
+                            .rounded(design(6.))
                             .cursor_pointer()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .hover(|s| s.bg(cx.theme().muted))
                             .child(Icon::new(IconName::Plus).xsmall())
                             .child(crate::tr!("plan.implement_new_thread"))
@@ -73,7 +74,7 @@ impl Composer {
         let store_impl = self.workspace_store.clone();
         h_flex()
             .flex_none()
-            .h(px(32.))
+            .h(design(32.))
             .items_center()
             .rounded(crate::material::radius_button())
             .bg(primary)
@@ -86,7 +87,7 @@ impl Composer {
                     .px_3()
                     .items_center()
                     .cursor_pointer()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_medium()
                     .hover(|s| s.opacity(0.9))
                     .child(crate::tr!("plan.implement"))
@@ -94,7 +95,7 @@ impl Composer {
                         store_impl.update(cx, |store, _cx| store.implement_plan());
                     })),
             )
-            .child(div().w_px().h(px(16.)).bg(fg).opacity(0.3))
+            .child(div().w_px().h(design(16.)).bg(fg).opacity(0.3))
             .child(chevron)
             .into_any_element()
     }
@@ -119,8 +120,8 @@ impl Composer {
                 div()
                     .flex_none()
                     .text_color(cx.theme().primary)
-                    .text_size(px(11.))
-                    .line_height(px(18.))
+                    .text_size(design(11.))
+                    .line_height(design(18.))
                     .font_medium()
                     .child(crate::tr!("plan.ready")),
             )
@@ -130,8 +131,8 @@ impl Composer {
                     .min_w_0()
                     .overflow_hidden()
                     .text_ellipsis()
-                    .text_size(px(13.))
-                    .line_height(px(18.))
+                    .text_size(design(13.))
+                    .line_height(design(18.))
                     .text_color(cx.theme().muted_foreground)
                     .child(title),
             )

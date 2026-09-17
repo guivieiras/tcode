@@ -20,7 +20,7 @@ pub(super) fn render(row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpui::A
             .w_full()
             .min_w_0()
             .items_center()
-            .gap(px(12.))
+            .gap(design(12.))
             .child(compact_waiting_glyph(
                 row.state,
                 row.project_name.as_ref().and_then(|_| {
@@ -35,7 +35,7 @@ pub(super) fn render(row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpui::A
                 v_flex()
                     .flex_1()
                     .min_w_0()
-                    .gap(px(2.))
+                    .gap(design(2.))
                     .child(title)
                     .child(metadata.w_full()),
             )
@@ -49,7 +49,7 @@ pub(super) fn render(row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpui::A
             .w_full()
             .min_w_0()
             .items_center()
-            .gap(px(8.))
+            .gap(design(8.))
             .when(row.state.waiting() || row.state.is_worktree, |line| {
                 line.child(metadata)
             })
@@ -66,18 +66,18 @@ pub(super) fn render(row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpui::A
     v_flex()
         .w_full()
         .min_w_0()
-        .gap(px(2.))
+        .gap(design(2.))
         .child(
             h_flex()
                 .w_full()
                 .min_w_0()
                 .items_center()
-                .gap(px(8.))
+                .gap(design(8.))
                 .when(row.state.waiting() && !row.state.show_completed, |line| {
                     line.child(
                         div()
                             .flex_none()
-                            .size(px(6.))
+                            .size(design(6.))
                             .rounded_full()
                             .bg(cx.theme().warning),
                     )

@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::widgets::spinner::Spinner;
 use crate::{
@@ -7,7 +8,7 @@ use crate::{
 use gpui::{
     AnyElement, App, ClickEvent, Div, HighlightStyle, InteractiveElement as _, IntoElement,
     ParentElement as _, Role, SharedString, StatefulInteractiveElement as _, Styled as _,
-    StyledText, Window, div, prelude::FluentBuilder as _, px,
+    StyledText, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -120,16 +121,20 @@ pub(crate) fn activity_row(
 
     let row = h_flex()
         .w_full()
-        .min_h(px(28.))
+        .min_h(design(28.))
         .px_1()
         .gap_2()
         .items_center()
         .when(!compact, |row| row.py_0p5())
-        .text_size(px(12.5))
+        .text_size(design(12.5))
         .child(activity_status_icon(icon, status, cx))
         .child(summary)
         .when(expandable, |row| {
-            row.child(Icon::new(chevron(expanded)).size(px(13.)).text_color(muted))
+            row.child(
+                Icon::new(chevron(expanded))
+                    .size(design(13.))
+                    .text_color(muted),
+            )
         });
 
     let row: AnyElement = if expandable {
@@ -184,7 +189,7 @@ fn activity_summary(
                     .min_w_0()
                     .overflow_hidden()
                     .text_ellipsis()
-                    .text_size(px(11.5))
+                    .text_size(design(11.5))
                     .text_color(cx.theme().muted_foreground)
                     .when(monospace, |text| {
                         text.font_family(cx.theme().mono_font_family.clone())
@@ -248,8 +253,8 @@ fn activity_detail(
         }
         EntryContent::Item(ItemContent::Reasoning { text }) => div()
             .w_full()
-            .text_size(px(11.5))
-            .line_height(px(18.))
+            .text_size(design(11.5))
+            .line_height(design(18.))
             .text_color(muted)
             .whitespace_normal()
             .child(text.clone())
@@ -258,7 +263,7 @@ fn activity_detail(
     };
     crate::material::rail_detail(detail, cx)
         .debug_selector(|| "activity-detail".into())
-        .text_size(px(11.5))
+        .text_size(design(11.5))
         .into_any_element()
 }
 
@@ -273,7 +278,7 @@ fn activity_status_icon(icon: Icon, status: ItemStatus, cx: &App) -> AnyElement 
             .into_any_element();
     }
     let icon = icon
-        .size(px(13.))
+        .size(design(13.))
         .text_color(cx.theme().muted_foreground)
         .into_any_element();
     if matches!(status, ItemStatus::Completed) {
@@ -286,13 +291,13 @@ fn activity_status_icon(icon: Icon, status: ItemStatus, cx: &App) -> AnyElement 
         .child(
             div()
                 .absolute()
-                .right(px(-3.))
-                .bottom(px(-3.))
+                .right(design(-3.))
+                .bottom(design(-3.))
                 .rounded_full()
                 .bg(cx.theme().background)
                 .child(
                     Icon::new(IconName::CircleX)
-                        .size(px(7.))
+                        .size(design(7.))
                         .text_color(cx.theme().danger),
                 ),
         )
@@ -306,7 +311,7 @@ fn activity_detail_section(label: String, text: String, monospace: bool, cx: &Ap
         .gap_1()
         .child(
             div()
-                .text_size(px(10.5))
+                .text_size(design(10.5))
                 .font_medium()
                 .text_color(muted)
                 .child(crate::material::tracked_uppercase(&label)),
@@ -314,8 +319,8 @@ fn activity_detail_section(label: String, text: String, monospace: bool, cx: &Ap
         .child(
             div()
                 .w_full()
-                .line_height(px(18.))
-                .text_size(px(11.5))
+                .line_height(design(18.))
+                .text_size(design(11.5))
                 .text_color(muted)
                 .when(monospace, |body| {
                     body.font_family(cx.theme().mono_font_family.clone())

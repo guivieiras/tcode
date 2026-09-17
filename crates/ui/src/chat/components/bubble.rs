@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -77,7 +78,9 @@ pub(crate) fn native_rewind_button(
         cx,
     )
     .disabled(disabled)
-    .when(compact, |button| button.min_w(px(44.)).min_h(px(44.)));
+    .when(compact, |button| {
+        button.min_w(design(44.)).min_h(design(44.))
+    });
     Some(
         crate::material::overlay_popover(("rewind-menu", turn))
             .anchor(Anchor::TopRight)
@@ -107,7 +110,7 @@ pub(crate) fn native_rewind_button(
                 }
                 modes.push((crate::tr!("chat.rewind_files").into_owned(), files.clone()));
                 let mut menu = v_flex()
-                    .w(px(240.))
+                    .w(design(240.))
                     .p_1()
                     .gap_0p5()
                     .id(("rewind-options", turn))
@@ -124,14 +127,14 @@ pub(crate) fn native_rewind_button(
                             cx,
                         )
                         .w_full()
-                        .when(compact, |row| row.min_h(px(44.)))
+                        .when(compact, |row| row.min_h(design(44.)))
                         .px_2()
                         .py_1p5()
                         .gap_2()
                         .items_center()
-                        .rounded(px(6.))
+                        .rounded(design(6.))
                         .cursor_pointer()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .hover(move |style| style.bg(accent))
                         .child(Icon::new(IconName::Undo).xsmall().text_color(muted))
                         .child(label)
@@ -174,13 +177,13 @@ pub(crate) fn user_bubble(
             window
                 .text_system()
                 // Must match the bubble's rendered text size below.
-                .layout_line(line, px(15.), &[run], None)
+                .layout_line(line, design(15.).to_pixels(window.rem_size()), &[run], None)
                 .width,
         )
     });
 
     let group_key = SharedString::from(format!("user-{entry_id}"));
-    let mut actions = h_flex().gap(px(2.)).items_center().justify_end();
+    let mut actions = h_flex().gap(design(2.)).items_center().justify_end();
     if !visible.trim().is_empty() {
         actions = actions.child(assistant::copy_button(
             &format!("user:{entry_id}"),
@@ -206,14 +209,14 @@ pub(crate) fn user_bubble(
                         .id(SharedString::from(format!(
                             "user-image-{entry_id}-{image_index}"
                         )))
-                        .size(px(120.))
+                        .size(design(120.))
                         .rounded_xl()
                         .overflow_hidden()
                         .bg(cx.theme().muted)
                         .cursor_pointer()
                         .child(
                             img(crate::store::host_image(path))
-                                .size(px(120.))
+                                .size(design(120.))
                                 .rounded_xl()
                                 .object_fit(ObjectFit::Cover),
                         )
@@ -237,18 +240,18 @@ pub(crate) fn user_bubble(
         .group(group_key.clone())
         .w_full()
         .items_end()
-        .gap(px(2.))
+        .gap(design(2.))
         .when_some(steering, |column, steering| {
             column.child(
                 div()
-                    .h(px(18.))
-                    .px(px(6.))
-                    .mb(px(-2.))
+                    .h(design(18.))
+                    .px(design(6.))
+                    .mb(design(-2.))
                     .flex()
                     .items_center()
                     .rounded(crate::material::radius_chip())
                     .bg(cx.theme().muted)
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(cx.theme().muted_foreground)
                     .child(match steering {
                         SteeringStatus::Pending => crate::tr!("chat.steering"),
@@ -261,12 +264,15 @@ pub(crate) fn user_bubble(
             column.child({
                 let pending = steering == Some(SteeringStatus::Pending);
                 div()
-                    .w((text_width + px(20.)).ceil() + px(3.))
+                    .w(
+                        (text_width + design(20.).to_pixels(window.rem_size())).ceil()
+                            + design(3.).to_pixels(window.rem_size()),
+                    )
                     .flex_none()
                     .max_w_3_4()
-                    .px(px(10.))
-                    .py(px(6.))
-                    .rounded(px(12.))
+                    .px(design(10.))
+                    .py(design(6.))
+                    .rounded(design(12.))
                     .bg(cx.theme().foreground.opacity(0.08))
                     .when(pending, |bubble| {
                         bubble
@@ -275,7 +281,7 @@ pub(crate) fn user_bubble(
                             .border_color(cx.theme().border)
                     })
                     .text_color(cx.theme().foreground)
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .child(content)
             })
         })

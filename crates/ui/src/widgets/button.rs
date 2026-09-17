@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::{
     icon::Icon,
     sizing::{Sizable, Size},
@@ -7,7 +8,7 @@ use crate::{
 use gpui::{
     AnyElement, App, ClickEvent, ElementId, InteractiveElement, Interactivity, IntoElement,
     ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement, StyleRefinement,
-    Styled, Window, prelude::FluentBuilder as _, px,
+    Styled, Window, prelude::FluentBuilder as _,
 };
 use std::rc::Rc;
 
@@ -299,7 +300,7 @@ impl RenderOnce for Button {
             .when(icon_only, |this| match self.size {
                 Size::XSmall => this.size_5(),
                 Size::Small => this.size_6(),
-                Size::Size(v) => this.size(v),
+                Size::Size(v) => this.size(design(f32::from(v))),
                 _ => this.size_8(),
             })
             .when(
@@ -307,8 +308,12 @@ impl RenderOnce for Button {
                 |this| match self.size {
                     Size::XSmall => this.h_5().px_1(),
                     Size::Small => this.h_6().px_2(),
-                    Size::Size(v) => this.px(v * 0.2),
-                    _ => this.h_8().px(if self.compact { px(8.) } else { px(10.) }),
+                    Size::Size(v) => this.px(design(f32::from(v) * 0.2)),
+                    _ => this.h_8().px(if self.compact {
+                        design(8.)
+                    } else {
+                        design(10.)
+                    }),
                 },
             )
             .when(

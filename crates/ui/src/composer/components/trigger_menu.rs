@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 use crate::touch_scroll::{Handle, register};
 use gpui::EntityInputHandler as _;
 use gpui_base::{Scrollbar, ScrollbarMode};
@@ -299,7 +300,11 @@ impl Composer {
             .aria_label(crate::tr!("composer.trigger_results"))
             .flex_none()
             .w_full()
-            .max_h(px(288.).min(available_height / 3.))
+            .max_h(
+                design(288.)
+                    .to_pixels(window.rem_size())
+                    .min(available_height / 3.),
+            )
             .overflow_y_scroll()
             .track_scroll(&self.menu_scroll)
             .p_1()
@@ -310,7 +315,7 @@ impl Composer {
                     .flex_none()
                     .px_3()
                     .py_2p5()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(if loading {
                         crate::tr!("composer.searching").into_owned()
@@ -333,7 +338,7 @@ impl Composer {
                             .px_2()
                             .pt_1p5()
                             .pb_0p5()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .font_medium()
                             .text_color(muted)
                             .child(crate::tr!(group).into_owned()),
@@ -362,7 +367,7 @@ impl Composer {
                         .when(is_active, |row| row.aria_active_descendant())
                         .flex_none()
                         .w_full()
-                        .h(px(28.))
+                        .h(design(28.))
                         .px_2()
                         .gap_2()
                         .items_center()
@@ -377,7 +382,7 @@ impl Composer {
                                 .min_w_0()
                                 .overflow_hidden()
                                 .text_ellipsis()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .font_medium()
                                 .child(row.primary.clone()),
                         )
@@ -388,7 +393,7 @@ impl Composer {
                                     .min_w_0()
                                     .overflow_hidden()
                                     .text_ellipsis()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .text_color(muted)
                                     .child(row.secondary.clone()),
                             )

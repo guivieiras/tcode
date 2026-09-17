@@ -12,13 +12,14 @@
 //! `hosting`, behind `remote-hosting`, inside Settings → Remote. The browser
 //! uses `hosted` to control its headless listener over the authenticated pipe.
 
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 use std::rc::Rc;
 
 use gpui::{
     Action, AnyElement, App, Context, Entity, Global, InteractiveElement as _, IntoElement,
     MouseButton, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Subscription, Window, div, prelude::FluentBuilder as _, px,
+    Subscription, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 use serde::Deserialize;
@@ -326,7 +327,7 @@ impl RemotePanel {
             .unwrap_or(cx.theme().success);
         div()
             .flex_none()
-            .size(px(8.))
+            .size(design(8.))
             .rounded_full()
             .bg(color)
             .into_any_element()
@@ -350,17 +351,17 @@ impl RemotePanel {
                     v_flex()
                         .flex_1()
                         .min_w_0()
-                        .gap(px(2.))
+                        .gap(design(2.))
                         .child(
                             div()
-                                .text_size(px(15.))
+                                .text_size(design(15.))
                                 .font_medium()
                                 .truncate()
                                 .child(crate::tr!("hosts.this_computer")),
                         )
                         .child(
                             div()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .text_color(cx.theme().muted_foreground)
                                 .truncate()
                                 .child(crate::tr!("hosts.this_computer_description")),
@@ -412,17 +413,17 @@ impl RemotePanel {
             v_flex()
                 .flex_1()
                 .min_w_0()
-                .gap(px(2.))
+                .gap(design(2.))
                 .child(
                     div()
-                        .text_size(px(15.))
+                        .text_size(design(15.))
                         .font_medium()
                         .truncate()
                         .child(name.clone()),
                 )
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .truncate()
                         .child(subtitle),
@@ -430,7 +431,7 @@ impl RemotePanel {
                 .when_some(reason, |column, reason| {
                     column.child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().danger_foreground)
                             .child(failure_label(reason)),
                     )
@@ -474,7 +475,7 @@ impl RemotePanel {
         let label = crate::tr!("hosts.actions", name = host.name.clone()).into_owned();
         div()
             .flex_none()
-            .size(px(crate::material::TOUCH_TARGET))
+            .size(design(crate::material::TOUCH_TARGET))
             .flex()
             .items_center()
             .justify_center()
@@ -512,9 +513,9 @@ impl RemotePanel {
             rows.push(
                 div()
                     .w_full()
-                    .px(px(PAGE_PADDING))
+                    .px(design(PAGE_PADDING))
                     .py_3()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(if self.form.browsing {
                         crate::tr!("hosts.nearby_searching")
@@ -537,11 +538,11 @@ impl RemotePanel {
                     v_flex()
                         .flex_1()
                         .min_w_0()
-                        .gap(px(2.))
-                        .child(div().text_size(px(15.)).truncate().child(name))
+                        .gap(design(2.))
+                        .child(div().text_size(design(15.)).truncate().child(name))
                         .child(
                             div()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .text_color(cx.theme().muted_foreground)
                                 .truncate()
                                 .child(beacon.origin.clone()),
@@ -567,7 +568,7 @@ impl RemotePanel {
                 .child(
                     h_flex()
                         .w_full()
-                        .pr(px(PAGE_PADDING))
+                        .pr(design(PAGE_PADDING))
                         .items_center()
                         .justify_between()
                         .child(list_caption(
@@ -605,7 +606,7 @@ impl RemotePanel {
             return self.render_pair(window, cx);
         }
         let current_id = self.attached_host_id(cx);
-        let mut column = v_flex().w_full().gap_4().pt(px(8.)).pb(px(24.));
+        let mut column = v_flex().w_full().gap_4().pt(design(8.)).pb(design(24.));
         if let Some(local) = self.local_row(cx) {
             column = column.child(plain_list(vec![local.into_any_element()], cx));
         }
@@ -613,11 +614,11 @@ impl RemotePanel {
             column = column.child(
                 v_flex()
                     .w_full()
-                    .px(px(PAGE_PADDING))
+                    .px(design(PAGE_PADDING))
                     .gap_3()
                     .child(
                         div()
-                            .text_size(px(15.))
+                            .text_size(design(15.))
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("hosts.empty")),
                     )
@@ -640,7 +641,7 @@ impl RemotePanel {
                         ))
                         .child(plain_list(rows, cx)),
                 )
-                .child(div().px(px(PAGE_PADDING)).child(self.pair_button(cx)));
+                .child(div().px(design(PAGE_PADDING)).child(self.pair_button(cx)));
         }
         column = column.children(self.nearby(cx));
         self.page(column.into_any_element(), cx)
@@ -672,13 +673,13 @@ impl RemotePanel {
         let scannable = self.client(cx).is_some_and(|client| client.supports_qr()) && !fixed;
         let body = v_flex()
             .w_full()
-            .px(px(PAGE_PADDING))
-            .py(px(16.))
+            .px(design(PAGE_PADDING))
+            .py(design(16.))
             .gap_4()
             .child(
                 div()
-                    .text_size(px(15.))
-                    .line_height(px(20.))
+                    .text_size(design(15.))
+                    .line_height(design(20.))
                     .min_w_0()
                     .text_color(cx.theme().muted_foreground)
                     .child(if fixed {
@@ -710,7 +711,7 @@ impl RemotePanel {
             .when(self.form.filled, |column| {
                 column.child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("hosts.pair.filled")),
                 )
@@ -718,7 +719,7 @@ impl RemotePanel {
             .when_some(self.form.error.clone(), |column, error| {
                 column.child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .min_w_0()
                         .text_color(cx.theme().danger_foreground)
                         .child(error),
@@ -738,8 +739,8 @@ impl RemotePanel {
     fn render_pair_confirm(&self, name: &str, cx: &mut Context<Self>) -> AnyElement {
         let body = v_flex()
             .w_full()
-            .px(px(PAGE_PADDING))
-            .py(px(16.))
+            .px(design(PAGE_PADDING))
+            .py(design(16.))
             .child(name.to_owned());
         let action = Button::new("hosts-pair-connect")
             .primary()
@@ -755,7 +756,7 @@ impl RemotePanel {
         v_flex()
             .w_full()
             .gap_1p5()
-            .child(div().text_size(px(13.)).font_medium().child(label))
+            .child(div().text_size(design(13.)).font_medium().child(label))
             .child(
                 Input::new(state)
                     .large()
@@ -779,7 +780,7 @@ impl RemotePanel {
                 h_flex().w_full().justify_center().child(
                     div()
                         .w_full()
-                        .when(!compact, |column| column.max_w(px(CONTENT_MAX_WIDTH)))
+                        .when(!compact, |column| column.max_w(design(CONTENT_MAX_WIDTH)))
                         .child(body),
                 ),
             )
@@ -799,10 +800,10 @@ impl RemotePanel {
                 h_flex().flex_none().w_full().justify_center().child(
                     div()
                         .w_full()
-                        .max_w(px(CONTENT_MAX_WIDTH))
-                        .px(px(PAGE_PADDING))
-                        .pb(px(PAGE_PADDING))
-                        .pt(px(8.))
+                        .max_w(design(CONTENT_MAX_WIDTH))
+                        .px(design(PAGE_PADDING))
+                        .pb(design(PAGE_PADDING))
+                        .pt(design(8.))
                         .child(action),
                 ),
             )
