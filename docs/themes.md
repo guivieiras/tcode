@@ -5,7 +5,7 @@ The built-in light and dark variants live in [themes/tcode.json](../themes/tcode
 You can create a file with [Zed's Theme Builder](https://zed.dev/theme-builder),
 use an existing Zed theme, or import a standalone VS Code color theme.
 
-In **Settings → General → Appearance**:
+In **Settings → Appearance**:
 
 - **Theme** chooses System default, Light, or Dark.
 - **Light theme** and **Dark theme** choose the variant used in each mode.

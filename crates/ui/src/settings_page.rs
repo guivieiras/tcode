@@ -66,6 +66,7 @@ const CONTENT_MAX_WIDTH: f32 = 768.;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Section {
     General,
+    Appearance,
     Providers,
     Usage,
     Browser,
@@ -81,8 +82,9 @@ enum Section {
 /// machine follow. Other devices manages the local desktop listener, or the
 /// serving headless listener in a browser. Choosing a machine lives in `crate::remote`.
 #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
-const SECTIONS: [Section; 8] = [
+const SECTIONS: [Section; 9] = [
     Section::General,
+    Section::Appearance,
     Section::Remote,
     Section::Providers,
     Section::Usage,
@@ -92,8 +94,9 @@ const SECTIONS: [Section; 8] = [
     Section::Archived,
 ];
 #[cfg(not(any(feature = "remote-hosting", target_family = "wasm")))]
-const SECTIONS: [Section; 7] = [
+const SECTIONS: [Section; 8] = [
     Section::General,
+    Section::Appearance,
     Section::Providers,
     Section::Usage,
     Section::Orchestrate,
@@ -145,7 +148,7 @@ impl SettingsCapabilities {
 impl Section {
     fn group(self) -> SectionGroup {
         match self {
-            Self::General => SectionGroup::Device,
+            Self::General | Self::Appearance => SectionGroup::Device,
             #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
             Self::Remote => {
                 if cfg!(target_family = "wasm") {
@@ -178,6 +181,7 @@ impl Section {
             #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
             Self::Remote => cx.hosting,
             Self::General
+            | Self::Appearance
             | Self::Providers
             | Self::Usage
             | Self::ComputerUse
@@ -189,6 +193,7 @@ impl Section {
     fn id(self) -> &'static str {
         match self {
             Self::General => "settings-nav-general",
+            Self::Appearance => "settings-nav-appearance",
             Self::Providers => "settings-nav-providers",
             Self::Usage => "settings-nav-usage",
             Self::Browser => "settings-nav-browser",
@@ -203,6 +208,7 @@ impl Section {
     fn icon(self) -> IconName {
         match self {
             Self::General => IconName::Settings,
+            Self::Appearance => IconName::Palette,
             Self::Providers => IconName::Bot,
             Self::Usage => IconName::ChartPie,
             Self::Browser => IconName::Globe,
@@ -217,6 +223,7 @@ impl Section {
     fn label(self) -> SharedString {
         match self {
             Self::General => crate::tr!("settings.general"),
+            Self::Appearance => crate::tr!("settings.appearance"),
             Self::Providers => crate::tr!("settings.providers"),
             Self::Usage => crate::tr!("settings.usage"),
             Self::Browser => crate::tr!("settings.browser"),
@@ -308,6 +315,7 @@ pub struct SettingsPage {
     fallback_review_model_picker: Entity<ProviderModelPicker>,
     /// Editable name this client presents to machines it connects to.
     device_name_input: SettingsInput,
+    zoom_input: Entity<InputState>,
     /// Stable entities keep expanded state and lazily-created inputs across rerenders.
     acp_cards: Vec<(String, Entity<AcpAgentCard>)>,
     section: Section,
@@ -348,6 +356,7 @@ impl SettingsPage {
         window_state
             .update(cx, |state, _| state.pending_settings_section.take())
             .map(|section| match section.as_str() {
+                "appearance" => Section::Appearance,
                 "providers" => Section::Providers,
                 "usage" => Section::Usage,
                 "browser" => Section::Browser,
@@ -489,6 +498,11 @@ impl SettingsPage {
                 .placeholder(crate::tr!("settings.device_name.placeholder"))
                 .default_value(device_name.clone())
         });
+        let zoom_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .default_value(crate::zoom::percent(cx).to_string())
+                .validate(|value, _| value.len() <= 3 && value.bytes().all(|b| b.is_ascii_digit()))
+        });
         let auto_archive_idle_input = cx.new(|cx| InputState::new(window, cx));
         let auto_archive_keep_input = cx.new(|cx| InputState::new(window, cx));
         #[cfg(all(feature = "local-permissions", target_os = "macos"))]
@@ -511,6 +525,7 @@ impl SettingsPage {
                 pushed: device_name,
                 dirty: false,
             },
+            zoom_input: zoom_input.clone(),
             acp_cards: Vec::new(),
             section,
             capabilities,
@@ -567,6 +582,22 @@ impl SettingsPage {
                 }
             },
         ));
+        page._subscriptions.push(cx.subscribe_in(
+            &zoom_input,
+            window,
+            |this, _, event, window, cx| {
+                if matches!(event, InputEvent::PressEnter { .. } | InputEvent::Blur) {
+                    this.commit_zoom(window, cx);
+                }
+            },
+        ));
+        page._subscriptions
+            .push(
+                cx.observe_global_in::<crate::zoom::Zoom>(window, |this, window, cx| {
+                    this.sync_zoom_input(window, cx);
+                    cx.notify();
+                }),
+            );
         page.build_provider_cards(cx);
         page.sync_acp_cards(window, cx);
         page.hydrate_inputs(window, cx);
@@ -1195,6 +1226,7 @@ impl SettingsPage {
         }
         let column = match self.section {
             Section::General => self.render_general(cx),
+            Section::Appearance => self.render_appearance(cx),
             Section::Providers => self.render_providers(window, cx),
             Section::Usage => self.render_usage(cx),
             Section::Browser => self.render_browser(cx),
@@ -1223,12 +1255,10 @@ impl SettingsPage {
             .into_any_element()
     }
 
-    fn render_general(&mut self, cx: &mut Context<Self>) -> gpui::Div {
+    fn render_appearance(&mut self, cx: &mut Context<Self>) -> gpui::Div {
         let store = self.store.read(cx);
         let settings = store.settings();
-        let language_overridden = store.client_language_override().is_some();
         let theme_overridden = store.client_theme_override().is_some();
-        let device_name_overridden = store.client_device_name_override().is_some();
         let thread_appearance = store.thread_appearance();
         let provider_marks_reset = self.reset_action(
             "reset-sidebar-provider-marks",
@@ -1239,7 +1269,6 @@ impl SettingsPage {
             },
         );
         let appearance = vec![
-            self.language_row(settings.language.as_deref(), language_overridden, cx),
             self.theme_row(settings.theme_mode, theme_overridden, cx),
             self.thread_appearance_row(thread_appearance, cx),
             self.zoom_row(cx),
@@ -1255,6 +1284,17 @@ impl SettingsPage {
                 cx,
                 WorkspaceStore::set_sidebar_provider_marks,
             ),
+        ];
+        v_flex().child(self.grouped_plain(appearance, cx))
+    }
+
+    fn render_general(&mut self, cx: &mut Context<Self>) -> gpui::Div {
+        let store = self.store.read(cx);
+        let settings = store.settings();
+        let language_overridden = store.client_language_override().is_some();
+        let device_name_overridden = store.client_device_name_override().is_some();
+        let general = vec![
+            self.language_row(settings.language.as_deref(), language_overridden, cx),
             self.device_name_row(device_name_overridden, cx),
         ];
         let delete_confirm_reset = self.reset_action(
@@ -1422,8 +1462,8 @@ impl SettingsPage {
             .gap(design(24.))
             .child(
                 v_flex()
-                    .child(self.section_label(crate::tr!("settings.appearance_section"), cx))
-                    .child(self.grouped_plain(appearance, cx)),
+                    .child(self.section_label(crate::tr!("settings.general_section"), cx))
+                    .child(self.grouped_plain(general, cx)),
             )
             .child(
                 v_flex()
@@ -2932,33 +2972,59 @@ impl SettingsPage {
         )
     }
 
+    fn sync_zoom_input(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let value = crate::zoom::percent(cx).to_string();
+        if self.zoom_input.read(cx).value().as_str() != value {
+            self.zoom_input
+                .update(cx, |input, cx| input.set_value(value, window, cx));
+        }
+    }
+
+    fn commit_zoom(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let value = self.zoom_input.read(cx).value().parse::<u16>();
+        if let Ok(value) = value {
+            crate::zoom::set(value, window, cx);
+        }
+        self.sync_zoom_input(window, cx);
+    }
+
     fn zoom_row(&self, cx: &mut Context<Self>) -> AnyElement {
-        let current = crate::zoom::percent(cx);
-        let reset = self.reset_action("reset-zoom", current != 100, cx, |_, window, cx| {
-            crate::zoom::set(100, window, cx);
-        });
-        self.select_row(
-            "zoom-dropdown",
-            "zoom-popover",
-            "zoom-options-menu",
-            160.,
-            crate::tr!("settings.zoom.title").into_owned().into(),
-            crate::tr!("settings.zoom.description").into_owned().into(),
-            format!("{current}%").into(),
-            crate::zoom::LEVELS
-                .iter()
-                .map(|&value| SelectRowOption {
-                    value,
-                    id: format!("zoom-{value}").into(),
-                    label: format!("{value}%").into(),
-                    description: None,
-                    selected: value == current,
-                })
-                .collect(),
-            reset,
-            |value, _, window, cx| crate::zoom::set(value, window, cx),
+        let compact = self.window_state.read(cx).compact;
+        let reset = self.reset_action(
+            "reset-zoom",
+            crate::zoom::percent(cx) != 100,
             cx,
-        )
+            |_, window, cx| {
+                crate::zoom::set(100, window, cx);
+            },
+        );
+        self.row_frame(cx)
+            .child(self.row_labels(
+                crate::tr!("settings.zoom.title"),
+                crate::tr!("settings.zoom.description"),
+                reset,
+                cx,
+            ))
+            .child(
+                gpui_base::h_flex()
+                    .gap_2()
+                    .when(compact, |field| field.w_full())
+                    .when(!compact, |field| field.w(design(100.)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .debug_selector(|| "settings-zoom-input".into())
+                            .child(
+                                Input::new(&self.zoom_input)
+                                    .small()
+                                    .aria_label(crate::tr!("settings.zoom.title").into_owned())
+                                    .rounded(crate::material::radius_input()),
+                            ),
+                    )
+                    .child("%"),
+            )
+            .into_any_element()
     }
 
     fn named_theme_row(&self, mode: UiThemeMode, cx: &mut Context<Self>) -> AnyElement {
@@ -3213,6 +3279,7 @@ mod tests {
     fn sections_apply_from_client_capabilities_and_attachment() {
         let common = [
             (Section::General, true),
+            (Section::Appearance, true),
             (Section::Providers, true),
             (Section::Usage, true),
             (Section::Orchestrate, true),
@@ -3296,6 +3363,10 @@ mod tests {
         assert!(cx.debug_bounds("settings-device-caption").is_some());
         assert!(cx.debug_bounds("settings-machine-caption").is_some());
         assert!(cx.debug_bounds("settings-nav-general").is_some());
+        let general = cx.debug_bounds("settings-nav-general").unwrap();
+        let appearance = cx.debug_bounds("settings-nav-appearance").unwrap();
+        assert!(appearance.origin.y > general.origin.y);
+
         assert!(cx.debug_bounds("settings-nav-browser").is_none());
         #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
         assert!(cx.debug_bounds("settings-nav-remote").is_none());
@@ -3331,6 +3402,67 @@ mod tests {
             crate::window_state::Destination::Settings
         );
 
+        host.shutdown_blocking().expect("stop host");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[gpui::test]
+    fn numeric_zoom_commits_on_enter_or_blur_and_tracks_external_changes(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            crate::theme::init(cx);
+            crate::zoom::restore(None, cx);
+        });
+        let root = std::env::temp_dir().join(format!(
+            "tcode-settings-zoom-{}",
+            tcode_services::store::now_millis()
+        ));
+        let host = spawn_host(
+            SessionStore::open_at(root.clone()).unwrap(),
+            HostServices::default(),
+        )
+        .expect("spawn settings test host");
+        let store = cx.new(|cx| {
+            WorkspaceStore::new_attached(host.link(), WorkspaceAttachment::Local, None, false, cx)
+        });
+        let state = cx.new(|_| WindowState::new(false));
+        let (page, cx) = cx.add_window_view(|window, cx| {
+            let mut page = SettingsPage::new(store.clone(), state.clone(), window, cx);
+            page.section = Section::Appearance;
+            page
+        });
+        let input = page.read_with(cx, |page, _| page.zoom_input.clone());
+        let edit = |value: &str, event: Option<InputEvent>, cx: &mut VisualTestContext| {
+            cx.update(|window, cx| {
+                input.update(cx, |input, cx| {
+                    input.set_value(value, window, cx);
+                    if let Some(event) = event {
+                        cx.emit(event);
+                    }
+                })
+            });
+            cx.run_until_parked();
+        };
+        edit("107", None, cx);
+        cx.update(|_, cx| assert_eq!(crate::zoom::percent(cx), 100));
+        edit(
+            "107",
+            Some(InputEvent::PressEnter {
+                secondary: false,
+                shift: false,
+            }),
+            cx,
+        );
+        cx.update(|_, cx| assert_eq!(crate::zoom::percent(cx), 107));
+        edit("108", Some(InputEvent::Blur), cx);
+        cx.update(|_, cx| assert_eq!(crate::zoom::percent(cx), 108));
+        for (text, expected) in [("201", "200"), ("", "200"), ("74", "75")] {
+            edit(text, Some(InputEvent::Blur), cx);
+            input.read_with(cx, |input, _| assert_eq!(input.value(), expected));
+            cx.update(|_, cx| assert_eq!(crate::zoom::percent(cx).to_string(), expected));
+        }
+        cx.update(|window, cx| crate::zoom::set(100, window, cx));
+        cx.run_until_parked();
+        input.read_with(cx, |input, _| assert_eq!(input.value(), "100"));
         host.shutdown_blocking().expect("stop host");
         let _ = std::fs::remove_dir_all(root);
     }
