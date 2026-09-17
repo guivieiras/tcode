@@ -1,6 +1,7 @@
 use super::super::*;
 use crate::touch_scroll::{Handle, register};
 use gpui::EntityInputHandler as _;
+use gpui_base::{Scrollbar, ScrollbarMode};
 
 impl Composer {
     pub(in super::super) fn menu_visible(&self) -> bool {
@@ -406,20 +407,31 @@ impl Composer {
         }
 
         Some(
-            register(
-                list.rounded(crate::material::radius_overlay())
-                    .border_1()
-                    .border_color(cx.theme().border)
-                    .bg(cx.theme().popover)
-                    .shadow_xl(),
-                Handle::Scroll(self.menu_scroll.clone()),
-            )
-            .with_animation(
-                "composer-trigger-menu-pop-in",
-                Animation::new(Duration::from_millis(150)),
-                |element, delta| element.opacity(delta),
-            )
-            .into_any_element(),
+            div()
+                .relative()
+                .flex_none()
+                .w_full()
+                .child(register(
+                    list.rounded(crate::material::radius_overlay())
+                        .border_1()
+                        .border_color(cx.theme().border)
+                        .bg(cx.theme().popover)
+                        .shadow_xl(),
+                    Handle::Scroll(self.menu_scroll.clone()),
+                ))
+                .child(
+                    div().absolute().inset_0().child(
+                        Scrollbar::vertical(&self.menu_scroll)
+                            .id("composer-trigger-scrollbar")
+                            .mode(ScrollbarMode::Always),
+                    ),
+                )
+                .with_animation(
+                    "composer-trigger-menu-pop-in",
+                    Animation::new(Duration::from_millis(150)),
+                    |element, delta| element.opacity(delta),
+                )
+                .into_any_element(),
         )
     }
 }

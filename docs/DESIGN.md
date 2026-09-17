@@ -289,6 +289,11 @@ composer at the end, including when the keyboard opens or closes.
 
 ## Scrolling contract
 
+Every new scrolling view must include a shared scrollbar for each scrollable
+axis, using the same scroll state as its content. Verify that the scrollbar
+appears and can be dragged when content overflows, in both wide and compact
+layouts.
+
 The conversation timeline overlays a vertical scrollbar at its right edge,
 using the shared theme's hover/scroll visibility. Its track follows the list's
 viewport, excluding the timeline padding and composer. Dragging it moves the
@@ -858,7 +863,8 @@ platform pays that inset.
 Typing `$` opens the provider's skill picker above the composer at both widths.
 The same inline menu handles `@` files and `/` commands. Inline autocomplete uses
 dense 28pt rows at both widths, independently of the 44pt sizing of mobile icon
-buttons. The scrolling menu fits above the software keyboard.
+buttons. The scrolling menu fits above the software keyboard and shows a
+vertical scrollbar whenever its results overflow, at both widths.
 Up/Down move the highlighted option and keep it visible without moving the text
 cursor; Enter inserts it. Tapping an option also inserts it. Escape dismisses
 the menu and returns arrows to text editing until the query changes.
