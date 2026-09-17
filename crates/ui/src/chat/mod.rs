@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 #[cfg(not(target_family = "wasm"))]
@@ -27,7 +28,7 @@ use gpui::{
     Anchor, AnyElement, App, AppContext as _, ClickEvent, ClipboardItem, Context, Entity,
     FollowMode, InteractiveElement as _, IntoElement, ListAlignment, ListOffset, ListState,
     ParentElement as _, Render, Role, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Subscription, Task, Window, div, list, prelude::FluentBuilder as _, px,
+    Subscription, Task, Window, canvas, div, list, prelude::FluentBuilder as _, px,
 };
 use gpui_base::{Scrollbar, StyledExt as _, h_flex, v_flex};
 
@@ -2711,6 +2712,8 @@ impl Render for ChatView {
 
         let item_count = self.turn_items.len();
         let item_cwd = cwd.clone();
+        let turn_heights = Rc::new(RefCell::new((px(0.), 0usize)));
+        let sampled_heights = turn_heights.clone();
         let timeline = list(
             self.list_state.clone(),
             cx.processor(move |this, index: usize, window, cx| {
@@ -2751,8 +2754,15 @@ impl Render for ChatView {
                     window,
                     cx,
                 );
+                let turn_heights = turn_heights.clone();
+                let placeholder = if index == 0 {
+                    this.history_placeholder_height
+                } else {
+                    px(0.)
+                };
                 v_flex()
                     .debug_selector(move || format!("timeline-row-{index}"))
+                    .relative()
                     .w_full()
                     .items_center()
                     .px(px(if this.window_state.read(cx).compact {
@@ -2809,12 +2819,29 @@ impl Render for ChatView {
                             .max_w(px(CONTENT_MAX_WIDTH))
                             .child(rendered),
                     )
+                    .child(
+                        canvas(
+                            move |bounds, _, _| {
+                                let mut sample = turn_heights.borrow_mut();
+                                sample.0 += bounds.size.height - placeholder;
+                                // The last turn omits the inter-turn gap.
+                                if index + 1 == item_count {
+                                    sample.0 += px(TURN_GAP);
+                                }
+                                sample.1 += 1;
+                            },
+                            |_, _, _, _| {},
+                        )
+                        .absolute()
+                        .size_full(),
+                    )
                     .into_any_element()
             }),
         )
         .with_sizing_behavior(gpui::ListSizingBehavior::Auto)
         .flex_1()
         .min_h_0();
+        let list_state = self.list_state.clone();
 
         // Keep padding outside the List so scrolling and scrollbar geometry agree.
         let timeline = v_flex()
@@ -2826,6 +2853,27 @@ impl Render for ChatView {
                 timeline,
                 crate::touch_scroll::Handle::List(self.list_state.clone()),
             ))
+            .child(
+                canvas(
+                    move |_, _, _| {
+                        let (height, count) = *sampled_heights.borrow();
+                        // GPUI clears hints on initial layout and width changes.
+                        // Seed unknown turns after layout using the visible turns;
+                        // existing measured heights are retained as hints.
+                        if count > 0
+                            && list_state.is_scrolled_to_end().is_none()
+                            && list_state.max_offset_for_scrollbar().y > px(0.)
+                        {
+                            list_state
+                                .clone()
+                                .with_uniform_item_height(height / count as f32);
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
             .when(!window.is_inspector_picking(cx), |timeline| {
                 timeline.child(Scrollbar::vertical(&self.list_state).id("timeline-scrollbar"))
             });
@@ -3753,6 +3801,66 @@ mod tests {
     }
 
     #[gpui::test]
+    fn timeline_scrollbar_extent_survives_scrolling_unmeasured_turns(cx: &mut TestAppContext) {
+        use gpui::{ListOffset, px};
+
+        for (width, height) in [(393., 852.), (1024., 768.)] {
+            let (store, window_state, _) = seed_chat(cx, synthetic_markdown_timeline(160));
+            window_state.update(cx, |state, _| state.compact = width < 900.);
+            let (view, cx) =
+                cx.add_window_view(|window, cx| ChatView::new(store, window_state, window, cx));
+            cx.simulate_resize(gpui::size(px(width), px(height)));
+            cx.run_until_parked();
+            cx.update(|window, cx| {
+                let _ = window.draw(cx);
+            });
+            let list = view.read_with(cx, |chat, _| chat.list_state.clone());
+            let initial_extent = list.max_offset_for_scrollbar().y;
+
+            let mut previous_fraction = 1.;
+            for _ in 0..60 {
+                cx.simulate_event(gpui::ScrollWheelEvent {
+                    position: list.viewport_bounds().center(),
+                    delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.), px(120.))),
+                    ..Default::default()
+                });
+                cx.run_until_parked();
+                cx.update(|window, cx| {
+                    let _ = window.draw(cx);
+                });
+                let fraction = -f32::from(list.scroll_px_offset_for_scrollbar().y)
+                    / f32::from(list.max_offset_for_scrollbar().y);
+                assert!(
+                    fraction <= previous_fraction,
+                    "upward scrolling moved the thumb down"
+                );
+                previous_fraction = fraction;
+            }
+
+            // Visit the whole conversation, replacing offscreen estimates with
+            // actual turn heights. Equal-size messages should not grow the track
+            // severalfold just because the reader has scrolled through them.
+            for turn in (0..160).rev().step_by(8) {
+                list.scroll_to(ListOffset {
+                    item_ix: turn,
+                    offset_in_item: px(0.),
+                });
+                view.update(cx, |_, cx| cx.notify());
+                cx.run_until_parked();
+                cx.update(|window, cx| {
+                    let _ = window.draw(cx);
+                });
+            }
+            let measured_extent = list.max_offset_for_scrollbar().y;
+            assert!(
+                f32::from((measured_extent - initial_extent).abs())
+                    < f32::from(measured_extent) * 0.1,
+                "scrolling changed the extent from {initial_extent:?} to {measured_extent:?} at width {width}"
+            );
+        }
+    }
+
+    #[gpui::test]
     fn timeline_scrollbar_drag_pauses_tail_following(cx: &mut TestAppContext) {
         use gpui::{
             Context, IntoElement, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, Render,
@@ -3767,7 +3875,7 @@ mod tests {
         }
 
         for (width, height) in [(393., 852.), (1024., 768.)] {
-            let (store, window_state, _) = seed_chat(cx, synthetic_markdown_timeline(30));
+            let (store, window_state, _) = seed_chat(cx, synthetic_markdown_timeline(160));
             window_state.update(cx, |state, _| state.compact = width < 900.);
             let (view, cx) = cx.add_window_view(|window, cx| {
                 ChatRoot(cx.new(|cx| ChatView::new(store, window_state, window, cx)))
@@ -3793,7 +3901,7 @@ mod tests {
                 button: MouseButton::Left,
                 ..Default::default()
             });
-            let target = point(thumb.x, viewport.center().y);
+            let target = point(thumb.x, viewport.top());
             cx.simulate_mouse_move(target, Some(MouseButton::Left), Modifiers::default());
             cx.simulate_event(MouseUpEvent {
                 position: target,
@@ -3809,6 +3917,11 @@ mod tests {
                 "dragging the visible scrollbar must scroll the conversation at width {width}"
             );
             assert!(!list.is_following_tail());
+            assert_eq!(
+                list.logical_scroll_top().item_ix,
+                0,
+                "drag reaches unmeasured history"
+            );
         }
     }
 
