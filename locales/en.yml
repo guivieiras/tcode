@@ -209,6 +209,7 @@ settings:
   machine_settings_fallback: "Machine settings"
   advanced: "Advanced"
   general: "General"
+  appearance: "Appearance"
   providers: "Providers"
   usage: "Usage"
   browser: "Browser"
@@ -248,8 +249,7 @@ settings:
   general_section: "GENERAL"
   zoom:
     title: "Zoom"
-    description: "Scale text and controls on this device."
-  appearance_section: "APPEARANCE"
+    description: "Enter 75–200%. Apply with Enter or by leaving the field."
   conversation_section: "CONVERSATION"
   workspace_section: "WORKSPACE"
   providers_section: "PROVIDERS"

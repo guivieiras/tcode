@@ -77,7 +77,7 @@ Theme files own UI, syntax and terminal colors. Tcode owns fonts and native wind
 materials; [material.rs](../crates/ui/src/material.rs) owns surface treatments,
 shared geometry and radii. Use those definitions rather than a second palette.
 
-Settings → General → Appearance offers System/Light/Dark mode, separate named
+Settings → Appearance offers System/Light/Dark mode, separate named
 light and dark selections, and Import theme / Edit current. The JSON dialog accepts
 Zed families and approximate VS Code conversion, keeps errors inline without
 changing the installed theme, and offers native file picking where available.
@@ -88,7 +88,9 @@ Restoring settings clears selections but retains the imported library.
 See [Themes](themes.md) for the format, mappings and import limits.
 
 Appearance also offers a client-local Zoom setting from 75% to 200%, defaulting
-to 100%. Ctrl/Cmd + and Ctrl/Cmd - step through the available levels; Ctrl/Cmd 0
+to 100%. Its numeric field accepts whole percentages, applies on Enter or blur,
+and clamps to the supported range. Clearing the field restores the current value.
+Ctrl/Cmd + and Ctrl/Cmd - step through the available levels; Ctrl/Cmd 0
 resets to 100%. These shortcuts apply across the shell, dialogs and text inputs.
 Zoom survives restarts and host changes and is independent of theme files.
 Restoring settings resets it to 100%.
@@ -173,7 +175,8 @@ required in the exposed T0 sidebar and window-edge regions. Acrylic carries no
 tint of its own, so Windows keeps the embedded theme's translucent canvas over it.
 `TCODE_NO_VIBRANCY=1` keeps its macOS-only
 diagnostic behavior: an opaque window with a flattened canvas. Linux and other
-platforms remain opaque and flatten that canvas to its solid RGB base. In-app
+platforms remain opaque and flatten that canvas to its solid RGB base by setting
+its alpha to 1, preserving the theme color when switching appearances. In-app
 T3 child surfaces (popovers, menus, dialogs, drawers and toasts) use the fully
 opaque resolved `elevated_surface.background` token so lower layers never show through; they do
 not receive native Acrylic.
@@ -1103,9 +1106,10 @@ horizontal clipping. A row whose control is a 44pt switch keeps it beside the
 label at both widths, since a switch never squeezes the text.
 
 Both the compact list and wide rail divide Settings into two captioned groups,
-in this order: **This device** contains General (appearance — theme, the
-off-by-default **Provider marks** switch for the sidebar's provider marks —
-language and device name) plus Other devices wherever the build can host connections; **‹machine
+in this order: **This device** contains General (language and device name),
+Appearance (theme, zoom and the off-by-default **Provider marks**
+switch for logos at the right edge of thread rows), then Other devices
+wherever the build can host connections; **‹machine
 name› settings** contains Providers, Usage, Orchestrate, Computer Use, Browser
 and Archived Threads. The attached host's display name supplies ‹machine name›;
 a local attachment uses the machine name shown by the hosting panel, and a

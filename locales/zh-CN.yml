@@ -209,6 +209,7 @@ settings:
   machine_settings_fallback: "主机设置"
   advanced: "高级"
   general: "通用"
+  appearance: "外观"
   providers: "提供商"
   usage: "用量"
   browser: "浏览器"
@@ -248,8 +249,7 @@ settings:
   general_section: "通用"
   zoom:
     title: "缩放"
-    description: "调整此设备上的文字和控件大小。"
-  appearance_section: "外观"
+    description: "输入 75–200%。按回车键或离开输入框时应用。"
   conversation_section: "对话"
   workspace_section: "工作区"
   providers_section: "提供商"
