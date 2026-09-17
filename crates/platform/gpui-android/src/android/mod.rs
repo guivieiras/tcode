@@ -9,6 +9,7 @@ mod window;
 use android_activity::AndroidApp;
 use std::{cell::RefCell, rc::Rc};
 
+pub use host::{request_selection_menu, selection_menu};
 pub(crate) use platform::AndroidPlatform;
 
 #[doc(hidden)]

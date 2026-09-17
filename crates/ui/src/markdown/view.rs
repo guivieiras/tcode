@@ -304,6 +304,42 @@ impl Element for MarkdownView {
                 window,
                 cx,
             );
+            #[cfg(any(target_os = "android", test))]
+            window.on_mouse_event({
+                let hitbox = hitbox.clone();
+                let state = request_layout.0.clone();
+                move |event: &gpui::LongPressEvent, phase, window, cx| {
+                    if phase.bubble()
+                        && event.phase == gpui::TouchPhase::Started
+                        && hitbox.is_hovered(window)
+                    {
+                        window.capture_long_press(&state);
+                        window.prevent_default();
+                        cx.stop_propagation();
+                        crate::touch_selection::select_at(event.position, 2, window, cx);
+                    }
+                }
+            });
+            #[cfg(target_os = "android")]
+            if request_layout.0.read(cx).focus_handle.is_focused(window) {
+                let text = gpui_base::TextSelection::selected_text(window, cx);
+                let anchor = adapter
+                    .selection
+                    .snapshot(cx)
+                    .and_then(|snapshot| snapshot.window_points())
+                    .map(|points| points.anchor())
+                    .unwrap_or(content_bounds.origin);
+                gpui_android::selection_menu(
+                    request_layout.0.entity_id().as_u64(),
+                    0..text.encode_utf16().count(),
+                    Bounds::new(anchor, gpui::size(gpui::px(1.), gpui::px(21.)))
+                        .to_device_pixels(window.scale_factor()),
+                    true,
+                    false,
+                    false,
+                    false,
+                );
+            }
         }
     }
 }
@@ -891,6 +927,56 @@ mod tests {
                 "missing {fragment:?} in {selected:?}"
             );
         }
+    }
+
+    #[gpui::test]
+    fn hold_selects_message_word_without_opening_its_link(cx: &mut TestAppContext) {
+        use gpui::{PlatformInput, TouchEvent, TouchId, TouchPhase};
+        cx.update(crate::theme::init);
+        cx.update(crate::markdown::init);
+        let (view, cx) = cx.add_window_view(|_, cx| RightClickRoot::new(cx));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let position = view.read_with(cx, |root, cx| {
+            let link = root
+                .markdown
+                .read(cx)
+                .list_state
+                .bounds_for_item(1)
+                .unwrap();
+            point(px(5.), link.center().y)
+        });
+        for phase in [TouchPhase::Started, TouchPhase::Ended] {
+            cx.update(|window, cx| {
+                window.dispatch_event(
+                    PlatformInput::Touch(TouchEvent {
+                        id: TouchId(1),
+                        phase,
+                        position,
+                        predicted_position: None,
+                        force: None,
+                    }),
+                    cx,
+                );
+            });
+            if phase == TouchPhase::Started {
+                cx.run_until_parked();
+                cx.executor()
+                    .advance_clock(std::time::Duration::from_millis(801));
+                cx.run_until_parked();
+            }
+        }
+        assert_eq!(cx.opened_url(), None);
+        cx.simulate_keystrokes("ctrl-c");
+        assert_eq!(
+            cx.read(|cx| cx.read_from_clipboard().unwrap().text().unwrap()),
+            "click"
+        );
+        cx.simulate_keystrokes("ctrl-a ctrl-c");
+        assert_eq!(
+            cx.read(|cx| cx.read_from_clipboard().unwrap().text().unwrap()),
+            "Alpha beta\nclick"
+        );
     }
 
     #[gpui::test]

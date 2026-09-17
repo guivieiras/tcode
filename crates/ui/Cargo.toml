@@ -29,7 +29,6 @@ native-dialogs = []
 native-preview = [
     "dep:tcode-remote",
     "tcode-remote/client",
-    "dep:gpui-android",
     "dep:gpui-wry",
     "dep:wry",
     "dep:preview-mcp",
@@ -155,5 +154,5 @@ harness = false
 preview-mcp = { path = "../preview-mcp", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-gpui-android = { path = "../platform/gpui-android", optional = true }
+gpui-android = { path = "../platform/gpui-android" }
 futures = "0.3"
