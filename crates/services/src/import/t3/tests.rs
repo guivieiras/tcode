@@ -178,6 +178,7 @@ fn imports_profiles_canonical_history_and_saved_status_then_refreshes_in_place()
         .iter()
         .find(|meta| meta.id == adopted.id)
         .unwrap();
+    assert_eq!(codex.last_user_message_at, Some(1_788_264_000));
     assert_eq!(codex.title, "T3 codex");
     assert_eq!(codex.imported_from.as_deref(), Some("t3code:codex"));
     assert_eq!(codex.model.as_deref(), Some("chosen-model"));
@@ -517,6 +518,13 @@ fn recent_project_detection_and_live_import_are_scoped_and_preserve_known_sessio
         "Openrouter",
         "01900000-0000-7000-8000-000000000002",
     );
+    f.run("custom", "run", 1, "completed");
+    f.item(
+        "custom",
+        "prompt",
+        1,
+        json!({"type":"user_message", "messageId":"prompt-message", "text":"Imported prompt"}),
+    );
     f.update("threads", "custom", "settledOverride", json!("settled"));
     f.update("threads", "custom", "archivedAt", json!(DATE));
     std::fs::write(
@@ -602,6 +610,7 @@ fn recent_project_detection_and_live_import_are_scoped_and_preserve_known_sessio
     let (metas, skipped) = write_new_threads(&store, threads).unwrap();
     assert_eq!(skipped, 1);
     assert_eq!(metas.len(), 1);
+    assert_eq!(metas[0].last_user_message_at, Some(1_788_264_000));
     assert_eq!(metas[0].title, "T3 custom");
     assert_eq!(metas[0].profile_id.as_deref(), Some("openrouter"));
     assert_eq!(metas[0].project_id.as_deref(), Some(project.id.as_str()));
