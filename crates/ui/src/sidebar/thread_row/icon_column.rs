@@ -1,7 +1,7 @@
-//! A glyph column beside the title and larger project metadata.
+//! A glyph column beside the title and project metadata.
 use super::*;
 
-pub(super) const HEIGHT: f32 = 60.;
+pub(super) const HEIGHT: f32 = 48.;
 
 pub(super) fn render(mut row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpui::AnyElement {
     if row.project_name.is_none() {
@@ -13,43 +13,23 @@ pub(super) fn render(mut row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpu
             .map(|(name, _)| name.into());
     }
     let title = row.title(cx);
-    let time = row.time(14., cx);
-    let project = row.project(16., None, cx);
+    let time = row.time(11., cx);
+    let project = row.project(11., None, cx);
     let disclosure = row.disclosure(cx);
     let icon = div()
         .flex_none()
-        .w(px(28.))
-        .self_stretch()
+        .w(px(20.))
+        .ml(px(-2.))
+        .h(px(20.))
         .flex()
         .items_center()
         .justify_center()
         .child(row.leading_icon(18., cx));
-    if row.kind == Kind::Compact {
-        let metadata = row.metadata(project, Some(time), cx);
-        return h_flex()
-            .w_full()
-            .min_w_0()
-            .items_center()
-            .gap(px(10.))
-            .child(icon)
-            .child(
-                v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap(px(4.))
-                    .child(title)
-                    .child(metadata.w_full()),
-            )
-            .children(disclosure)
-            .into_any_element();
-    }
-    let project = project.map(|project| div().flex_1().min_w_0().child(project).into_any_element());
-    let has_project = project.is_some();
     let metadata = row.metadata(project, None, cx);
     let text = v_flex()
         .flex_1()
         .min_w_0()
-        .gap(px(4.))
+        .gap(px(2.))
         .child(
             h_flex()
                 .w_full()
@@ -59,17 +39,12 @@ pub(super) fn render(mut row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpu
                 .child(title)
                 .child(time),
         )
-        .child(
-            metadata
-                .w_full()
-                .when(!has_project, |line| line.child(div().flex_1()))
-                .children(disclosure),
-        );
+        .child(metadata.w_full().child(div().flex_1()).children(disclosure));
     h_flex()
         .w_full()
         .min_w_0()
-        .items_center()
-        .gap(px(10.))
+        .items_start()
+        .gap(px(8.))
         .child(icon)
         .child(text)
         .into_any_element()
