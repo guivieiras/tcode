@@ -46,6 +46,7 @@ pub struct QueuedMessage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum QueuedMessageKind {
     User,
+    Automated,
     OrchestrateCallback,
 }
 
