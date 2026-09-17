@@ -70,7 +70,11 @@ impl SessionStore {
 
     /// Inspect an offline store without creating directories or repairing its index.
     pub fn inspect_at(root: PathBuf) -> Self {
-        Self { root }
+        Self {
+            root,
+            #[cfg(any(test, feature = "test-support"))]
+            event_reads: Default::default(),
+        }
     }
 
     /// Hold for the lifetime of a host or offline writer. Dry-run never creates a lock file.
