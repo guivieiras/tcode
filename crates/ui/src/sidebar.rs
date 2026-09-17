@@ -41,7 +41,7 @@ use tcode_core::{
 
 use crate::shortcut::format_secondary_shortcut;
 use crate::store::{ForkAvailability, StoreChange, TopicKind, WorkspaceStore};
-use crate::time::{format_duration, humanize_age, now_millis, now_secs};
+use crate::time::{format_duration, humanize_age, humanize_ago, now_millis, now_secs};
 use crate::window_drag_area;
 use crate::window_state::{Destination, Route, WindowState};
 
@@ -2644,9 +2644,35 @@ impl SessionsSidebar {
                 crate::tr!("sidebar.waiting"),
                 true,
             ))
+        } else if state.show_completed {
+            Some((cx.theme().success, crate::tr!("mobile.completed"), false))
         } else {
             None
         }
+    }
+
+    /// A wide row's status label, explained on hover while Waiting.
+    fn thread_status_text(
+        state: &ThreadRowState,
+        working: bool,
+        store: &Entity<WorkspaceStore>,
+        cx: &Context<Self>,
+    ) -> Option<gpui::AnyElement> {
+        let (color, label, waiting) = Self::thread_status_label(state, working, cx)?;
+        Some(
+            div()
+                .id(SharedString::from(format!(
+                    "thread-status-{}",
+                    state.session_id
+                )))
+                .flex_none()
+                .text_color(color)
+                .when(waiting, |status| {
+                    Self::waiting_tooltip(status, store, &state.session_id, &state.watching)
+                })
+                .child(label)
+                .into_any_element(),
+        )
     }
 
     /// Explain a Waiting status on hover with what the thread waits on.
@@ -2942,7 +2968,12 @@ impl SessionsSidebar {
         let time = if working && (!compact || !state.waiting()) {
             state.working_duration()
         } else {
-            humanize_age(now_secs().saturating_sub(timestamp))
+            let age = now_secs().saturating_sub(timestamp);
+            if compact {
+                humanize_ago(age)
+            } else {
+                humanize_age(age)
+            }
         };
         let color = if compact {
             if working && !state.waiting() {
@@ -4003,11 +4034,7 @@ impl Render for SessionsSidebar {
         }
         let appearance = self.store.read(cx).thread_appearance();
         if appearance != self.last_appearance {
-            for list in [
-                &self.flat_list_state,
-                &self.grouped_list_state,
-                &self.compact_list_state,
-            ] {
+            for list in [&self.flat_list_state, &self.grouped_list_state] {
                 let anchor = list.logical_scroll_top();
                 list.reset(list.item_count());
                 list.scroll_to(anchor);

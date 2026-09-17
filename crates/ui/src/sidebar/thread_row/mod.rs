@@ -27,6 +27,9 @@ pub(super) struct Row<'a> {
 }
 
 pub(super) fn render(row: Row<'_>, cx: &mut Context<SessionsSidebar>) -> gpui::AnyElement {
+    if row.kind == Kind::Compact {
+        return inline::render(row, cx);
+    }
     match row.sidebar.store.read(cx).thread_appearance() {
         ThreadAppearance::Inline => inline::render(row, cx),
         ThreadAppearance::IconColumn => icon_column::render(row, cx),
@@ -130,7 +133,6 @@ impl Row<'_> {
         let name = self.project_name.clone()?;
         Some(
             h_flex()
-                .when(self.kind != Kind::Compact, |line| line.flex_1())
                 .min_w_0()
                 .gap(px(4.))
                 .debug_selector({
@@ -154,8 +156,9 @@ impl Row<'_> {
         )
     }
 
-    /// The row's metadata line: what needs the user, the project, the worktree
-    /// and the pull request, then `time` where the layout puts it there.
+    /// The row's metadata line: what needs the user, the project, how the
+    /// thread is doing, the worktree and the pull request, then `time` where
+    /// the layout puts it there.
     fn metadata(
         &self,
         project: Option<gpui::AnyElement>,
@@ -171,40 +174,56 @@ impl Row<'_> {
             .text_size(px(if compact { 13. } else { 11. }))
             .line_height(px(18.))
             .text_color(cx.theme().muted_foreground);
-        let status = if compact {
-            compact_status_line(self.state, self.working, cx)
+        let attention = self.state.waiting() || self.state.failed;
+        let (first, second, status) = if compact {
+            let status = compact_status_line(self.state, self.working, cx)
                 .map(|(label, color)| div().flex_none().text_color(color).child(label))
-                .map(IntoElement::into_any_element)
+                .map(IntoElement::into_any_element);
+            (project, status, None)
         } else {
-            SessionsSidebar::thread_attention_badge(self.state, cx)
+            let status = (!attention)
+                .then(|| {
+                    SessionsSidebar::thread_status_text(
+                        self.state,
+                        self.working,
+                        &self.sidebar.store,
+                        cx,
+                    )
+                })
+                .flatten();
+            (
+                SessionsSidebar::thread_attention_badge(self.state, cx),
+                project,
+                status,
+            )
         };
+        let has_status = (compact && second.is_some()) || status.is_some();
         let mut has_metadata = false;
         let worktree = self.worktree(cx);
         // The wide rows lead with what needs the user; the phone names the
         // project first, as its list does.
-        let (first, second) = if compact {
-            (project, status)
-        } else {
-            (status, project)
-        };
-        for part in [first, second].into_iter().flatten() {
+        for part in [first, second, status].into_iter().flatten() {
             line = line
                 .when(has_metadata, |line| line.child(separator()))
                 .child(part);
             has_metadata = true;
         }
+        // A status other than a request reads straight into the time
+        // ("Working 12s"); a request keeps its separator.
+        let mut time_separated = has_metadata && (!has_status || attention);
         if let Some(worktree) = worktree {
             line = line.child(worktree);
             has_metadata = true;
+            time_separated = true;
         }
         if let Some(badge) = self.pull_request(cx) {
             line = line
                 .when(compact && has_metadata, |line| line.child(separator()))
                 .child(badge);
-            has_metadata = true;
+            time_separated = true;
         }
         line.when_some(time, |line, time| {
-            line.when(has_metadata, |line| line.child(separator()))
+            line.when(time_separated, |line| line.child(separator()))
                 .child(time)
         })
     }
