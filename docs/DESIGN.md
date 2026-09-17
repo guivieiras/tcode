@@ -71,10 +71,35 @@ app through the system URL handler.
 
 ## Design tokens
 
-The embedded [theme](../themes/tcode.json) owns colors and font choices;
-[material.rs](../crates/ui/src/material.rs) owns surface treatments, shared
-geometry and radii. Use those definitions rather than maintaining a second
-palette in documentation.
+The [theme loader](../crates/ui/src/theme.rs) resolves Zed-format theme families;
+[themes/tcode.json](../themes/tcode.json) supplies the built-in variants and defaults.
+Theme files own UI, syntax and terminal colors. Tcode owns fonts and native window
+materials; [material.rs](../crates/ui/src/material.rs) owns surface treatments,
+shared geometry and radii. Use those definitions rather than a second palette.
+
+Settings → General → Appearance offers System/Light/Dark mode, separate named
+light and dark selections, and Import theme / Edit current. The JSON dialog accepts
+Zed families and approximate VS Code conversion, keeps errors inline without
+changing the installed theme, and offers native file picking where available.
+It fits the viewport at both widths. Save applies immediately; imported themes
+and selections belong to the client and survive host changes and relaunches.
+Removing the current custom variant falls back to its built-in appearance.
+Restoring settings clears selections but retains the imported library.
+See [Themes](themes.md) for the format, mappings and import limits.
+
+Appearance also offers a client-local Zoom setting from 75% to 200%, defaulting
+to 100%. Ctrl/Cmd + and Ctrl/Cmd - step through the available levels; Ctrl/Cmd 0
+resets to 100%. These shortcuts apply across the shell, dialogs and text inputs.
+Zoom survives restarts and host changes and is independent of theme files.
+Restoring settings resets it to 100%.
+
+Design dimensions use `sizing::design`, which expresses the existing 100% pixel
+sizes in rems. The window rem size controls text, controls and layout spacing;
+custom text/grid renderers resolve those same units before measuring or painting.
+Measured bounds, pointer coordinates, OS insets and hairline borders stay in
+pixels. Compact layout starts below 900 design pixels of usable width, so zooming
+in can switch a desktop window to the compact layout. Layout metrics below are
+at 100%.
 
 Browser shell icons are embedded from the same dependency-owned icon set that
 generates the shared icon names. Rendering navigation never requires a separate
@@ -109,7 +134,7 @@ The material layers are:
 | Layer | Use | Treatment |
 | --- | --- | --- |
 | T0 | Sidebar and window edges | Native window material; the theme canvas tints it only where the material carries no tint of its own (Windows) |
-| T1 | Chat, right panel and Settings reading surfaces | Near-opaque warm paper in light mode, blue carbon in dark mode |
+| T1 | Chat, right panel and Settings reading surfaces | Theme editor background; built-ins use near-opaque warm paper or blue carbon |
 | T2 | Inline fields, hover and selection | Theme-derived tints |
 | T3 | Composer, popovers, dialogs, menus and toasts | Opaque popover fill, hairline border and soft shadow |
 
@@ -150,7 +175,7 @@ tint of its own, so Windows keeps the embedded theme's translucent canvas over i
 diagnostic behavior: an opaque window with a flattened canvas. Linux and other
 platforms remain opaque and flatten that canvas to its solid RGB base. In-app
 T3 child surfaces (popovers, menus, dialogs, drawers and toasts) use the fully
-opaque `popover.background` token so lower layers never show through; they do
+opaque resolved `elevated_surface.background` token so lower layers never show through; they do
 not receive native Acrylic.
 
 ### Launch

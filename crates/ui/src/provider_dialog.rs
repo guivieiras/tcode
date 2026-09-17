@@ -6,6 +6,7 @@
 //! everything, including pending secrets. Favorite toggling is the one live
 //! exception — favorites are a global, not a `ProviderSettings` field.
 
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 use std::collections::HashSet;
 
@@ -21,7 +22,7 @@ use crate::{
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Subscription, Window, div, prelude::FluentBuilder as _, px, rgb,
+    Subscription, Window, div, prelude::FluentBuilder as _, rgb,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -418,7 +419,7 @@ impl ProviderDialog {
             .gap_3()
             .child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_medium()
                     .text_color(cx.theme().muted_foreground)
                     .child(label),
@@ -437,12 +438,12 @@ impl ProviderDialog {
         v_flex()
             .w_full()
             .gap_1p5()
-            .child(div().text_size(px(13.)).font_medium().child(label))
+            .child(div().text_size(design(13.)).font_medium().child(label))
             .child(control)
             .when(!help.is_empty(), |this| {
                 this.child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .child(help),
                 )
@@ -485,7 +486,7 @@ impl ProviderDialog {
             swatches = swatches.child(
                 div()
                     .id(("accent", index))
-                    .size(px(22.))
+                    .size(design(22.))
                     .rounded_full()
                     .cursor_pointer()
                     .bg(rgb(value))
@@ -619,7 +620,7 @@ impl ProviderDialog {
                 .justify_between()
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .font_medium()
                         .child(crate::tr!("providers.env.title")),
                 )
@@ -638,7 +639,7 @@ impl ProviderDialog {
         if self.env_rows.is_empty() {
             block = block.child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(crate::tr!("providers.env.empty_help")),
             );
@@ -680,7 +681,7 @@ impl ProviderDialog {
         block
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(crate::tr!("providers.env.security_help")),
             )
@@ -698,7 +699,7 @@ impl ProviderDialog {
         let mut block = v_flex().w_full().gap_1().child(
             div()
                 .pb_1()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(muted)
                 .child(if rows.len() == 1 {
                     crate::tr!("providers.models.count_one", count = 1).into_owned()
@@ -736,7 +737,7 @@ impl ProviderDialog {
         if let Some(error) = &self.slug_error {
             block = block.child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().danger_foreground)
                     .child(error.clone()),
             );
@@ -801,7 +802,7 @@ impl ProviderDialog {
                     .items_center()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .when(hidden, |d| d.text_color(muted))
                             .child(name.clone()),
                     )
@@ -883,14 +884,14 @@ impl Render for ProviderDialog {
             .id("provider-dialog-body")
             .w_full()
             .max_h(crate::sizing::fit_viewport(
-                520.,
+                design(520.).to_pixels(window.rem_size()),
                 window.viewport_size().height,
             ))
             .touch_overflow_y_scroll()
             .child(
                 v_flex()
                     .w_full()
-                    .gap(px(20.))
+                    .gap(design(20.))
                     .child(self.render_identity(cx))
                     .child(self.render_connection(cx))
                     .child(self.render_models(cx)),

@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::touch_scroll::TouchScrollExt as _;
 use gpui::{
@@ -279,16 +280,16 @@ impl Popover {
                 .child(crate::material::sheet_grabber(cx))
                 .child(
                     gpui_base::h_flex()
-                        .h(px(48.))
+                        .h(design(48.))
                         .flex_none()
-                        .px(px(crate::material::COMPACT_PAGE_INSET))
+                        .px(design(crate::material::COMPACT_PAGE_INSET))
                         .items_center()
                         .child(
                             div()
                                 .flex_1()
                                 .min_w_0()
                                 .truncate()
-                                .text_size(px(17.))
+                                .text_size(design(17.))
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .children(self.sheet_title),
                         )
@@ -297,13 +298,13 @@ impl Popover {
                                 .id("touch-picker-close")
                                 .role(Role::Button)
                                 .aria_label(crate::tr!("mobile.cancel"))
-                                .min_w(px(44.))
-                                .h(px(44.))
+                                .min_w(design(44.))
+                                .h(design(44.))
                                 .flex()
                                 .items_center()
                                 .justify_end()
                                 .cursor_pointer()
-                                .text_size(px(15.))
+                                .text_size(design(15.))
                                 .text_color(cx.theme().foreground)
                                 .child(crate::tr!("mobile.cancel"))
                                 .on_click(move |_, window, cx| {

@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::widgets::spinner::Spinner;
 use crate::{
@@ -7,7 +8,7 @@ use crate::{
 use gpui::{
     AnyElement, App, ClickEvent, InteractiveElement as _, IntoElement as _, ParentElement as _,
     Role, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex};
 
@@ -61,45 +62,45 @@ pub(crate) fn subagent_row(
             .color(cx.theme().primary)
             .into_any_element(),
         ItemStatus::Completed => h_flex()
-            .h(px(22.))
+            .h(design(22.))
             .px_2()
             .gap_1()
             .items_center()
             .rounded(crate::material::radius_chip())
             .bg(cx.theme().success.opacity(0.12))
             .text_color(cx.theme().success)
-            .text_size(px(11.5))
-            .child(Icon::new(IconName::Check).size(px(12.)))
+            .text_size(design(11.5))
+            .child(Icon::new(IconName::Check).size(design(12.)))
             .child(crate::tr!("chat.subagent_completed"))
             .into_any_element(),
         ItemStatus::Interrupted => h_flex()
-            .h(px(22.))
+            .h(design(22.))
             .px_2()
             .gap_1()
             .items_center()
             .rounded(crate::material::radius_chip())
             .bg(cx.theme().warning.opacity(0.12))
             .text_color(cx.theme().warning)
-            .text_size(px(11.5))
+            .text_size(design(11.5))
             .child(
                 Icon::new(IconName::CircleX)
-                    .size(px(12.))
+                    .size(design(12.))
                     .text_color(cx.theme().warning),
             )
             .child(crate::tr!("chat.subagent_interrupted"))
             .into_any_element(),
         ItemStatus::Failed | ItemStatus::Declined => h_flex()
-            .h(px(22.))
+            .h(design(22.))
             .px_2()
             .gap_1()
             .items_center()
             .rounded(crate::material::radius_chip())
             .bg(cx.theme().danger.opacity(0.12))
             .text_color(cx.theme().danger)
-            .text_size(px(11.5))
+            .text_size(design(11.5))
             .child(
                 Icon::new(IconName::CircleX)
-                    .size(px(12.))
+                    .size(design(12.))
                     .text_color(cx.theme().danger),
             )
             .child(crate::tr!("chat.subagent_failed"))
@@ -107,7 +108,7 @@ pub(crate) fn subagent_row(
     };
     let row = h_flex()
         .w_full()
-        .h(px(44.))
+        .h(design(44.))
         .min_w_0()
         .gap_2()
         .items_center()
@@ -116,7 +117,7 @@ pub(crate) fn subagent_row(
         .border_1()
         .border_color(cx.theme().border)
         .bg(crate::material::content_surface(cx))
-        .text_size(px(13.))
+        .text_size(design(13.))
         .child(lifecycle)
         .child(div().flex_none().font_medium().child(agent_type.clone()))
         .when_some(model_chip(model, effort), |row, chip| {
@@ -128,7 +129,7 @@ pub(crate) fn subagent_row(
                     .bg(cx.theme().muted.opacity(0.4))
                     .text_color(muted)
                     .font_family(cx.theme().mono_font_family.clone())
-                    .text_size(px(11.5))
+                    .text_size(design(11.5))
                     .child(chip),
             )
         })
@@ -146,13 +147,13 @@ pub(crate) fn subagent_row(
             |row, summary| {
                 row.child(
                     div()
-                        .max_w(px(180.))
+                        .max_w(design(180.))
                         .min_w_0()
                         .overflow_hidden()
                         .text_ellipsis()
                         .text_color(muted)
                         .font_family(cx.theme().mono_font_family.clone())
-                        .text_size(px(11.5))
+                        .text_size(design(11.5))
                         .child(one_line(summary)),
                 )
             },

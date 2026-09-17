@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 use std::path::Path;
 
@@ -9,7 +10,7 @@ use gpui::{
     AnyElement, App, ClickEvent, Div, ElementId, HighlightStyle, InteractiveElement as _,
     IntoElement as _, ParentElement as _, Role, SharedString, Stateful,
     StatefulInteractiveElement as _, Styled as _, StyledText, Window, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -63,7 +64,7 @@ pub(crate) fn changed_files(
                 .min_w_0()
                 .gap_1p5()
                 .items_center()
-                .text_size(px(11.5))
+                .text_size(design(11.5))
                 .font_medium()
                 .text_color(muted)
                 .child(crate::tr!("chat.changed_files", count = changes.len()))
@@ -93,7 +94,7 @@ pub(crate) fn changed_files(
             .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
         });
 
-    let mut content = v_flex().w_full().gap_1p5().pt(px(2.)).child(header);
+    let mut content = v_flex().w_full().gap_1p5().pt(design(2.)).child(header);
 
     let visible = if show_all {
         changes.len()
@@ -110,7 +111,7 @@ pub(crate) fn changed_files(
             .unwrap_or_else(|| display.clone());
         let (added, deleted) = diff_stats(change.diff.as_deref());
         let chip = h_flex()
-            .h(px(22.))
+            .h(design(22.))
             .px_2()
             .gap_1()
             .items_center()
@@ -119,7 +120,7 @@ pub(crate) fn changed_files(
             .border_color(cx.theme().border)
             .bg(crate::material::content_surface(cx))
             .font_family(cx.theme().mono_font_family.clone())
-            .text_size(px(11.5))
+            .text_size(design(11.5))
             .child(name)
             .child(
                 div()
@@ -177,11 +178,11 @@ fn quiet_control(
 ) -> Stateful<Div> {
     let foreground = cx.theme().foreground;
     crate::material::accessible_clickable(h_flex(), id, Role::Button, label.clone(), cx)
-        .h(px(22.))
+        .h(design(22.))
         .px_1p5()
         .items_center()
         .rounded(crate::material::radius_chip())
-        .text_size(px(11.5))
+        .text_size(design(11.5))
         .text_color(cx.theme().muted_foreground)
         .cursor_pointer()
         .hover(move |control| control.text_color(foreground))
@@ -200,7 +201,7 @@ fn diff_counts_colored(
     h_flex()
         .flex_none()
         .gap_2()
-        .text_size(px(11.5))
+        .text_size(design(11.5))
         .font_family(mono)
         .child(div().text_color(added_color).child(format!("+{added}")))
         .child(div().text_color(deleted_color).child(format!("-{deleted}")))
@@ -273,15 +274,15 @@ fn file_edit_row_header(
 ) -> Div {
     h_flex()
         .w_full()
-        .min_h(px(28.))
+        .min_h(design(28.))
         .px_1()
         .gap_2()
         .items_center()
-        .text_size(px(12.5))
+        .text_size(design(12.5))
         .debug_selector(|| "file-edit-row".into())
         .child(
             Icon::new(IconName::File)
-                .size(px(13.))
+                .size(design(13.))
                 .text_color(style.muted),
         )
         .child(
@@ -325,7 +326,7 @@ fn file_edit_row_header(
                 } else {
                     IconName::ChevronRight
                 })
-                .size(px(13.))
+                .size(design(13.))
                 .text_color(style.muted),
             )
         })
@@ -362,7 +363,7 @@ fn render_inline_diff(key: &str, row: &LiveEditRow, cx: &App) -> AnyElement {
             .id(SharedString::from(format!("file-edit-diff-y-{key}")))
             .w_full()
             .min_w_0()
-            .max_h(px(240.))
+            .max_h(design(240.))
             .touch_overflow_y_scroll()
             .child(
                 div()
@@ -374,7 +375,7 @@ fn render_inline_diff(key: &str, row: &LiveEditRow, cx: &App) -> AnyElement {
                         v_flex()
                             .min_w_full()
                             .font_family(cx.theme().mono_font_family.clone())
-                            .text_size(px(11.5))
+                            .text_size(design(11.5))
                             .children(rows),
                     ),
             ),
@@ -399,17 +400,17 @@ fn render_inline_diff_row(row: &RenderedRow, cx: &App) -> AnyElement {
     let gutter = |line: Option<u32>| {
         div()
             .flex_none()
-            .w(px(36.))
+            .w(design(36.))
             .px_1()
             .text_right()
-            .text_size(px(10.5))
+            .text_size(design(10.5))
             .text_color(cx.theme().muted_foreground)
             .child(line.map(|line| line.to_string()).unwrap_or_default())
     };
 
     h_flex()
         .min_w_full()
-        .min_h(px(18.))
+        .min_h(design(18.))
         .items_start()
         .border_l_2()
         .border_color(accent.unwrap_or(gpui::transparent_black()))

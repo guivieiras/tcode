@@ -1,3 +1,4 @@
+use crate::sizing::design;
 #[cfg(not(target_family = "wasm"))]
 use std::time::Instant;
 use std::{
@@ -262,6 +263,8 @@ pub(crate) struct TerminalPalette {
     pub(crate) foreground: Hsla,
     pub(crate) background: Hsla,
     pub(crate) selection: Hsla,
+    pub(crate) cursor: Hsla,
+    pub(crate) ansi: [Hsla; 16],
 }
 
 #[derive(Clone, Copy)]
@@ -792,11 +795,7 @@ impl TerminalDrawer {
         register_input: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let palette = TerminalPalette {
-            foreground: cx.theme().foreground,
-            background: cx.theme().background,
-            selection: cx.theme().primary.opacity(0.28),
-        };
+        let palette = cx.theme().terminal;
         let marked_text = self
             .marked_text
             .as_ref()
@@ -872,7 +871,7 @@ impl TerminalDrawer {
                         };
                         let shaped = window.text_system().shape_line(
                             marked_text.clone().into(),
-                            px(TERMINAL_FONT_SIZE),
+                            design(TERMINAL_FONT_SIZE).to_pixels(window.rem_size()),
                             &[ime_run],
                             None,
                         );
@@ -1264,7 +1263,7 @@ impl TerminalDrawer {
             .size_full()
             .min_h_0()
             .overflow_hidden()
-            .p(px(PANE_PADDING))
+            .p(design(PANE_PADDING))
             .items_center()
             .justify_center()
             .when(link_hovered, |this| this.cursor_pointer())
@@ -1328,8 +1327,8 @@ impl TerminalDrawer {
                 this.child(
                     Button::new(("terminal-add-context", terminal_id))
                         .absolute()
-                        .right(px(PANE_PADDING))
-                        .top(px(PANE_PADDING))
+                        .right(design(PANE_PADDING))
+                        .top(design(PANE_PADDING))
                         .small()
                         .label(crate::tr!("terminal.add_context"))
                         .tooltip(format!("{} · {}", label, crate::tr!("terminal.selection")))
@@ -1396,7 +1395,7 @@ impl Render for TerminalDrawer {
         // vertical metrics of the same resolved face used by StyledText.
         let shaped_cell = window.text_system().shape_line(
             "MMMMMMMMMM".into(),
-            px(TERMINAL_FONT_SIZE),
+            design(TERMINAL_FONT_SIZE).to_pixels(window.rem_size()),
             &[TextRun {
                 len: 10,
                 font: terminal_font(),
@@ -1410,7 +1409,9 @@ impl Render for TerminalDrawer {
         self.cell_width = f32::from(shaped_cell.width) / 10.;
         self.cell_height = f32::from(shaped_cell.ascent + shaped_cell.descent)
             .ceil()
-            .max(TERMINAL_FONT_SIZE + 2.);
+            .max(f32::from(
+                design(TERMINAL_FONT_SIZE + 2.).to_pixels(window.rem_size()),
+            ));
         let (tabs, active_id, active_split) = self
             .workspace_store
             .read(cx)
@@ -1447,7 +1448,7 @@ impl Render for TerminalDrawer {
             .role(Role::TabList)
             .aria_label(crate::tr!("terminal.tabs"))
             .min_w_0()
-            .gap(px(2.))
+            .gap(design(2.))
             .overflow_hidden();
         for (id, label, exited, bell) in &tabs {
             let id = *id;
@@ -1463,8 +1464,8 @@ impl Render for TerminalDrawer {
                     cx,
                 )
                 .aria_selected(selected)
-                .h(px(25.))
-                .gap(px(2.))
+                .h(design(25.))
+                .gap(design(2.))
                 .px_2()
                 .rounded(material::radius_button())
                 .cursor_pointer()
@@ -1479,10 +1480,10 @@ impl Render for TerminalDrawer {
                 }))
                 .child(
                     div()
-                        .max_w(px(92.))
+                        .max_w(design(92.))
                         .overflow_hidden()
                         .text_ellipsis()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(if *exited || !selected {
                             cx.theme().muted_foreground
                         } else {
@@ -1493,7 +1494,7 @@ impl Render for TerminalDrawer {
                 .when(*bell, |this| {
                     this.child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(cx.theme().warning)
                             .child("●"),
                     )
@@ -1529,8 +1530,8 @@ impl Render for TerminalDrawer {
         };
         let mut header = h_flex()
             .flex_none()
-            .h(px(if compact { material::TOUCH_TARGET } else { 31. }))
-            .px(px(if compact {
+            .h(design(if compact { material::TOUCH_TARGET } else { 31. }))
+            .px(design(if compact {
                 material::COMPACT_PAGE_INSET
             } else {
                 8.
@@ -1672,10 +1673,10 @@ impl Render for TerminalDrawer {
                 match split.direction {
                     TerminalSplitDirection::Horizontal => {
                         let first = resizable_panel()
-                            .pr(px(2.))
+                            .pr(design(2.))
                             .child(self.render_terminal(split.first, cx));
                         let second = resizable_panel()
-                            .pl(px(2.))
+                            .pl(design(2.))
                             .child(self.render_terminal(split.second, cx));
                         h_resizable(("terminal-split-h", split.first))
                             .on_resize(on_resize)
@@ -1685,10 +1686,10 @@ impl Render for TerminalDrawer {
                     }
                     TerminalSplitDirection::Vertical => {
                         let first = resizable_panel()
-                            .pb(px(2.))
+                            .pb(design(2.))
                             .child(self.render_terminal(split.first, cx));
                         let second = resizable_panel()
-                            .pt(px(2.))
+                            .pt(design(2.))
                             .child(self.render_terminal(split.second, cx));
                         v_resizable(("terminal-split-v", split.first))
                             .on_resize(on_resize)
@@ -1709,7 +1710,7 @@ impl Render for TerminalDrawer {
             .size_full()
             .min_h_0()
             .font_family(TERMINAL_FONT_FAMILY)
-            .text_size(px(TERMINAL_FONT_SIZE))
+            .text_size(design(TERMINAL_FONT_SIZE))
             .on_action(cx.listener(Self::on_terminal_copy))
             .on_action(cx.listener(Self::on_terminal_paste))
             .on_action(cx.listener(Self::on_terminal_select_all))
@@ -1936,7 +1937,7 @@ pub(crate) fn paint_terminal_grid(
         };
         let shaped = window.text_system().shape_line(
             run.text.clone().into(),
-            px(TERMINAL_FONT_SIZE),
+            design(TERMINAL_FONT_SIZE).to_pixels(window.rem_size()),
             &[text_run],
             Some(px(cell_width)),
         );
@@ -2509,18 +2510,15 @@ pub(crate) fn terminal_font() -> gpui::Font {
 
 pub(crate) fn terminal_color(color: TerminalColor, palette: TerminalPalette) -> Hsla {
     match color {
-        TerminalColor::Foreground | TerminalColor::Cursor => palette.foreground,
+        TerminalColor::Foreground => palette.foreground,
+        TerminalColor::Cursor => palette.cursor,
         TerminalColor::Background => palette.background,
         TerminalColor::Rgb { r, g, b } => {
             rgb((u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)).into()
         }
         TerminalColor::Indexed(index) => {
-            const ANSI: [u32; 16] = [
-                0x1f2329, 0xe45649, 0x50a14f, 0xc18401, 0x4078f2, 0xa626a4, 0x0184bc, 0xabb2bf,
-                0x5c6370, 0xff616e, 0x7bc275, 0xe5c07b, 0x61afef, 0xc678dd, 0x56b6c2, 0xffffff,
-            ];
             if index < 16 {
-                return rgb(ANSI[index as usize]).into();
+                return palette.ansi[index as usize];
             }
             if index < 232 {
                 let n = index - 16;
@@ -2758,6 +2756,7 @@ mod tests {
             foreground: rgb(0xffffff).into(),
             background: rgb(0x000000).into(),
             selection: rgb(0x336699).into(),
+            ..crate::theme::test_terminal_palette()
         };
 
         let paint = layout_grid(&state, palette, false, None, true, true);
@@ -2857,6 +2856,7 @@ mod tests {
             foreground: rgb(0xffffff).into(),
             background: rgb(0x000000).into(),
             selection: rgb(0x336699).into(),
+            ..crate::theme::test_terminal_palette()
         };
 
         let runs = layout_grid(&state, palette, false, None, true, true).text_runs;
@@ -2875,6 +2875,7 @@ mod tests {
             foreground: rgb(0xffffff).into(),
             background: rgb(0x000000).into(),
             selection: rgb(0x336699).into(),
+            ..crate::theme::test_terminal_palette()
         };
         let mut state = model(vec![cell('a', CellWidth::Narrow)]);
         let mut caches = HashMap::new();
@@ -2928,6 +2929,7 @@ mod tests {
             foreground: rgb(0xffffff).into(),
             background: rgb(0x000000).into(),
             selection: rgb(0x336699).into(),
+            ..crate::theme::test_terminal_palette()
         };
 
         let run = layout_grid(&state, palette, false, None, true, true)

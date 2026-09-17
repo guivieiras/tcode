@@ -111,7 +111,7 @@ pub async fn start(canvas_id: &str) -> Result<(), JsValue> {
                         Cow::Borrowed(include_bytes!("../assets/NotoSans-Regular.ttf")),
                         Cow::Borrowed(include_bytes!("../../../assets/fonts/DMSans[wght].ttf")),
                     ],
-                    theme_json: Cow::Owned(tcode_ui::flattened_theme_json()),
+                    opaque_canvas: true,
                     activate: true,
                     setup: tcode_ui::ShellSetup {
                         initial,

@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 
 impl Composer {
@@ -31,7 +32,7 @@ impl Composer {
                     h_flex()
                         .gap_1p5()
                         .items_center()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(Icon::empty().path("icons/git-branch.svg").xsmall())
                         .child(picker_current.clone()),
@@ -49,7 +50,7 @@ impl Composer {
                     h_flex()
                         .gap_1p5()
                         .items_center()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(Icon::empty().path("icons/git-branch.svg").xsmall())
                         .child(picker_current.clone())
@@ -75,7 +76,7 @@ impl Composer {
                                 .flex_none()
                                 .px_2()
                                 .py_1()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .font_medium()
                                 .text_color(muted)
                                 .child(crate::tr!("composer.worktree_base")),
@@ -87,7 +88,7 @@ impl Composer {
                                 .flex_none()
                                 .px_2()
                                 .py_1p5()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .text_color(muted)
                                 .child(crate::tr!("composer.loading")),
                         );
@@ -106,9 +107,9 @@ impl Composer {
                                     .py_1p5()
                                     .gap_2()
                                     .items_center()
-                                    .rounded(px(6.))
+                                    .rounded(design(6.))
                                     .cursor_pointer()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .hover(|s| s.bg(cx.theme().muted))
                                     .child(
                                         div()
@@ -144,8 +145,8 @@ impl Composer {
                     }
                     div()
                         .id("branch-list")
-                        .w(px(220.))
-                        .max_h(px(280.))
+                        .w(design(220.))
+                        .max_h(design(280.))
                         .touch_overflow_y_scroll()
                         .child(col)
                         .into_any_element()
@@ -162,7 +163,7 @@ impl Composer {
                 .px_2()
                 .items_center()
                 .justify_between()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(muted)
                 .child(left)
                 .child(right)
@@ -207,7 +208,7 @@ impl Composer {
                 h_flex()
                     .gap_1p5()
                     .items_center()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(Icon::empty().path("icons/folder-closed.svg").xsmall())
                     .child(label)
@@ -233,9 +234,9 @@ impl Composer {
                         .py_1p5()
                         .gap_2()
                         .items_center()
-                        .rounded(px(6.))
+                        .rounded(design(6.))
                         .cursor_pointer()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .hover(|s| s.bg(cx.theme().muted))
                         .child(div().flex_1().min_w_0().child(label))
                         .when(selected, |this| {
@@ -247,14 +248,14 @@ impl Composer {
                         })
                 };
                 v_flex()
-                    .w(px(200.))
+                    .w(design(200.))
                     .p_1()
                     .gap_0p5()
                     .child(
                         div()
                             .px_2()
                             .py_1()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .font_medium()
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("composer.workspace")),

@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 
 impl Composer {
@@ -263,7 +264,7 @@ impl Composer {
                     .flex_none()
                     .px_3()
                     .py_2p5()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(if loading {
                         crate::tr!("composer.searching").into_owned()
@@ -286,7 +287,7 @@ impl Composer {
                             .px_2()
                             .pt_1p5()
                             .pb_0p5()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .font_medium()
                             .text_color(muted)
                             .child(crate::tr!(group).into_owned()),
@@ -314,7 +315,7 @@ impl Composer {
                         .when(is_active, |row| row.aria_active_descendant())
                         .flex_none()
                         .w_full()
-                        .h(px(28.))
+                        .h(design(28.))
                         .px_2()
                         .gap_2()
                         .items_center()
@@ -326,7 +327,7 @@ impl Composer {
                         .child(
                             div()
                                 .flex_none()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .font_medium()
                                 .child(row.primary.clone()),
                         )
@@ -337,7 +338,7 @@ impl Composer {
                                     .min_w_0()
                                     .overflow_hidden()
                                     .text_ellipsis()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .text_color(muted)
                                     .child(row.secondary.clone()),
                             )
@@ -361,7 +362,7 @@ impl Composer {
                 .role(Role::ListBox)
                 .aria_label(crate::tr!("composer.trigger_results"))
                 .w_full()
-                .max_h(px(288.))
+                .max_h(design(288.))
                 .touch_overflow_y_scroll()
                 .rounded(crate::material::radius_overlay())
                 .border_1()

@@ -1,3 +1,4 @@
+use crate::sizing::design;
 #[path = "input_configuration.rs"]
 mod input_configuration;
 
@@ -8,7 +9,7 @@ use crate::{
 use gpui::{
     App, DefiniteLength, Edges, Entity, Focusable as _, IntoElement, ParentElement as _,
     RenderOnce, SharedString, StyleRefinement, Styled, TextAlign, Window, div,
-    prelude::FluentBuilder as _, px, rems,
+    prelude::FluentBuilder as _, rems,
 };
 use gpui_base::StyledExt as _;
 use gpui_base::{InputBase, RoleOverride};
@@ -124,7 +125,7 @@ impl RenderOnce for Input {
                 ..Default::default()
             });
             state.set_editor_paddings(if multi_line {
-                Edges::all(px(8.))
+                Edges::all(design(8.).to_pixels(window.rem_size()))
             } else {
                 Edges::default()
             });
@@ -182,13 +183,13 @@ impl RenderOnce for Input {
                     Size::XSmall => this.text_xs(),
                     Size::Small | Size::Medium => this.text_sm(),
                     Size::Large => this.text_base(),
-                    Size::Size(v) => this.text_size(v * 0.875),
+                    Size::Size(v) => this.text_size(design(f32::from(v) * 0.875)),
                 })
                 .when(!multi_line, |this| match self.size {
                     Size::XSmall => this.h_5().px_1(),
                     Size::Small => this.h_6().px_2(),
                     Size::Large => this.h_10().px_3(),
-                    Size::Size(v) => this.h(v).px(v * 0.2),
+                    Size::Size(v) => this.h(design(f32::from(v))).px(design(f32::from(v) * 0.2)),
                     Size::Medium => this.h_8().px_2p5(),
                 })
                 // Multi-line insets come from the editor paddings above; padding

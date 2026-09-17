@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::{
     any::TypeId,
     collections::HashMap,
@@ -25,7 +26,7 @@ use crate::{
 };
 use gpui_base::StyledExt as _;
 
-const DEFAULT_WIDTH: gpui::Pixels = px(356.);
+const DEFAULT_WIDTH: gpui::Rems = design(356.);
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -254,10 +255,10 @@ impl Render for Notification {
                 .flex()
                 .items_center()
                 .gap_2()
-                .min_h(px(44.))
+                .min_h(design(44.))
                 .max_w_full()
-                .py(px(12.))
-                .px(px(16.))
+                .py(design(12.))
+                .px(design(16.))
                 .rounded_full()
                 .bg(cx.theme().popover)
                 .shadow_lg()
@@ -267,8 +268,8 @@ impl Render for Notification {
                 .child(
                     div()
                         .min_w_0()
-                        .text_size(px(15.))
-                        .line_height(px(20.))
+                        .text_size(design(15.))
+                        .line_height(design(20.))
                         .line_clamp(2)
                         .child(
                             self.compact_message

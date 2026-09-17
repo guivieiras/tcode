@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::rc::Rc;
 
 use gpui::{
@@ -208,8 +209,8 @@ impl Render for PopupMenu {
             .on_action(cx.listener(Self::down))
             .flex()
             .flex_col()
-            .min_w(px(160.))
-            .max_w(px(420.))
+            .min_w(design(160.))
+            .max_w(design(420.))
             .p_1()
             .rounded(crate::material::radius_overlay())
             .bg(cx.theme().popover)
@@ -241,7 +242,7 @@ impl Render for PopupMenu {
                             .gap_2()
                             .px_2()
                             .py_1()
-                            .when(self.touch, |el| el.min_h(px(44.)))
+                            .when(self.touch, |el| el.min_h(design(44.)))
                             .rounded(crate::material::radius_button())
                             .text_sm()
                             .when(selected, |el| el.bg(cx.theme().muted))

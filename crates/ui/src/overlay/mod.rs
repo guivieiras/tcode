@@ -1,3 +1,4 @@
+use crate::sizing::design;
 mod dialog;
 mod notification;
 
@@ -9,7 +10,6 @@ use std::rc::Rc;
 use gpui::{
     AnyView, App, AppContext as _, Context, ElementId, Entity, InteractiveElement as _,
     IntoElement, ParentElement as _, Render, Styled as _, Window, div, prelude::FluentBuilder as _,
-    px,
 };
 
 use crate::theme::ActiveTheme as _;
@@ -122,6 +122,7 @@ impl OverlayHost {
 
 impl Render for OverlayHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        crate::zoom::apply(window, cx);
         let dialog_count = self.dialogs.len();
         let dialogs = self
             .dialogs
@@ -197,17 +198,17 @@ impl Render for OverlayHost {
                     .debug_selector(|| "notification-position".into())
                     .absolute()
                     .when(compact, |el| {
-                        el.left(seam.left + px(16.))
-                            .right(seam.right + px(16.))
-                            .bottom(seam.bottom + px(16.))
+                        el.left(seam.left + design(16.).to_pixels(window.rem_size()))
+                            .right(seam.right + design(16.).to_pixels(window.rem_size()))
+                            .bottom(seam.bottom + design(16.).to_pixels(window.rem_size()))
                             .flex()
                             .justify_center()
                     })
                     .when(!compact, |el| {
                         el.top_0()
                             .right_0()
-                            .mt(seam.top + px(16.))
-                            .mr(seam.right + px(16.))
+                            .mt(seam.top + design(16.).to_pixels(window.rem_size()))
+                            .mr(seam.right + design(16.).to_pixels(window.rem_size()))
                     })
                     .child(self.notifications.clone()),
             )
@@ -349,6 +350,7 @@ impl OverlayExt for Window {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gpui::px;
     use gpui::{TestAppContext, VisualTestContext, WindowInsets, size};
 
     fn draw(cx: &mut VisualTestContext) {

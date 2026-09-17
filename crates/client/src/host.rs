@@ -109,6 +109,11 @@ pub fn persistent_device_id(stored: Option<String>, store: impl FnOnce(&str)) ->
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientPreferences {
     pub appearance: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zoom_percent: Option<u16>,
+    /// Theme library and selections; its format belongs to the shared UI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme: Option<serde_json::Value>,
     pub language: Option<String>,
     pub device_name: Option<String>,
     /// Opaque, client-local UI restoration state. The shell owns its schema.
@@ -188,6 +193,18 @@ pub trait ClientHost: 'static {
     }
 
     fn save_preferences(&self, _preferences: &ClientPreferences) {}
+
+    /// Read a client-local text file chosen through the platform file picker.
+    fn supports_local_files(&self) -> bool {
+        false
+    }
+
+    fn read_local_text(
+        &self,
+        _path: std::path::PathBuf,
+    ) -> HostFuture<'static, Result<String, String>> {
+        Box::pin(async { Err("this client cannot read local files".into()) })
+    }
 
     fn outbox_storage(&self, _host_id: &str) -> Option<std::sync::Arc<dyn crate::outbox::Storage>> {
         None

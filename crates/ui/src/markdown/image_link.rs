@@ -1,8 +1,9 @@
+use crate::sizing::design;
 use std::path::Path;
 
 use gpui::{
     App, Div, Entity, InteractiveElement as _, ParentElement as _, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Window, div, px,
+    StatefulInteractiveElement as _, Styled as _, Window, div,
 };
 use gpui_base::Button;
 
@@ -51,8 +52,8 @@ pub(super) fn badge(
     let hover = cx.theme().secondary_active;
     let tooltip_url = url.clone();
     let badge = Button::new(("markdown-image-link", ix))
-        .rounded(px(8.))
-        .h(px(badge_height))
+        .rounded(design(8.))
+        .h(design(badge_height))
         .px_2()
         .gap_1()
         .flex_shrink_0()
@@ -60,7 +61,7 @@ pub(super) fn badge(
         .border_1()
         .border_color(cx.theme().border)
         .bg(crate::material::content_surface(cx))
-        .text_size(px(13.))
+        .text_size(design(13.))
         .text_color(cx.theme().foreground)
         .hover(move |badge| badge.bg(hover))
         .child(
@@ -82,7 +83,7 @@ pub(super) fn badge(
     div()
         .flex()
         .items_center()
-        .min_h(px(row_height))
-        .max_w(px(360.))
+        .min_h(design(row_height))
+        .max_w(design(360.))
         .child(badge)
 }

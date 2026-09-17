@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -11,7 +12,7 @@ use crate::{
 use gpui::{
     Animation, AnimationExt as _, AnyElement, App, AppContext as _, ClickEvent, Div, Entity,
     InteractiveElement as _, IntoElement, ParentElement as _, SharedString, Styled as _, Window,
-    div, prelude::FluentBuilder as _, px,
+    div, prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 
@@ -94,11 +95,11 @@ pub(crate) fn assistant(
                 .into_any_element()
         },
     );
-    let message = v_flex().w_full().items_start().gap(px(2.)).child(
+    let message = v_flex().w_full().items_start().gap(design(2.)).child(
         div()
             .w_full()
-            .text_size(px(15.))
-            .line_height(px(26.))
+            .text_size(design(15.))
+            .line_height(design(26.))
             .child(content),
     );
 
@@ -107,7 +108,7 @@ pub(crate) fn assistant(
     }
 
     let group_key = SharedString::from(format!("assistant-{id}"));
-    let actions = h_flex().gap(px(2.)).items_center().child(copy_button(
+    let actions = h_flex().gap(design(2.)).items_center().child(copy_button(
         &format!("assistant:{id}"),
         copied,
         compact,
@@ -134,7 +135,7 @@ pub(crate) fn reserve_action_row(
     compact: bool,
 ) -> Div {
     div()
-        .h(px(if compact {
+        .h(design(if compact {
             44.
         } else {
             crate::material::CHAT_ACTION_ROW_HEIGHT
@@ -189,7 +190,9 @@ pub(crate) fn copy_button(
         },
         cx,
     )
-    .when(compact, |button| button.min_w(px(44.)).min_h(px(44.)))
+    .when(compact, |button| {
+        button.min_w(design(44.)).min_h(design(44.))
+    })
     .on_click(on_copy)
 }
 

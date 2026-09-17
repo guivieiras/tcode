@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 
 impl Composer {
@@ -68,16 +69,21 @@ impl Composer {
             .child(
                 div()
                     .flex_1()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_medium()
                     .child(question.header.clone()),
             )
             .when(total > 1, |this| {
-                this.child(div().text_size(px(11.)).text_color(muted).child(crate::tr!(
-                    "userinput.question_count",
-                    index = index + 1,
-                    total = total
-                )))
+                this.child(
+                    div()
+                        .text_size(design(11.))
+                        .text_color(muted)
+                        .child(crate::tr!(
+                            "userinput.question_count",
+                            index = index + 1,
+                            total = total
+                        )),
+                )
             });
 
         let mut options_content = v_flex().w_full().gap_1();
@@ -88,7 +94,7 @@ impl Composer {
             let questions_for_click = questions.clone();
             let request_for_click = request_id.clone();
             let mark = div()
-                .size(px(16.))
+                .size(design(16.))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -101,14 +107,14 @@ impl Composer {
                 .border_color(if is_selected { primary } else { muted })
                 .when(is_selected, |mark| {
                     mark.bg(primary)
-                        .child(div().size(px(6.)).rounded_full().bg(gpui::white()))
+                        .child(div().size(design(6.)).rounded_full().bg(gpui::white()))
                 });
             options_content = options_content.child(
                 h_flex()
                     .id(("ui-opt", opt_index))
                     .flex_none()
                     .w_full()
-                    .min_h(px(if self.compact { 48. } else { 28. }))
+                    .min_h(design(if self.compact { 48. } else { 28. }))
                     .px_2()
                     .py_1()
                     .gap_2()
@@ -117,7 +123,7 @@ impl Composer {
                     .cursor_pointer()
                     .when(is_selected, |s| s.bg(cx.theme().list_active))
                     .hover(|s| s.bg(cx.theme().muted))
-                    .child(div().flex_none().pt(px(2.)).child(mark))
+                    .child(div().flex_none().pt(design(2.)).child(mark))
                     .child(
                         v_flex()
                             .flex_1()
@@ -127,7 +133,7 @@ impl Composer {
                                 h_flex()
                                     .gap_1p5()
                                     .items_center()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .child(
                                         div()
                                             .flex_none()
@@ -139,7 +145,7 @@ impl Composer {
                             .when(!option.description.is_empty(), |this| {
                                 this.child(
                                     div()
-                                        .text_size(px(13.))
+                                        .text_size(design(13.))
                                         .text_color(muted)
                                         .child(option.description.clone()),
                                 )
@@ -163,7 +169,7 @@ impl Composer {
         let options = div()
             .id("user-input-options-scroll")
             .w_full()
-            .max_h(px(240.))
+            .max_h(design(240.))
             .touch_overflow_y_scroll()
             .child(options_content);
 
@@ -175,7 +181,7 @@ impl Composer {
             .gap_2()
             .px_2()
             .py_1()
-            .rounded(px(8.))
+            .rounded(design(8.))
             .border_1()
             .border_color(cx.theme().input)
             .bg(cx.theme().popover)
@@ -183,7 +189,7 @@ impl Composer {
                 div().flex_1().min_w_0().child(
                     Textarea::new(&self.user_input_custom)
                         .appearance(false)
-                        .text_size(px(13.)),
+                        .text_size(design(13.)),
                 ),
             )
             .child(
@@ -194,7 +200,7 @@ impl Composer {
                     crate::tr!("userinput.submit_custom"),
                     cx,
                 )
-                .size(px(if self.compact { 44. } else { 28. }))
+                .size(design(if self.compact { 44. } else { 28. }))
                 .rounded(crate::material::radius_input())
                 .flex()
                 .items_center()
@@ -235,8 +241,10 @@ impl Composer {
                 Button::new("ui-prev")
                     .ghost()
                     .small()
-                    .h(px(28.))
-                    .when(self.compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+                    .h(design(28.))
+                    .when(self.compact, |button| {
+                        button.min_h(design(44.)).min_w(design(44.))
+                    })
                     .rounded(crate::material::radius_input())
                     .label(crate::tr!("userinput.previous"))
                     .on_click(cx.listener(move |this, _, window, cx| {
@@ -251,8 +259,10 @@ impl Composer {
                 Button::new("ui-next")
                     .outline()
                     .small()
-                    .h(px(28.))
-                    .when(self.compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+                    .h(design(28.))
+                    .when(self.compact, |button| {
+                        button.min_h(design(44.)).min_w(design(44.))
+                    })
                     .rounded(crate::material::radius_input())
                     .label(crate::tr!("userinput.next_question"))
                     .on_click(cx.listener(move |this, _, window, cx| {
@@ -265,8 +275,10 @@ impl Composer {
                 Button::new("ui-done")
                     .primary()
                     .small()
-                    .h(px(28.))
-                    .when(self.compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+                    .h(design(28.))
+                    .when(self.compact, |button| {
+                        button.min_h(design(44.)).min_w(design(44.))
+                    })
                     .rounded(crate::material::radius_input())
                     .label(crate::tr!("userinput.done"))
                     .on_click(cx.listener(move |this, _, window, cx| {
@@ -277,7 +289,7 @@ impl Composer {
 
         let pager = h_flex()
             .w_full()
-            .h(px(12.))
+            .h(design(12.))
             .gap_1()
             .items_center()
             .justify_center()
@@ -285,7 +297,7 @@ impl Composer {
                 let questions = questions.clone();
                 div()
                     .id(("ui-page", page))
-                    .size(px(if page == index { 9. } else { 7. }))
+                    .size(design(if page == index { 9. } else { 7. }))
                     .rounded_full()
                     .bg(if page == index {
                         primary
@@ -302,20 +314,24 @@ impl Composer {
         v_flex()
             .w_full()
             .gap_2()
-            .p(px(14.))
+            .p(design(14.))
             .rounded(crate::material::radius_card())
             .border_1()
             .border_color(cx.theme().border)
             .bg(cx.theme().popover)
             .shadow_sm()
             .child(header)
-            .child(div().text_size(px(13.)).child(question.question.clone()))
+            .child(
+                div()
+                    .text_size(design(13.))
+                    .child(question.question.clone()),
+            )
             .child(options)
             .child(custom_answer)
             .when(multi, |this| {
                 this.child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .child(crate::tr!("userinput.multi_hint")),
                 )

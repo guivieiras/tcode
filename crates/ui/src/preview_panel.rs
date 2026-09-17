@@ -45,10 +45,11 @@
 //! conversation is selected, the command palette opens, or we leave the chat
 //! route. Other overlapping GPUI popovers can still be covered by the native view.
 
+use crate::sizing::design;
 use gpui::{
     AnyElement, AppContext as _, ClipboardItem, Context, Entity, InteractiveElement as _,
     IntoElement, ParentElement as _, Render, Styled as _, Subscription, Window, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 use tcode_protocol::PreviewResponse;
@@ -375,14 +376,14 @@ impl PreviewPanel {
             .p_1()
             .when(compact, |chrome| {
                 chrome
-                    .h(px(material::TOUCH_TARGET))
+                    .h(design(material::TOUCH_TARGET))
                     .py_0()
-                    .px(px(material::COMPACT_PAGE_INSET))
+                    .px(design(material::COMPACT_PAGE_INSET))
                     .gap_2()
             })
             .when(hosts_caption, |chrome| {
                 chrome
-                    .h(px(window_caption::CAPTION_STRIP_HEIGHT))
+                    .h(design(window_caption::CAPTION_STRIP_HEIGHT))
                     .pt_0()
                     .pb_0()
                     .pr_0()
@@ -509,7 +510,7 @@ impl PreviewPanel {
             .text_center()
             .text_color(cx.theme().muted_foreground)
             .child(title)
-            .children(detail.map(|detail| div().text_size(px(13.)).child(detail)))
+            .children(detail.map(|detail| div().text_size(design(13.)).child(detail)))
             .into_any_element()
     }
 }

@@ -9,9 +9,10 @@
 //! (`gpui-ios` `update_insets`, `gpui-android` `update_insets`), so the shell
 //! reads the seam per frame instead of polling it on a timer.
 
+use crate::sizing::design;
 use std::rc::Rc;
 
-use gpui::{App, Edges, Global, Pixels, Window, WindowInsets, px};
+use gpui::{App, Edges, Global, Pixels, Window, WindowInsets};
 
 /// The single layout rule: below this much usable content width the shell uses
 /// its compact layout, at or above it the wide split. Nothing else — not the
@@ -107,9 +108,10 @@ impl WindowSeam {
 
 /// Compact iff the width the window can actually lay content out in — the
 /// viewport minus whatever the system occludes on its left and right — is under
-/// [`COMPACT_BREAKPOINT`]. At exactly 900 the layout is wide.
-pub fn compact_for(viewport_width: Pixels, insets: &WindowInsets) -> bool {
-    viewport_width - insets.safe_area.left - insets.safe_area.right < px(COMPACT_BREAKPOINT)
+/// [`COMPACT_BREAKPOINT`] design pixels. Insets stay in actual pixels.
+pub fn compact_for(viewport_width: Pixels, insets: &WindowInsets, rem_size: Pixels) -> bool {
+    viewport_width - insets.safe_area.left - insets.safe_area.right
+        < design(COMPACT_BREAKPOINT).to_pixels(rem_size)
 }
 
 fn lifecycle_wake(
@@ -134,6 +136,7 @@ pub fn window_is_compact(window: &Window, cx: &App) -> bool {
     compact_for(
         window.viewport_size().width,
         &WindowSeam::current(cx).insets(),
+        window.rem_size(),
     )
 }
 
@@ -167,6 +170,7 @@ pub(crate) fn override_soft_keyboard_for_test(cx: &mut App, value: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gpui::px;
 
     #[test]
     fn native_lifecycle_phase_hook_probes_or_reconnects_once() {
@@ -210,11 +214,14 @@ mod tests {
     #[test]
     fn the_breakpoint_measures_content_width_and_is_wide_at_nine_hundred() {
         let flush = WindowInsets::default();
-        assert!(compact_for(px(899.), &flush));
-        assert!(!compact_for(px(900.), &flush));
+        assert!(compact_for(px(899.), &flush, px(16.)));
+        assert!(!compact_for(px(900.), &flush, px(16.)));
+        assert!(compact_for(px(1349.), &flush, px(24.)));
+        assert!(!compact_for(px(1350.), &flush, px(24.)));
+        assert!(compact_for(px(1400.), &insets(30., 30., 0., 0.), px(24.)));
         // A landscape phone whose notch eats 59px on each side is 918px wide
         // but has only 800px to lay out in.
-        assert!(compact_for(px(918.), &insets(59., 59., 21., 0.)));
+        assert!(compact_for(px(918.), &insets(59., 59., 21., 0.), px(16.)));
     }
 
     /// A keyboard over the home indicator is one occlusion, not two.

@@ -6,6 +6,7 @@
 //! pickers.
 
 use crate::scroll::ScrollableElement as _;
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::widgets::button::{Button, ButtonVariants as _};
 use crate::{
@@ -15,7 +16,7 @@ use crate::{
 use gpui::{
     App, Context, Entity, EventEmitter, InteractiveElement as _, IntoElement, ParentElement as _,
     Render, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
-    prelude::FluentBuilder as _, px, rgb,
+    prelude::FluentBuilder as _, rgb,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -191,10 +192,10 @@ impl ProviderModelPicker {
                     .compact()
                     .child(
                         h_flex()
-                            .w(px(230.))
+                            .w(design(230.))
                             .items_center()
                             .gap_2()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .child(glyph.small())
                             .child(div().flex_1().min_w_0().child(display))
                             .child(
@@ -248,7 +249,7 @@ impl Render for ProviderModelPicker {
                         div()
                             .flex_none()
                             .p_4()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("model_picker.no_models")),
                     );
@@ -289,11 +290,13 @@ impl Render for ProviderModelPicker {
                                     v_flex()
                                         .flex_1()
                                         .min_w_0()
-                                        .child(div().text_size(px(13.)).child(option.name.clone()))
+                                        .child(
+                                            div().text_size(design(13.)).child(option.name.clone()),
+                                        )
                                         .child(
                                             div()
                                                 .font_family("monospace")
-                                                .text_size(px(11.))
+                                                .text_size(design(11.))
                                                 .text_color(cx.theme().muted_foreground)
                                                 .child(option.id.clone()),
                                         ),
@@ -344,7 +347,7 @@ impl Render for ProviderModelPicker {
                         h_flex()
                             .id(("settings-provider-tab", tab_index))
                             .flex_1()
-                            .h(px(30.))
+                            .h(design(30.))
                             .items_center()
                             .justify_center()
                             .gap_1p5()
@@ -353,7 +356,7 @@ impl Render for ProviderModelPicker {
                             .when(is_selected, |tab| tab.bg(cx.theme().accent).font_medium())
                             .hover(|tab| tab.bg(cx.theme().accent))
                             .child(tinted_glyph(&store, kind, Some(&profile.id), cx).xsmall())
-                            .child(div().text_size(px(13.)).child(label))
+                            .child(div().text_size(design(13.)).child(label))
                             .on_click(move |_, _, cx| {
                                 picker.update(cx, |picker, cx| {
                                     picker.selected_profile = profile_id.clone();
@@ -366,10 +369,13 @@ impl Render for ProviderModelPicker {
 
                 // The catalog is a viewport of its own; cap it against the
                 // window so a short one scrolls instead of overflowing it.
-                let catalog = crate::sizing::fit_viewport(300., window.viewport_size().height);
+                let catalog = crate::sizing::fit_viewport(
+                    design(300.).to_pixels(window.rem_size()),
+                    window.viewport_size().height,
+                );
                 v_flex()
                     .w(crate::sizing::fit_viewport(
-                        390.,
+                        design(390.).to_pixels(window.rem_size()),
                         window.viewport_size().width,
                     ))
                     .child(tabs)

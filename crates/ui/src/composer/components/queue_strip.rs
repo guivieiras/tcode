@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 use crate::touch_scroll::TouchScrollExt as _;
 #[cfg(not(target_family = "wasm"))]
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -69,7 +70,7 @@ impl Composer {
             div()
                 .flex_none()
                 .px_1()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(muted)
                 .child(crate::tr!("composer.queued_count", count = queued.len())),
         );
@@ -107,7 +108,7 @@ impl Composer {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().foreground)
                             .child(truncate_queued(&message.text)),
                     )
@@ -115,7 +116,7 @@ impl Composer {
                         row.child(
                             div()
                                 .flex_none()
-                                .text_size(px(12.))
+                                .text_size(design(12.))
                                 .text_color(muted)
                                 .child(countdown),
                         )
@@ -124,7 +125,9 @@ impl Composer {
                         Button::new(("queue-steer", id as usize))
                             .ghost()
                             .xsmall()
-                            .when(self.compact, |button| button.min_w(px(44.)).min_h(px(44.)))
+                            .when(self.compact, |button| {
+                                button.min_w(design(44.)).min_h(design(44.))
+                            })
                             .icon(IconName::ArrowUp)
                             // Scheduled rows always support send-now: the
                             // runtime removes the deadline and uses the normal
@@ -140,7 +143,9 @@ impl Composer {
                         Button::new(("queue-drop", id as usize))
                             .ghost()
                             .xsmall()
-                            .when(self.compact, |button| button.min_w(px(44.)).min_h(px(44.)))
+                            .when(self.compact, |button| {
+                                button.min_w(design(44.)).min_h(design(44.))
+                            })
                             .icon(IconName::Close)
                             .disabled(!self.interactive(cx))
                             .tooltip(crate::tr!("composer.drop_queued"))
@@ -154,7 +159,7 @@ impl Composer {
             div()
                 .id("queued-messages-scroll")
                 .w_full()
-                .max_h(px(180.))
+                .max_h(design(180.))
                 .touch_overflow_y_scroll()
                 .child(strip)
                 .into_any_element(),

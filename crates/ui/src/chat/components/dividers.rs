@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use agent::ProviderKind;
 use gpui::{
@@ -13,7 +14,7 @@ const STUB_WIDTH: f32 = 24.;
 /// One hairline stub of the divider grammar, shared with the centered
 /// disclosure rows so every ambient notification flanks its label identically.
 pub(crate) fn divider_stub(cx: &App) -> Div {
-    div().h(px(1.)).w(px(STUB_WIDTH)).bg(cx.theme().border)
+    div().h(px(1.)).w(design(STUB_WIDTH)).bg(cx.theme().border)
 }
 
 /// The one divider grammar: a centered 11px label between two hairline stubs.
@@ -33,7 +34,7 @@ fn divider(id: SharedString, label: String, tint: Hsla, cx: &App) -> AnyElement 
                 .min_w_0()
                 .flex_shrink_1()
                 .text_center()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(tint)
                 .child(label),
         )

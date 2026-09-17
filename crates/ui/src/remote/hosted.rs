@@ -1,4 +1,5 @@
 //! Controls for the headless listener, carried on the authenticated host pipe.
+use crate::sizing::design;
 use crate::{
     store::WorkspaceStore,
     theme::ActiveTheme as _,
@@ -9,7 +10,7 @@ use crate::{
 };
 use gpui::{
     AnyElement, Context, Entity, IntoElement as _, ParentElement as _, Render, SharedString,
-    Styled as _, Task, Window, div, px,
+    Styled as _, Task, Window, div,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 use tcode_protocol::{HostingAction, HostingState};
@@ -126,8 +127,8 @@ impl HostedPanel {
                 .child(crate::tr!("remote.code.title"))
                 .child(
                     div()
-                        .text_size(px(if state.code.is_some() { 34. } else { 15. }))
-                        .line_height(px(if state.code.is_some() { 40. } else { 20. }))
+                        .text_size(design(if state.code.is_some() { 34. } else { 15. }))
+                        .line_height(design(if state.code.is_some() { 40. } else { 20. }))
                         .font_semibold()
                         .child(
                             state
@@ -179,7 +180,7 @@ impl HostedPanel {
         }
         column = column.child(
             div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .child(crate::tr!("remote.devices.section")),
         );
         let mut devices = crate::material::group(cx);

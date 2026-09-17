@@ -1,4 +1,5 @@
 //! Exercise Tcode viewport registration with unmodified GPUI.
+use crate::sizing::design;
 use crate::touch_scroll::{Handle, register, root};
 
 use gpui::{
@@ -45,11 +46,11 @@ impl Render for ScrollView {
         let element = match &self.area {
             Area::Div(handle) => div()
                 .id("scroll")
-                .w(px(100.))
-                .h(px(100.))
+                .w(design(100.))
+                .h(design(100.))
                 .overflow_y_scroll()
                 .track_scroll(handle)
-                .child(div().h(px(1000.)).w_full().flex_none())
+                .child(div().h(design(1000.)).w_full().flex_none())
                 .into_any_element(),
             Area::List(state) => {
                 let last = state.item_count() - 1;
@@ -62,8 +63,8 @@ impl Render for ScrollView {
                     };
                     div().h(height).w_full().into_any_element()
                 })
-                .w(px(100.))
-                .h(px(100.))
+                .w(design(100.))
+                .h(design(100.))
                 .into_any_element()
             }
         };
@@ -243,20 +244,20 @@ fn wheel_scroll_only_moves_the_innermost_scrollable_viewport(cx: &mut TestAppCon
             root(register(
                 div()
                     .id("outer")
-                    .w(px(100.))
-                    .h(px(100.))
+                    .w(design(100.))
+                    .h(design(100.))
                     .overflow_y_scroll()
                     .track_scroll(&self.outer)
                     .child(register(
                         list(self.inner.clone(), |_, _, _| {
-                            div().w_full().h(px(100.)).into_any_element()
+                            div().w_full().h(design(100.)).into_any_element()
                         })
                         .w_full()
-                        .h(px(100.))
+                        .h(design(100.))
                         .flex_none(),
                         Handle::List(self.inner.clone()),
                     ))
-                    .child(div().h(px(1000.)).flex_none()),
+                    .child(div().h(design(1000.)).flex_none()),
                 Handle::Scroll(self.outer.clone()),
             ))
         }

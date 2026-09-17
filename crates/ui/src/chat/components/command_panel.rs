@@ -4,11 +4,12 @@
 //! to "render this stored item at N columns". Until that answer arrives the
 //! panel shows the raw text, which is always something rather than a gap.
 
+use crate::sizing::design;
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use gpui::{
     AnyElement, App, ContentMask, Hsla, IntoElement as _, ParentElement as _, Rgba, Styled as _,
-    Task, Window, canvas, div, prelude::FluentBuilder as _, px,
+    Task, Window, canvas, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{ElementExt as _, v_flex};
 use tcode_protocol::{
@@ -223,11 +224,7 @@ impl Panel {
         let (command_model, command_rows) = self.command_model.as_ref().expect("command model");
         self.command_rows = *command_rows;
 
-        let palette = TerminalPalette {
-            foreground: cx.theme().foreground,
-            background: cx.theme().background,
-            selection: cx.theme().primary.opacity(0.28),
-        };
+        let palette = cx.theme().terminal;
         let command = grid_element(command_model, *command_rows, cols, palette);
         let budget = self.output_budget();
         let output = match self.frames.get(&cols) {
@@ -249,9 +246,10 @@ impl Panel {
             .when_some(on_cols_change, |panel, on_cols_change| {
                 panel.on_prepaint(move |bounds, window, cx| {
                     let measured = clamp_cols(
-                        (f32::from(bounds.size.width) / TERMINAL_CELL_WIDTH)
-                            .floor()
-                            .clamp(0., f32::from(u16::MAX)) as u16,
+                        (f32::from(bounds.size.width)
+                            / f32::from(design(TERMINAL_CELL_WIDTH).to_pixels(window.rem_size())))
+                        .floor()
+                        .clamp(0., f32::from(u16::MAX)) as u16,
                     );
                     if measured != cols || awaiting {
                         on_cols_change(&measured, window, cx);
@@ -284,8 +282,8 @@ fn plain_output(output: &str, budget: usize) -> Option<AnyElement> {
             .w_full()
             .overflow_hidden()
             .font_family(TERMINAL_FONT_FAMILY)
-            .text_size(px(TERMINAL_FONT_SIZE))
-            .line_height(px(TERMINAL_CELL_HEIGHT))
+            .text_size(design(TERMINAL_FONT_SIZE))
+            .line_height(design(TERMINAL_CELL_HEIGHT))
             .children(
                 tail.iter()
                     .map(|line| div().child(line.to_string()).into_any_element()),
@@ -311,15 +309,15 @@ fn grid_element(
                     cx,
                     &paint_data,
                     palette,
-                    TERMINAL_CELL_WIDTH,
-                    TERMINAL_CELL_HEIGHT,
+                    f32::from(design(TERMINAL_CELL_WIDTH).to_pixels(window.rem_size())),
+                    f32::from(design(TERMINAL_CELL_HEIGHT).to_pixels(window.rem_size())),
                     false,
                 );
             });
         },
     )
-    .w(px(f32::from(cols) * TERMINAL_CELL_WIDTH))
-    .h(px(rows as f32 * TERMINAL_CELL_HEIGHT))
+    .w(design(f32::from(cols) * TERMINAL_CELL_WIDTH))
+    .h(design(rows as f32 * TERMINAL_CELL_HEIGHT))
     .into_any_element()
 }
 
@@ -465,6 +463,7 @@ mod tests {
             foreground: rgb(0xffffff).into(),
             background: rgb(0x000000).into(),
             selection: rgb(0x333333).into(),
+            ..crate::theme::test_terminal_palette()
         }
     }
 
