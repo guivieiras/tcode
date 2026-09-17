@@ -105,9 +105,20 @@ pub fn persistent_device_id(stored: Option<String>, store: impl FnOnce(&str)) ->
     id
 }
 
+/// Built-in thread-row presentations, independent of grouping and window width.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ThreadAppearance {
+    #[default]
+    Inline,
+    IconColumn,
+}
+
 /// Preferences which belong to the client and are never sent to the host.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientPreferences {
+    #[serde(default)]
+    pub thread_appearance: ThreadAppearance,
     pub appearance: Option<String>,
     pub language: Option<String>,
     pub device_name: Option<String>,

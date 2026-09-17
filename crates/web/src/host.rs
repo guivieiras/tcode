@@ -1,5 +1,6 @@
 use tcode_client::host::{
-    ClientHost, DeviceIdentity, HostFuture, PairRequest, Transport, persistent_device_id,
+    ClientHost, ClientPreferences, DeviceIdentity, HostFuture, PairRequest, Transport,
+    persistent_device_id,
 };
 use tcode_client::pairing::PairedHost;
 use wasm_bindgen::{JsCast as _, JsValue};
@@ -79,6 +80,19 @@ fn browser_platform(user_agent: &str) -> Option<&'static str> {
 }
 
 impl ClientHost for WebHost {
+    fn load_preferences(&self) -> ClientPreferences {
+        storage()
+            .and_then(|storage| storage.get_item("tcode.preferences").ok().flatten())
+            .and_then(|json| serde_json::from_str(&json).ok())
+            .unwrap_or_default()
+    }
+
+    fn save_preferences(&self, preferences: &ClientPreferences) {
+        if let (Some(storage), Ok(json)) = (storage(), serde_json::to_string(preferences)) {
+            let _ = storage.set_item("tcode.preferences", &json);
+        }
+    }
+
     fn device_name(&self) -> String {
         browser_family(&user_agent()).to_owned()
     }

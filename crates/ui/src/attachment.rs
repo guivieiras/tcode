@@ -206,6 +206,7 @@ mod tests {
             topic: Topic::Index,
             event: ServerEvent::IndexSnapshot(IndexSnapshot {
                 title_generating: Default::default(),
+                working_started_at: Default::default(),
                 activity: Default::default(),
                 sessions: Vec::new(),
                 projects: Vec::new(),

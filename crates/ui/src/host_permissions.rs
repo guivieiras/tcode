@@ -198,6 +198,7 @@ mod tests {
                         sessions: vec![],
                         activity: Default::default(),
                         title_generating: Default::default(),
+                        working_started_at: Default::default(),
                     }),
                 ),
                 (

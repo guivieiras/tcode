@@ -193,6 +193,7 @@ mod tests {
                         projects: vec![project.clone()],
                         activity: Default::default(),
                         title_generating: Default::default(),
+                        working_started_at: Default::default(),
                     })
                 };
                 store.apply_domain_event(

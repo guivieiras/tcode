@@ -5,7 +5,7 @@ use std::rc::Rc;
 use gpui::{App, Context, Entity, EventEmitter, Subscription as GpuiSubscription, Task};
 use tcode_client::{
     ConnectionState, HostLink,
-    host::{ClientHost, ClientPreferences},
+    host::{ClientHost, ClientPreferences, ThreadAppearance},
 };
 use tcode_core::{
     git::{GitFileEntry, MenuItem, QuickAction, menu_items, quick_action},
@@ -159,6 +159,7 @@ pub struct WorkspaceStore {
     /// (working, pending_approval, pending_user_input, background_only) for
     /// parked sessions.
     background_session_flags: HashMap<String, (bool, bool, bool, bool)>,
+    working_started_at: HashMap<String, u64>,
     active_destination: Option<ConversationDestination>,
     /// One-shot turn navigation requested by a cross-session content search.
     pending_chat_turn: Option<(String, usize)>,
@@ -331,6 +332,7 @@ impl WorkspaceStore {
             providers_replica: ProvidersStatus::default(),
             git_status_replica: GitStatusStatus::default(),
             background_session_flags: HashMap::new(),
+            working_started_at: HashMap::new(),
             active_destination: None,
             pending_chat_turn: None,
             native_rewind_prefills: HashMap::new(),
@@ -936,6 +938,7 @@ impl WorkspaceStore {
                         }
                     });
                 self.background_session_flags = snapshot.activity.clone();
+                self.working_started_at = snapshot.working_started_at.clone();
                 if let Some(id) = &self.selected_session_id {
                     self.background_session_flags.remove(id);
                 }
@@ -1594,6 +1597,19 @@ impl WorkspaceStore {
         self.client_host.as_ref()?.open_in_editor(path)
     }
 
+    pub fn thread_appearance(&self) -> ThreadAppearance {
+        self.client_preferences.thread_appearance
+    }
+
+    pub fn set_thread_appearance(&mut self, appearance: ThreadAppearance, cx: &mut Context<Self>) {
+        self.client_preferences.thread_appearance = appearance;
+        self.save_client_preferences();
+        cx.emit(StoreChange {
+            topic: TopicKind::Settings,
+        });
+        cx.notify();
+    }
+
     pub fn client_theme_override(&self) -> Option<ThemeMode> {
         match self.client_preferences.appearance.as_deref() {
             Some("system") => Some(ThemeMode::System),
@@ -1725,6 +1741,10 @@ impl WorkspaceStore {
 
     pub fn active_session_id(&self) -> Option<String> {
         self.selected_session_id.clone()
+    }
+
+    pub fn working_started_at_for(&self, session_id: &str) -> Option<u64> {
+        self.working_started_at.get(session_id).copied()
     }
 
     pub fn turn_running_for(&self, session_id: &str) -> bool {
@@ -2923,7 +2943,12 @@ mod tests {
         let window_state =
             cx.new(|_| crate::window_state::WindowState::new(false).with_compact(true));
         let (_sidebar, cx) = cx.add_window_view(|_, cx| {
-            crate::sidebar::SessionsSidebar::new(store.clone(), window_state, cx)
+            crate::sidebar::SessionsSidebar::new(
+                store.clone(),
+                window_state,
+                cx.new(|_| Default::default()),
+                cx,
+            )
         });
         cx.simulate_resize(size(px(393.), px(852.)));
         cx.update(|window, cx| {
@@ -2949,6 +2974,7 @@ mod tests {
                     topic: Topic::Index,
                     event: ServerEvent::IndexSnapshot(tcode_protocol::IndexSnapshot {
                         title_generating: Default::default(),
+                        working_started_at: Default::default(),
                         sessions: vec![],
                         projects: vec![],
                         activity: Default::default(),
@@ -3457,6 +3483,7 @@ mod tests {
                     Topic::Index,
                     ServerEvent::IndexSnapshot(tcode_protocol::IndexSnapshot {
                         title_generating: Default::default(),
+                        working_started_at: Default::default(),
                         sessions: store.index_replica.0.clone(),
                         projects: store.index_replica.1.clone(),
                         activity: Default::default(),

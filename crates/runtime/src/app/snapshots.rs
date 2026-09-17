@@ -98,6 +98,18 @@ impl AppState {
     pub fn index_snapshot(&self) -> IndexSnapshot {
         IndexSnapshot {
             title_generating: self.title_generating.clone(),
+            working_started_at: self
+                .residents
+                .ids()
+                .filter_map(|id| {
+                    let session = self.resident(id)?;
+                    if !session.has_work() {
+                        return None;
+                    }
+                    let started_at = session.timeline.turns.last()?.start_ts?;
+                    Some((id.to_string(), started_at))
+                })
+                .collect(),
             activity: self
                 .residents
                 .ids()
