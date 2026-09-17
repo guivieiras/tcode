@@ -853,7 +853,7 @@ platform pays that inset.
   message wrapped at 13px/20px. Errors deliberately do not join the Work Log's
   activity rows, which are ellipsized and collapse when the turn ends.
   A failed provider start additionally leaves the unsent message in the
-  queue strip (typed text is never destroyed by a dead process).
+  queue drawer (typed text is never destroyed by a dead process).
   When a Claude usage window is exhausted, the card adds a resume row: either a
   live reset countdown with Cancel, or a button to schedule the resume manually.
 - Changed-file evidence sits in the flow as a quiet summary and clickable file
@@ -919,6 +919,15 @@ fast mode, and which option value switches it, is decided once by
 Orchestrate Fast switch alike. Claude's Fast Mode rows are not listed; a Codex
 Service Tier section appears only when tiers other than Standard and Fast
 exist, and then without the Fast row.
+
+When messages are queued, a matching drawer attaches directly above the input
+card at both widths, inset 8pt with a muted fill, hairline border and rounded
+top corners. It contains the queue count, message previews, scheduled countdowns
+and existing send-now and return-to-composer actions. Its contents scroll after
+180pt, and it disappears when the queue is empty. Compact queue actions keep
+the desktop button widths and horizontal spacing, with 32pt height. Compact
+rows use 12pt message previews with no extra vertical gaps or separator padding.
+
 The context details distinguish the latest main-conversation request from
 processed traffic. Claude occupancy is the latest input plus cache-read and
 cache-creation tokens; generated output and repeated requests do not inflate it.
