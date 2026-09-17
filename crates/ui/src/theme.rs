@@ -592,7 +592,7 @@ pub fn change_mode(mode: ThemeMode, window: Option<&mut Window>, cx: &mut App) {
     let mut theme = registry.selected(mode).clone();
     theme.revision = registry.revision;
     if registry.opaque_canvas {
-        theme.background = theme.background.opacity(1.);
+        theme.background = theme.background.alpha(1.);
         theme.tokens.colors.background = theme.background;
     }
     let base_theme = gpui_base::Theme {
@@ -639,6 +639,33 @@ pub fn sync_system_appearance(window: Option<&mut Window>, cx: &mut App) {
         .map(|window| window.appearance())
         .unwrap_or_else(|| cx.window_appearance());
     change_mode(appearance.into(), window, cx);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[gpui::test]
+    fn opaque_windows_and_fullscreen_keep_the_canvas_rgb(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            for opaque in [true, false] {
+                init_with_options(opaque, cx);
+                for (mode, expected) in
+                    [(ThemeMode::Light, "#F2F4F7"), (ThemeMode::Dark, "#15171C")]
+                {
+                    change_mode(mode, None, cx);
+                    let expected = parse_color(expected).unwrap();
+                    assert_eq!(crate::material::opaque_canvas(cx), expected);
+                    if opaque {
+                        assert_eq!(cx.theme().background, expected);
+                        assert_eq!(cx.theme().tokens.colors.background, expected);
+                    } else {
+                        assert!(cx.theme().background.a < 1.);
+                    }
+                }
+            }
+        });
+    }
 }
 
 #[cfg(test)]
