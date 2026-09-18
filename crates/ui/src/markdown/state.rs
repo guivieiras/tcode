@@ -172,6 +172,15 @@ impl MarkdownState {
     }
 
     pub(super) fn open_link(&self, url: &str, window: &mut Window, cx: &mut gpui::App) {
+        #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+        if window.modifiers().control && matches!(self.resolve_link(url), LinkTarget::Local(_)) {
+            if let Some(path) = super::link_target::system_path(url, self.base_dir()) {
+                cx.open_with_system(&path);
+            } else {
+                cx.open_url(url);
+            }
+            return;
+        }
         match self.resolve_link(url) {
             LinkTarget::Web(url) => cx.open_url(&url),
             LinkTarget::Local(_) => window.dispatch_action(
