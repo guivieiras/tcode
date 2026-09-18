@@ -321,6 +321,9 @@ settings:
     summary_merge: "合并：%{value}"
     save: "保存"
   source_control: "源代码管理"
+  android_notifications:
+    title: "通知"
+    description: "连接期间，在任务完成或会话需要关注时通知。需要允许 Android 通知权限。"
   desktop_notifications:
     title: "桌面通知"
     description: "工作完成或会话需要你处理时发送通知。"

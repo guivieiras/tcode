@@ -12,8 +12,9 @@ use gpui::{
     Action, ActivityGuard, AnyWindowHandle, AppLifecyclePhase, BackgroundExecutor, ClipboardItem,
     CursorStyle, DummyKeyboardMapper, ForegroundExecutor, GestureTuning, Keymap, Menu, MenuItem,
     PathPromptOptions, Platform, PlatformDisplay, PlatformGestures, PlatformKeyboardLayout,
-    PlatformKeyboardMapper, PlatformTextSystem, PlatformWindow, ScrollPhysics, Task, ThermalState,
-    WindowAppearance, WindowParams, point, px, size,
+    PlatformKeyboardMapper, PlatformTextSystem, PlatformWindow, ScrollPhysics, SystemNotification,
+    SystemNotificationResponse, Task, ThermalState, WindowAppearance, WindowParams, point, px,
+    size,
 };
 use gpui_wgpu::{CosmicTextSystem, GpuContext};
 use ndk::configuration::UiModeNight;
@@ -32,6 +33,7 @@ use std::{
 #[derive(Default)]
 struct PlatformCallbacks {
     open_urls: Option<Box<dyn FnMut(Vec<String>)>>,
+    notification_response: Option<Box<dyn FnMut(SystemNotificationResponse)>>,
     quit: Option<Box<dyn FnMut() -> bool>>,
     reopen: Option<Box<dyn FnMut()>>,
     system_sleep: Option<Box<dyn FnMut()>>,
@@ -233,6 +235,17 @@ impl AndroidPlatform {
 
     fn process_host_events(&self) {
         for event in host::drain() {
+            if let HostEvent::NotificationResponse(tag) = event {
+                let callback = self.callbacks.borrow_mut().notification_response.take();
+                if let Some(mut callback) = callback {
+                    callback(SystemNotificationResponse {
+                        tag: tag.into(),
+                        action_id: None,
+                    });
+                    self.callbacks.borrow_mut().notification_response = Some(callback);
+                }
+                continue;
+            }
             let Some(window) = self.window() else {
                 continue;
             };
@@ -470,6 +483,21 @@ impl Platform for AndroidPlatform {
 
     fn open_url(&self, url: &str) {
         host::open_url(url);
+    }
+
+    fn show_system_notification(&self, notification: SystemNotification) {
+        host::show_system_notification(notification);
+    }
+
+    fn dismiss_system_notification(&self, tag: &str) {
+        host::dismiss_system_notification(tag);
+    }
+
+    fn on_system_notification_response(
+        &self,
+        callback: Box<dyn FnMut(SystemNotificationResponse)>,
+    ) {
+        self.callbacks.borrow_mut().notification_response = Some(callback);
     }
 
     fn on_open_urls(&self, callback: Box<dyn FnMut(Vec<String>)>) {

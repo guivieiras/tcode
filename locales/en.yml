@@ -321,6 +321,9 @@ settings:
     summary_merge: "Merge: %{value}"
     save: "Save"
   source_control: "Source Control"
+  android_notifications:
+    title: "Notifications"
+    description: "Notify while connected when work finishes or a thread needs your attention. Android notification permission is required."
   desktop_notifications:
     title: "Desktop notifications"
     description: "Notify when work finishes or a thread needs your attention."

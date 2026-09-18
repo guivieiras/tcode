@@ -12,9 +12,14 @@
 //! or above it. Wide and unattached, the shell is the hosts page and nothing
 //! else until it attaches somewhere.
 
-#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-#[path = "desktop_notifications.rs"]
-mod desktop_notifications;
+#[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "android"
+))]
+#[path = "thread_notifications.rs"]
+mod thread_notifications;
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -283,8 +288,13 @@ pub struct AppShell {
     pending_navigation_restore: Option<PendingNavigationRestore>,
     operation_toasts: HashMap<RuntimeOperationId, ToastId>,
     next_toast_id: ToastId,
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    desktop_notifications: desktop_notifications::DesktopNotifications,
+    #[cfg(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    ))]
+    thread_notifications: thread_notifications::ThreadNotifications,
     /// Tracks the palette's open state across frames so it can be focused on the
     /// open transition.
     palette_was_open: bool,
@@ -416,8 +426,13 @@ impl AppShell {
                 }
                 this.sync_nav(NavMotion::Animated, cx);
                 this.schedule_navigation_save(cx);
-                #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-                this.reconcile_desktop_notifications(window, cx);
+                #[cfg(any(
+                    target_os = "windows",
+                    target_os = "macos",
+                    target_os = "linux",
+                    target_os = "android"
+                ))]
+                this.reconcile_thread_notifications(window, cx);
                 cx.notify();
             }),
             cx.subscribe_in(&window_state, window, |this, _, _: &OpenThread, w, cx| {
@@ -449,8 +464,13 @@ impl AppShell {
             pending_navigation_restore: None,
             operation_toasts: HashMap::new(),
             next_toast_id: 1,
-            #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-            desktop_notifications: Default::default(),
+            #[cfg(any(
+                target_os = "windows",
+                target_os = "macos",
+                target_os = "linux",
+                target_os = "android"
+            ))]
+            thread_notifications: Default::default(),
             palette_was_open: false,
             keyboard_focus: None,
             last_split_layout: None,
@@ -466,8 +486,13 @@ impl AppShell {
                 shell.setup.initial = None;
             }
         }
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-        shell.register_desktop_notifications(window, cx);
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        shell.register_thread_notifications(window, cx);
         if let Some(target) = shell.setup.initial.take() {
             shell.attach(target, window, cx);
         }
@@ -694,8 +719,13 @@ impl AppShell {
     /// Leave the current host without opening another one. The host keeps
     /// running; only this window's link to it closes.
     pub fn detach(&mut self, cx: &mut Context<Self>) {
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-        self.desktop_notifications.close(cx);
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        self.thread_notifications.close(cx);
         let Some(attachment) = self.attachment.take() else {
             return;
         };
@@ -727,8 +757,13 @@ impl AppShell {
                 .update(cx, |hosts, cx| hosts.set_local_failure(None, cx));
         }
         self.pending_navigation_restore = None;
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-        self.desktop_notifications.close(cx);
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        self.thread_notifications.close(cx);
         if let Some(old) = self.attachment.take() {
             old.link.close(cx).close();
         }
@@ -781,8 +816,13 @@ impl AppShell {
                 }
                 this.reconcile_navigation_restore(cx);
                 this.schedule_navigation_save(cx);
-                #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-                this.reconcile_desktop_notifications(window, cx);
+                #[cfg(any(
+                    target_os = "windows",
+                    target_os = "macos",
+                    target_os = "linux",
+                    target_os = "android"
+                ))]
+                this.reconcile_thread_notifications(window, cx);
                 cx.notify();
             }),
             cx.subscribe_in(&store, window, |this, _, event: &RuntimeEvent, w, cx| {
@@ -1279,9 +1319,19 @@ impl AppShell {
             kind,
         } = event
         {
-            #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+            #[cfg(any(
+                target_os = "windows",
+                target_os = "macos",
+                target_os = "linux",
+                target_os = "android"
+            ))]
             self.show_thread_attention(session_id, title, *kind, window, cx);
-            #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+            #[cfg(not(any(
+                target_os = "windows",
+                target_os = "macos",
+                target_os = "linux",
+                target_os = "android"
+            )))]
             let _ = (session_id, title, kind);
             return;
         }
@@ -3063,8 +3113,13 @@ impl Render for AppShell {
                 .floating_focus
                 .update(cx, |focus, cx| focus.sync_open(false, window, cx));
         }
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-        self.reconcile_desktop_notifications(window, cx);
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        self.reconcile_thread_notifications(window, cx);
         // The palette takes focus on the frame it opens, at either width.
         let (palette_open, focus_query) = {
             let state = self.window_state.read(cx);
@@ -3704,9 +3759,14 @@ mod tests {
         );
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    #[cfg(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    ))]
     #[gpui::test]
-    fn desktop_notifications_visibility_activation_and_expired_callbacks(cx: &mut TestAppContext) {
+    fn thread_notifications_visibility_activation_and_expired_callbacks(cx: &mut TestAppContext) {
         cx.update(|cx| cx.set_app_identity("com.tryanks.tcode", "Tcode"));
         let (shell, host, _, cx) =
             mount_restored_at_width(cx, &["hosts", "threads", "thread"], true, 1024., "plan");
@@ -3781,7 +3841,7 @@ mod tests {
         });
         let store = store_of(&shell, cx);
         store.update(cx, |store, cx| {
-            store.set_desktop_notifications_enabled(false);
+            store.set_thread_notifications_enabled(false);
             cx.notify();
         });
         draw(cx);
@@ -3835,9 +3895,14 @@ mod tests {
         });
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    #[cfg(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    ))]
     #[gpui::test]
-    fn desktop_notifications_pending_resolution_and_compact_visibility(cx: &mut TestAppContext) {
+    fn thread_notifications_pending_resolution_and_compact_visibility(cx: &mut TestAppContext) {
         cx.update(|cx| cx.set_app_identity("com.tryanks.tcode", "Tcode"));
         let (shell, host, _, cx) = mount_restored(cx, &["hosts", "threads"], true);
         restore_index(&shell, &host, true, cx);
@@ -3875,8 +3940,14 @@ mod tests {
                     .unwrap(),
                 )
                 .unwrap();
+            let question = kind == tcode_protocol::ThreadAttentionKind::Question;
             await_restore_update(&shell, cx, |store| {
-                store.pending_user_input_for("thread-a") || store.pending_approval_for("thread-a")
+                let composer = store.composer_state();
+                if question {
+                    composer.pending_user_input.is_some()
+                } else {
+                    composer.pending_approval.is_some()
+                }
             });
             let count = cx.shown_system_notifications().len();
             draw(cx);

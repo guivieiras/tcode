@@ -42,6 +42,7 @@ import java.util.Locale;
 public final class GpuiActivity extends NativeActivity {
     private static final int REQUEST_CAMERA = 6102;
     private static final int REQUEST_IMAGES = 6103;
+    private static final int REQUEST_NOTIFICATIONS = 6104;
     private static final int HOST_OK = 0;
     private static final int HOST_CANCELLED = 1;
     private static final int HOST_ERROR = 2;
@@ -50,6 +51,9 @@ public final class GpuiActivity extends NativeActivity {
     private GpuiInputView inputView;
     /** Android 12 and later only; null below, where scrolling capture does not exist. */
     private ScrollCaptureBridge scrollCapture;
+    private SystemNotifications systemNotifications;
+    private boolean resumed;
+    private boolean notificationPermissionPending;
     private Boolean appBackgroundDark;
     private boolean keyboardVisible;
     private boolean keyboardShowPending;
@@ -156,12 +160,14 @@ public final class GpuiActivity extends NativeActivity {
     private native void nativeScrollCaptureEnd();
 
     private native boolean nativeFirstFrameRendered();
+    private native void nativeNotificationResponse(String tag);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         androidx.core.splashscreen.SplashScreen splash =
                 androidx.core.splashscreen.SplashScreen.installSplashScreen(this);
         ensureNativeLibraryVisibleToJvm();
+        systemNotifications = new SystemNotifications(this);
         super.onCreate(savedInstanceState);
         splash.setKeepOnScreenCondition(() -> !nativeFirstFrameRendered());
         configureEdgeToEdgeWindow();
@@ -197,6 +203,7 @@ public final class GpuiActivity extends NativeActivity {
     @Override
     protected void onDestroy() {
         unwatchDefaultNetwork();
+        systemNotifications.close();
         super.onDestroy();
     }
 
@@ -206,11 +213,48 @@ public final class GpuiActivity extends NativeActivity {
         // The network may have changed while the activity was stopped without
         // the callback being delivered; the endpoint probes on every return.
         nativeNetworkChanged();
+        resumed = true;
+        if (notificationPermissionPending) gpuiRequestNotificationPermission();
         View decor = getWindow().getDecorView();
         decor.post(() -> {
             WindowInsets insets = decor.getRootWindowInsets();
             if (insets != null) publishInsets(insets);
         });
+    }
+
+    @Override
+    protected void onPause() {
+        resumed = false;
+        super.onPause();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        String tag = systemNotifications.takeResponse(intent);
+        if (tag != null) nativeNotificationResponse(tag);
+    }
+
+    /** Called on the Java UI thread by the GPUI platform backend. */
+    public void gpuiShowSystemNotification(String tag, String title, String body) {
+        if (!systemNotifications.show(tag, title, body)) gpuiRequestNotificationPermission();
+    }
+
+    public void gpuiDismissSystemNotification(String tag) {
+        systemNotifications.dismiss(tag);
+    }
+
+    public void gpuiRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33
+                || checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                    == PackageManager.PERMISSION_GRANTED) return;
+        android.content.SharedPreferences preferences = getSharedPreferences("notifications", MODE_PRIVATE);
+        if (preferences.getBoolean("permission_requested", false)) return;
+        notificationPermissionPending = !resumed;
+        if (!resumed) return;
+        preferences.edit().putBoolean("permission_requested", true).apply();
+        requestPermissions(new String[] {android.Manifest.permission.POST_NOTIFICATIONS},
+                REQUEST_NOTIFICATIONS);
     }
 
     private void ensureNativeLibraryVisibleToJvm() {
