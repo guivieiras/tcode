@@ -3,12 +3,12 @@ use gpui::SystemNotification;
 use tcode_protocol::ThreadAttentionKind;
 
 #[derive(Default)]
-pub(super) struct DesktopNotifications {
+pub(super) struct ThreadNotifications {
     generation: u64,
     alerts: HashMap<String, (String, ThreadAttentionKind)>,
 }
 
-impl DesktopNotifications {
+impl ThreadNotifications {
     pub(super) fn close(&mut self, cx: &App) {
         for tag in self.alerts.keys() {
             cx.dismiss_system_notification(tag);
@@ -19,12 +19,12 @@ impl DesktopNotifications {
 }
 
 impl AppShell {
-    pub(super) fn register_desktop_notifications(
+    pub(super) fn register_thread_notifications(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        cx.on_release(|shell, cx| shell.desktop_notifications.close(cx))
+        cx.on_release(|shell, cx| shell.thread_notifications.close(cx))
             .detach();
         let shell = cx.weak_entity();
         let handle = window.window_handle();
@@ -37,7 +37,7 @@ impl AppShell {
         });
         self._subscriptions
             .push(cx.observe_window_activation(window, |shell, window, cx| {
-                shell.reconcile_desktop_notifications(window, cx);
+                shell.reconcile_thread_notifications(window, cx);
             }));
     }
 
@@ -63,7 +63,7 @@ impl AppShell {
         cx: &mut Context<Self>,
     ) {
         let Some(store) = self.store() else { return };
-        if !store.read(cx).desktop_notifications_enabled()
+        if !store.read(cx).thread_notifications_enabled()
             || !store.read(cx).contains_session(id)
             || self.thread_visible(id, window, cx)
         {
@@ -74,8 +74,8 @@ impl AppShell {
             ThreadAttentionKind::Question => crate::tr!("desktop_notifications.question"),
             ThreadAttentionKind::Approval => crate::tr!("desktop_notifications.approval"),
         };
-        let tag = format!("thread:{}:{id}", self.desktop_notifications.generation);
-        self.desktop_notifications
+        let tag = format!("thread:{}:{id}", self.thread_notifications.generation);
+        self.thread_notifications
             .alerts
             .insert(tag.clone(), (id.to_owned(), kind));
         cx.show_system_notification(SystemNotification {
@@ -86,15 +86,15 @@ impl AppShell {
         });
     }
 
-    pub(super) fn reconcile_desktop_notifications(&mut self, window: &Window, cx: &App) {
+    pub(super) fn reconcile_thread_notifications(&mut self, window: &Window, cx: &App) {
         let remove: Vec<_> = self
-            .desktop_notifications
+            .thread_notifications
             .alerts
             .iter()
             .filter(|(_, (id, kind))| {
                 self.store().is_none_or(|store| {
                     let store = store.read(cx);
-                    !store.desktop_notifications_enabled()
+                    !store.thread_notifications_enabled()
                         || !store.contains_session(id)
                         || self.thread_visible(id, window, cx)
                         || match kind {
@@ -108,7 +108,7 @@ impl AppShell {
             .collect();
         for tag in remove {
             cx.dismiss_system_notification(&tag);
-            self.desktop_notifications.alerts.remove(&tag);
+            self.thread_notifications.alerts.remove(&tag);
         }
     }
 
@@ -118,12 +118,11 @@ impl AppShell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((id, _)) = self.desktop_notifications.alerts.get(tag).cloned() else {
+        let Some((id, _)) = self.thread_notifications.alerts.get(tag).cloned() else {
             return;
         };
         let Some(store) = self.store() else { return };
-        if !store.read(cx).contains_session(&id) || !store.read(cx).desktop_notifications_enabled()
-        {
+        if !store.read(cx).contains_session(&id) || !store.read(cx).thread_notifications_enabled() {
             return;
         }
         cx.activate(true);
@@ -131,6 +130,6 @@ impl AppShell {
         store.update(cx, |store, _| store.select_session(id));
         self.go(Destination::Thread, cx);
         self.open_thread(window, cx);
-        self.reconcile_desktop_notifications(window, cx);
+        self.reconcile_thread_notifications(window, cx);
     }
 }

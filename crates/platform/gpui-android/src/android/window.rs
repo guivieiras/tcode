@@ -435,7 +435,8 @@ impl AndroidWindow {
             host::HostEvent::Back
             | host::HostEvent::ScrollCapture(_)
             | host::HostEvent::Frame
-            | host::HostEvent::RefreshRate(_) => {}
+            | host::HostEvent::RefreshRate(_)
+            | host::HostEvent::NotificationResponse(_) => {}
         }
     }
 
