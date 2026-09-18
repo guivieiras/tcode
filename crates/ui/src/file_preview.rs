@@ -1,4 +1,9 @@
-//! Read-only host files. The dialog owns pending reads and Android playback.
+//! Read-only host files. The dialog owns pending reads and video playback.
+#[cfg(all(
+    feature = "native-preview",
+    any(target_os = "linux", target_os = "macos", target_os = "windows")
+))]
+mod video;
 use crate::{overlay::OverlayExt as _, store::WorkspaceStore, theme::ActiveTheme as _};
 use gpui::{
     Action, App, AppContext as _, Context, Entity, Focusable as _, Image, IntoElement,
@@ -18,6 +23,11 @@ pub(crate) struct OpenFilePreview {
 
 enum Content {
     Loading,
+    #[cfg(all(
+        feature = "native-preview",
+        any(target_os = "linux", target_os = "macos", target_os = "windows")
+    ))]
+    Video(Entity<video::VideoView>),
     Text(Entity<EditorState>),
     Image(Arc<Image>),
     Error(String),
@@ -116,12 +126,22 @@ impl FilePreviewView {
                                 .into_owned();
                             let error = crate::tr!("file_preview.video_error").into_owned();
                             let close = crate::tr!("file_preview.close").into_owned();
+                            let controls = serde_json::json!({
+                                "play": crate::tr!("file_preview.play"),
+                                "pause": crate::tr!("file_preview.pause"),
+                                "restart": crate::tr!("file_preview.restart"),
+                                "mute": crate::tr!("file_preview.mute"),
+                                "unmute": crate::tr!("file_preview.unmute"),
+                                "seek": crate::tr!("file_preview.seek"),
+                            })
+                            .to_string();
                             self.video_task = Some(cx.spawn_in(window, async move |this, cx| {
                                 let result = gpui_android::video::play(
                                     stream.url().into(),
                                     title,
                                     error,
                                     close,
+                                    controls,
                                 )
                                 .await;
                                 drop(stream);
@@ -138,7 +158,27 @@ impl FilePreviewView {
                         Err(error) => Content::Error(error.to_string()),
                     }
                 }
-                #[cfg(not(all(feature = "native-preview", target_os = "android")))]
+                #[cfg(all(
+                    feature = "native-preview",
+                    any(target_os = "linux", target_os = "macos", target_os = "windows")
+                ))]
+                {
+                    match _store.read(cx).video_stream(preview.path, size, mime) {
+                        Ok(stream) => {
+                            Content::Video(cx.new(|cx| video::VideoView::new(stream, window, cx)))
+                        }
+                        Err(error) => Content::Error(error.to_string()),
+                    }
+                }
+                #[cfg(not(all(
+                    feature = "native-preview",
+                    any(
+                        target_os = "android",
+                        target_os = "linux",
+                        target_os = "macos",
+                        target_os = "windows"
+                    )
+                )))]
                 {
                     let _ = (size, mime);
                     Content::Error(crate::tr!("file_preview.video_unavailable").into_owned())
@@ -169,6 +209,11 @@ impl Render for FilePreviewView {
             .min(window.viewport_size().height - px(140.))
             .max(px(80.));
         let content = match &self.content {
+            #[cfg(all(
+                feature = "native-preview",
+                any(target_os = "linux", target_os = "macos", target_os = "windows")
+            ))]
+            Content::Video(view) => view.clone().into_any_element(),
             Content::Loading => div()
                 .p_4()
                 .child(crate::tr!("file_preview.loading").into_owned())
