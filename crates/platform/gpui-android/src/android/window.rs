@@ -421,7 +421,9 @@ impl AndroidWindow {
                 ime_bottom,
             } => self.update_insets(left, top, right, bottom, ime_bottom),
             // The platform answers these itself; a window handler is never asked.
-            host::HostEvent::Back | host::HostEvent::ScrollCapture(_) => {}
+            host::HostEvent::Back
+            | host::HostEvent::ScrollCapture(_)
+            | host::HostEvent::NotificationResponse(_) => {}
         }
     }
 

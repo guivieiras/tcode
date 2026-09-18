@@ -206,6 +206,9 @@ quit:
   description: "%{count} session(s) are still working. Quitting will stop them."
   confirm: "Quit"
 settings:
+  android_notifications:
+    title: "Notifications"
+    description: "Notify while connected when work finishes or a thread needs your attention. Android notification permission is required."
   desktop_notifications:
     title: "Desktop notifications"
     description: "Notify when work finishes or a thread needs your attention."

@@ -162,11 +162,21 @@ The layout rule the shell applies on this build is owned by
 pairing with a host. Android emulator loopback is the emulator itself; use a
 host address reachable from the device.
 
+## System notifications
+
+The GPUI notification API delegates to the host's `gpuiShowSystemNotification`
+and `gpuiDismissSystemNotification` methods on the Java UI thread. The host sends
+activation tags through `jni_notification_response`; the backend invokes GPUI's
+response callback on its event loop. `request_notification_permission` asks the
+host to request permission while its activity is resumed. The Tcode host uses a
+silent notification channel, replaces notifications by tag and ignores stale
+activity intents. Action buttons are not displayed by this backend.
+
 ## Current limitations
 
 - Android supports a single GPUI window; desktop window management operations
   are intentionally no-ops.
-- Generic GPUI file dialogs, system credential storage, notifications,
+- Generic GPUI file dialogs, system credential storage,
   and accessibility bridging are not implemented in this backend;
   applications must provide any required services in their host.
 - The text clipboard is bridged to Android `ClipboardManager`. Non-text GPUI

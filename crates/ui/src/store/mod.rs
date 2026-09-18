@@ -1744,16 +1744,21 @@ impl WorkspaceStore {
         }
     }
 
-    pub fn desktop_notifications_enabled(&self) -> bool {
+    pub fn thread_notifications_enabled(&self) -> bool {
         !self.client_preferences.desktop_notifications_disabled
     }
 
-    pub fn set_desktop_notifications_enabled(&mut self, enabled: bool) {
+    pub fn set_thread_notifications_enabled(&mut self, enabled: bool) {
         self.client_preferences.desktop_notifications_disabled = !enabled;
         self.save_client_preferences();
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    #[cfg(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    ))]
     pub(crate) fn contains_session(&self, id: &str) -> bool {
         self.index_replica.0.iter().any(|meta| meta.id == id)
     }
