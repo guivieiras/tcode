@@ -11098,6 +11098,7 @@ dependencies = [
  "imara-diff",
  "latex-rust",
  "lb-wry",
+ "libloading",
  "log",
  "mermaid-rs-renderer",
  "objc2 0.6.5",
