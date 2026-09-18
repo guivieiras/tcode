@@ -113,6 +113,7 @@ markdown:
   math_error: "Unable to render"
   open_image: "Open image"
   link_open: "Open link"
+  link_open_preview: "Open preview"
   link_copy_address: "Copy link address"
   link_copy_text: "Copy link text"
   path_copy_relative: "Copy relative path"
@@ -2269,3 +2270,10 @@ tabs:
 choice:
   recommended: "Recommended"
   recommended_option: "%{label} (recommended)"
+file_preview:
+  loading: "Loading file…"
+  error: "Could not preview this file: %{error}"
+  unsupported: "This file format cannot be previewed."
+  video_error: "This video could not be played. Its format may be unsupported, or the connection to the host was lost."
+  video_unavailable: "Video playback is currently available in the Android app."
+  close: "Close"

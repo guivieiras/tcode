@@ -113,6 +113,7 @@ markdown:
   math_error: "无法渲染"
   open_image: "打开图片"
   link_open: "打开链接"
+  link_open_preview: "打开预览"
   link_copy_address: "复制链接地址"
   link_copy_text: "复制链接文字"
   path_copy_relative: "复制相对路径"
@@ -2262,3 +2263,10 @@ tabs:
 choice:
   recommended: "推荐"
   recommended_option: "%{label}（推荐）"
+file_preview:
+  loading: "正在加载文件…"
+  error: "无法预览此文件：%{error}"
+  unsupported: "无法预览此文件格式。"
+  video_error: "无法播放此视频。格式可能不受支持，或与主机的连接已断开。"
+  video_unavailable: "目前仅 Android 应用支持视频播放。"
+  close: "关闭"

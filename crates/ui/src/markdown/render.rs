@@ -30,7 +30,6 @@ use super::{
     fitted_image::FittedImage,
     inline::{Inline, InlineState},
     inline_flow::{InlineCodeStyle, InlineFlow, InlineFlowItem},
-    link_target::LinkTarget,
     mermaid,
     nodes::{BlockNode, CodeBlock, ColumnumnAlign, Paragraph, Table, TextMark},
     state::{MarkdownState, PendingContextTarget},
@@ -699,10 +698,7 @@ fn render_paragraph(
                         .on_click(move |_, window, cx| {
                             crate::widgets::stop_click_propagation(window, cx);
                             if let Some(link) = &link {
-                                match view.read(cx).resolve_link(&link.url) {
-                                    LinkTarget::Web(url) => cx.open_url(&url),
-                                    LinkTarget::Local(path) => cx.open_with_system(&path),
-                                }
+                                view.update(cx, |state, cx| state.open_link(&link.url, window, cx));
                             } else {
                                 crate::image_viewer::open(
                                     source.clone(),

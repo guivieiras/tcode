@@ -13,6 +13,7 @@ mod composer_trigger;
 mod context_meter;
 mod conversation_ui;
 pub(crate) mod diff;
+mod file_preview;
 #[doc(hidden)]
 pub mod gallery_support;
 pub(crate) mod git;

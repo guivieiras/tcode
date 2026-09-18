@@ -241,9 +241,23 @@ impl Element for MarkdownView {
                                         )
                                     },
                                 ),
-                            LinkTarget::Local(path) => menu
+                            LinkTarget::Local(_) => menu
                                 .separator()
-                                .path_items(&path.to_string_lossy(), base_dir.as_deref()),
+                                .menu(
+                                    crate::tr!("markdown.link_open_preview").into_owned(),
+                                    Box::new(crate::file_preview::OpenFilePreview {
+                                        target: pending.raw_url.to_string(),
+                                        base_dir: base_dir.clone(),
+                                    }),
+                                )
+                                .menu(
+                                    crate::tr!("markdown.link_copy_address").into_owned(),
+                                    Box::new(CopyText(pending.raw_url.to_string())),
+                                )
+                                .menu(
+                                    crate::tr!("markdown.link_copy_text").into_owned(),
+                                    Box::new(CopyText(pending.text.to_string())),
+                                ),
                         },
                         Some(PendingContextTarget::CodeBlock(code)) => menu.separator().menu(
                             crate::tr!("markdown.code_copy").into_owned(),
@@ -286,9 +300,7 @@ impl Element for MarkdownView {
                                     crate::tr!("markdown.image_copy_address").into_owned(),
                                     Box::new(CopyText(address)),
                                 ),
-                                LinkTarget::Local(path) => menu
-                                    .separator()
-                                    .path_items(&path.to_string_lossy(), base_dir.as_deref()),
+                                LinkTarget::Local(_) => menu,
                             }
                         }
                     };

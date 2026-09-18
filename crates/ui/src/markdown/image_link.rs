@@ -74,8 +74,15 @@ pub(super) fn badge(
         .child(div().min_w_0().truncate().child(label.clone()))
         .on_click(move |_, window, cx| {
             crate::widgets::stop_click_propagation(window, cx);
-            let source = view.read(cx).image_source(&url.to_string().into());
-            crate::image_viewer::open(source, label.to_string(), window, cx);
+            if matches!(
+                view.read(cx).resolve_link(&url),
+                super::link_target::LinkTarget::Local(_)
+            ) {
+                view.update(cx, |state, cx| state.open_link(&url, window, cx));
+            } else {
+                let source = view.read(cx).image_source(&url.to_string().into());
+                crate::image_viewer::open(source, label.to_string(), window, cx);
+            }
         });
     // Preserve the line's spacing while shortening only the visible badge.
     div()
