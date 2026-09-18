@@ -160,6 +160,28 @@ impl JavaBridge {
         }));
     }
 
+    fn open_installer(&self, request_id: u64, path: PathBuf) {
+        let object = self.object.clone();
+        self.app.run_on_java_main_thread(Box::new(move || {
+            if let Err(error) = object.with_env(|env, activity| {
+                let path = env.new_string(path.to_string_lossy())?;
+                env.call_method(
+                    activity,
+                    jni_str!("gpuiOpenApkInstaller"),
+                    jni_sig!("(JLjava/lang/String;)V"),
+                    &[
+                        JValue::Long(request_id as i64),
+                        JValue::Object(path.as_ref()),
+                    ],
+                )?;
+                Ok(())
+            }) {
+                log::error!("Android APK installer JNI call failed: {error}");
+                deliver_result(request_id, 2, Some(error));
+            }
+        }));
+    }
+
     fn start_camera(&self, request_id: u64) {
         let object = self.object.clone();
         self.app.run_on_java_main_thread(Box::new(move || {
@@ -219,10 +241,28 @@ pub(crate) fn native_host(
     let picks = Rc::new(RefCell::new(HashMap::<u64, PickRequest>::new()));
     let pending_picks = picks.clone();
     let multicast = bridge.object.clone();
+    let installer = bridge.clone();
+    let install_callbacks = callbacks.clone();
     let camera = bridge.clone();
     let picker = bridge.clone();
     let host = NativeClientHost::new(data_dir, device_name)
         .with_platform(platform)
+        .with_apk_installer(move |path| {
+            let (sender, receiver) = async_channel::bounded(1);
+            let id = NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
+            install_callbacks.borrow_mut().insert(id, sender);
+            installer.open_installer(id, path);
+            Box::pin(async move {
+                let result = receiver.recv().await.map_err(|e| e.to_string())??;
+                match result.as_str() {
+                    "confirmation_opened" => {
+                        Ok(tcode_client::host::ApkInstallerState::ConfirmationOpened)
+                    }
+                    "installed" => Ok(tcode_client::host::ApkInstallerState::Installed),
+                    _ => Err(result),
+                }
+            })
+        })
         .with_multicast_lock(move |acquire| {
             if let Err(error) = multicast.with_env(|env, activity| {
                 env.call_method(

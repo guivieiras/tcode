@@ -49,6 +49,15 @@ pub enum ThreadExportFormat {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content", rename_all = "snake_case")]
 pub enum Command {
+    StartDevelopmentBuild {
+        host_instance_id: String,
+        target: crate::DevelopmentTarget,
+    },
+    RestartDevelopmentDesktop {
+        host_instance_id: String,
+        build_id: String,
+        allow_interrupt: bool,
+    },
     TerminalInput {
         terminal_id: u64,
         #[serde(with = "crate::wire::base64_bytes")]
@@ -468,7 +477,9 @@ impl Command {
     pub fn requires_delivery_key(&self) -> bool {
         !matches!(
             self,
-            Self::ResizeTerminal { .. }
+            Self::StartDevelopmentBuild { .. }
+                | Self::RestartDevelopmentDesktop { .. }
+                | Self::ResizeTerminal { .. }
                 | Self::PreviewReply { .. }
                 | Self::ShutdownAllAndFlush
                 | Self::OpenLatestSession

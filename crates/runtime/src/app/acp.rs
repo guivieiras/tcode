@@ -246,6 +246,7 @@ impl AppState {
     /// The theme is reset; the caller re-applies it to the window.
     pub fn reset_settings(&mut self, cx: &mut HostCx) {
         let settings = Settings {
+            development_checkout: self.settings.development_checkout.clone(),
             providers: self.settings.providers.clone(),
             profiles: self.settings.profiles.clone(),
             codex_binary: self.settings.codex_binary.clone(),

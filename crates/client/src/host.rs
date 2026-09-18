@@ -143,8 +143,48 @@ pub struct PickedImage {
     pub bytes: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum ApkDownloadState {
+    #[default]
+    Idle,
+    Downloading {
+        received: u64,
+        total: u64,
+    },
+    Ready,
+    Failed(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApkInstallerState {
+    ConfirmationOpened,
+    Installed,
+}
+
 /// Persistence, pairing, transport, and platform facilities for a tcode client.
 pub trait ClientHost: 'static {
+    fn supports_apk_install(&self) -> bool {
+        false
+    }
+    fn apk_download_state(&self, _host_id: &str, _build_id: &str) -> ApkDownloadState {
+        ApkDownloadState::Idle
+    }
+    fn download_apk(
+        &self,
+        _host_id: String,
+        _link: crate::HostLink,
+        _artifact: tcode_protocol::DevelopmentArtifact,
+    ) -> HostFuture<'_, Result<(), String>> {
+        Box::pin(async { Err("APK download is unavailable on this client".into()) })
+    }
+    fn open_apk_installer(
+        &self,
+        _host_id: String,
+        _build_id: String,
+    ) -> HostFuture<'_, Result<ApkInstallerState, String>> {
+        Box::pin(async { Err("APK installation is unavailable on this client".into()) })
+    }
+
     /// Name this device presents to hosts while pairing and connecting.
     fn device_name(&self) -> String;
 

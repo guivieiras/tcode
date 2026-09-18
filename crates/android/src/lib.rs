@@ -346,6 +346,24 @@ mod jni_exports {
         .resolve::<LogErrorAndDefault>()
     }
 
+    /// Also reached from `InstallResultReceiver`, possibly before a client
+    /// exists; the Java side then only logs the result.
+    #[unsafe(no_mangle)]
+    pub extern "system" fn Java_com_tryanks_tcode_GpuiActivity_nativeApkResult<'local>(
+        mut env: EnvUnowned<'local>,
+        _class: JObject<'local>,
+        request_id: jlong,
+        status: jint,
+        value: JObject<'local>,
+    ) {
+        env.with_env(|env| -> jni::errors::Result<()> {
+            let value = optional_string(env, value)?;
+            crate::host::deliver_result(request_id as u64, status, value);
+            Ok(())
+        })
+        .resolve::<LogErrorAndDefault>()
+    }
+
     #[unsafe(no_mangle)]
     pub extern "system" fn Java_com_tryanks_tcode_GpuiActivity_nativeQrScanCompleted<'local>(
         mut env: EnvUnowned<'local>,

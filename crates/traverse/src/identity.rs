@@ -285,7 +285,7 @@ fn parse_secret_key(hex: &str) -> io::Result<SecretKey> {
     Ok(SecretKey::from_bytes(&bytes))
 }
 
-fn encode_hex(bytes: &[u8]) -> String {
+pub(crate) fn encode_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 

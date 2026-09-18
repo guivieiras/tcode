@@ -862,6 +862,7 @@ pub struct BrowserSettings {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content", rename_all = "snake_case")]
 pub enum SettingsPatch {
+    DevelopmentCheckout(Option<PathBuf>),
     Language(Option<String>),
     ThemeMode(ThemeMode),
     WordWrapDiffs(bool),
@@ -945,6 +946,8 @@ impl BrowserSettings {
 // agent crate derives only `PartialEq` for.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub development_checkout: Option<PathBuf>,
     /// None follows the operating-system language.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
@@ -1107,6 +1110,7 @@ const fn default_auto_archive_keep_count() -> usize {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            development_checkout: None,
             language: None,
             providers: BTreeMap::new(),
             profiles: BTreeMap::new(),
@@ -1153,6 +1157,7 @@ impl Settings {
     /// Apply one field-scoped mutation without replacing sibling fields.
     pub fn apply(&mut self, patch: SettingsPatch) {
         match patch {
+            SettingsPatch::DevelopmentCheckout(value) => self.development_checkout = value,
             SettingsPatch::Language(value) => self.language = value,
             SettingsPatch::ThemeMode(value) => self.theme_mode = value,
             SettingsPatch::WordWrapDiffs(value) => self.word_wrap_diffs = value,

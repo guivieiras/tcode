@@ -1496,13 +1496,22 @@ impl AppShell {
                 page.render_compact_list(cx)
             }
         });
+        // Over a remote link Settings also names the link's state: its
+        // host-backed controls wait for the host baseline, not a thread's.
+        let subtitle = self.attachment.as_ref().and_then(|attachment| {
+            let store = attachment.link.store.read(cx);
+            store.remote_host_name()?;
+            Some(crate::remote::connection_label(
+                &store.settings_connection_state(),
+            ))
+        });
         v_flex()
             .size_full()
             .bg(crate::material::content_surface(cx))
             .child(nav_bar(
                 back,
                 title,
-                None,
+                subtitle.map(|subtitle| nav_subtitle(subtitle, cx)),
                 vec![self.palette_action(cx)],
                 window,
                 cx,

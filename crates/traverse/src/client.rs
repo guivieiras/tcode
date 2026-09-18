@@ -709,6 +709,7 @@ async fn connection_loop(
     let mut reason = None;
     while !outgoing.is_closed() && !incoming.is_closed() {
         outgoing.discard_retained_writes(&mut buffered);
+        subscriptions.retain(|key, _| key != r#"{"type":"development"}"#);
         let _ = state
             .send(ConnectionState::Reconnecting {
                 attempt: backoff.attempt(),
@@ -745,6 +746,10 @@ async fn connection_loop(
                 learn_addresses(&mut host, &established.connection);
                 live.authenticated(&host);
                 persist_addresses(&device, &host);
+                // Discard controls admitted just as the old connection failed,
+                // including those buffered while dialing.
+                outgoing.discard_retained_writes(&mut buffered);
+                subscriptions.retain(|key, _| key != r#"{"type":"development"}"#);
                 // Tunnels are available by the time Syncing is observable.
                 tunnels.set(Some(established.connection.clone()));
                 state

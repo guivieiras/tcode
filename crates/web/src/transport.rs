@@ -193,6 +193,7 @@ async fn connection_loop(
             return;
         }
         outgoing.discard_retained_writes(&mut buffered);
+        subscriptions.retain(|key, _| key != r#"{"type":"development"}"#);
         let _ = state.try_send(ConnectionState::Reconnecting {
             attempt: backoff.attempt(),
             reason,
@@ -288,6 +289,8 @@ async fn connection_loop(
                         if hello["type"].as_str() != Some("hello_ok") {
                             break;
                         }
+                        outgoing.discard_retained_writes(&mut buffered);
+                        subscriptions.retain(|key, _| key != r#"{"type":"development"}"#);
                         let _ = state.try_send(ConnectionState::Syncing { path: None });
                         timer.take();
                         if subscriptions

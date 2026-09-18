@@ -2,6 +2,7 @@
 
 pub mod acp_registry;
 pub mod desktop;
+pub mod development;
 pub mod export;
 pub mod file_preview;
 pub mod git;
