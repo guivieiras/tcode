@@ -199,6 +199,9 @@ pub(super) fn present_runtime_event(event: &RuntimeEvent) -> PresentedRuntimeEve
             };
             (severity, message)
         }
+        RuntimeEvent::ThreadAttention { .. } => {
+            unreachable!("thread attention uses desktop notifications")
+        }
         RuntimeEvent::Toast(_) => unreachable!("rich toasts use present_runtime_toast"),
         RuntimeEvent::Effect(_) => unreachable!("runtime effects are not presentable"),
     };

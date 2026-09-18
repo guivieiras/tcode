@@ -122,6 +122,8 @@ pub fn persistent_device_id(stored: Option<String>, store: impl FnOnce(&str)) ->
 /// Preferences which belong to the client and are never sent to the host.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientPreferences {
+    #[serde(default)]
+    pub desktop_notifications_disabled: bool,
     pub appearance: Option<String>,
     pub language: Option<String>,
     pub device_name: Option<String>,
@@ -286,5 +288,19 @@ mod tests {
             assert!(valid_device_id(&minted));
             assert_eq!(stored.take().as_deref(), Some(minted.as_str()));
         }
+    }
+}
+
+#[cfg(test)]
+mod notification_preference_tests {
+    use super::*;
+
+    #[test]
+    fn older_preferences_enable_desktop_notifications() {
+        let old: ClientPreferences = serde_json::from_str(
+            r#"{"appearance":"dark","language":null,"device_name":"Desktop"}"#,
+        )
+        .unwrap();
+        assert!(!old.desktop_notifications_disabled);
     }
 }

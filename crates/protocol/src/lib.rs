@@ -19,7 +19,7 @@ pub use event::{
     ProviderVersionStatus, ProvidersStatus, QueuedMessageStatus, RuntimeEffect, RuntimeError,
     RuntimeNotice, RuntimeNotification, RuntimeOperationId, RuntimeToast, ServerEvent,
     SessionEventRecord, SessionStatus, TcodeUpdateStatus, TerminalContextStatus,
-    TerminalSplitStatus, TerminalStatus, Topic,
+    TerminalSplitStatus, TerminalStatus, ThreadAttentionKind, Topic,
 };
 pub use query::{
     ExternalThread, GitDiffResult, GitDiffScope, GitFileText, HostedDevice, HostingAction,

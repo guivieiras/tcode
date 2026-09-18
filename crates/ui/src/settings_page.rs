@@ -769,7 +769,10 @@ impl SettingsPage {
     }
 
     fn dispatch_settings(&self, intent: impl FnOnce(&mut WorkspaceStore), cx: &mut Context<Self>) {
-        self.store.update(cx, |store, _cx| intent(store));
+        self.store.update(cx, |store, cx| {
+            intent(store);
+            cx.notify();
+        });
     }
 
     /// The index leaves archived threads out; the Archived section holds
@@ -1328,6 +1331,32 @@ impl SettingsPage {
             self.device_name_row(device_name_overridden, cx),
             self.remote_attachment_limit_row(attachment_limit_overridden, cx),
         ];
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+        let appearance = {
+            let mut appearance = appearance;
+            let enabled = self.store.read(cx).desktop_notifications_enabled();
+            let reset = self.reset_action(
+                "reset-desktop-notifications",
+                !enabled,
+                cx,
+                |this, _, cx| {
+                    this.dispatch_settings(
+                        |store| store.set_desktop_notifications_enabled(true),
+                        cx,
+                    )
+                },
+            );
+            appearance.push(self.toggle_row(
+                "desktop-notifications",
+                crate::tr!("settings.desktop_notifications.title"),
+                crate::tr!("settings.desktop_notifications.description"),
+                enabled,
+                reset,
+                cx,
+                WorkspaceStore::set_desktop_notifications_enabled,
+            ));
+            appearance
+        };
         let delete_confirm_reset = self.reset_action(
             "reset-delete-confirm",
             settings.skip_delete_confirmation,

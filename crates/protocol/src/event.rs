@@ -362,10 +362,23 @@ pub struct IndexSummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content", rename_all = "snake_case")]
 pub enum RuntimeNotification {
+    ThreadAttention {
+        session_id: String,
+        title: String,
+        kind: ThreadAttentionKind,
+    },
     Error(RuntimeError),
     Notice(RuntimeNotice),
     Toast(RuntimeToast),
     Effect(RuntimeEffect),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ThreadAttentionKind {
+    Completed,
+    Question,
+    Approval,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

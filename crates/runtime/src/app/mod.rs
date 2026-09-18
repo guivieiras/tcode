@@ -238,6 +238,7 @@ mod git;
 mod history;
 use history::SessionLog;
 mod lifecycle;
+mod notifications;
 mod options;
 mod orchestrate;
 mod providers;
@@ -367,12 +368,15 @@ pub struct AppState {
     /// Registry ids currently downloading (their marketplace row shows a spinner).
     pub acp_installing: std::collections::HashSet<String>,
     mcp: McpWiring,
+    // A completed child can still enqueue parent work after its async log read.
+    pending_child_callbacks: HashMap<String, usize>,
     callback_last_turn: HashMap<String, usize>,
     callback_approval_requests: HashSet<(String, String)>,
     /// RESULT text pushed by child threads via their `report_result` tool,
     /// keyed by child id; consumed by the next completion callback (a child
     /// that never reports falls back to its final assistant message).
     child_reported_results: HashMap<String, String>,
+    attention_requests: Vec<(String, tcode_protocol::ThreadAttentionKind)>,
     /// Live provider approvals for every resident session. This is the sole
     /// host-side authority; persisted timeline approvals remain client state.
     approvals: HashMap<String, Vec<agent::ApprovalRequest>>,
@@ -530,9 +534,11 @@ impl AppState {
             acp_registry_error: None,
             acp_installing: std::collections::HashSet::new(),
             mcp: McpWiring::default(),
+            pending_child_callbacks: HashMap::new(),
             callback_last_turn: HashMap::new(),
             callback_approval_requests: HashSet::new(),
             child_reported_results: HashMap::new(),
+            attention_requests: Vec::new(),
             approvals: HashMap::new(),
             git_status: HashMap::new(),
             git_busy: HashSet::new(),

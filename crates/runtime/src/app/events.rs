@@ -12,6 +12,8 @@ impl AppState {
             return;
         }
 
+        self.observe_attention_event(session_id, &event);
+
         match &event {
             AgentEvent::RewindFailed { error, .. } => {
                 self.pending_native_rewinds.remove(session_id);

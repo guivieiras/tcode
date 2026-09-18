@@ -1039,6 +1039,10 @@ impl AppState {
         {
             return;
         }
+        *self
+            .pending_child_callbacks
+            .entry(child_id.to_owned())
+            .or_default() += 1;
         let child_id = child_id.to_string();
         let parent_id = child.parent_session_id.clone().unwrap();
         let title = child.title;
@@ -1055,6 +1059,12 @@ impl AppState {
                 .unblock(move || Timeline::fold_events(store.read_events(&read_id)))
                 .await;
             host_cx.enqueue(move |state, cx| {
+                if let Some(pending) = state.pending_child_callbacks.get_mut(&child_id) {
+                    *pending -= 1;
+                    if *pending == 0 {
+                        state.pending_child_callbacks.remove(&child_id);
+                    }
+                }
                 let child_still_exists = state.sessions.iter().any(|meta| {
                     meta.id == child_id
                         && meta.parent_session_id.as_deref() == Some(parent_id.as_str())

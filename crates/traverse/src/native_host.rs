@@ -205,6 +205,10 @@ impl ClientHost for NativeClientHost {
         let prefs = self.prefs();
         let value = |key: &str| prefs.get(key).and_then(|v| v.as_str()).map(str::to_owned);
         ClientPreferences {
+            desktop_notifications_disabled: prefs
+                .get("desktop_notifications_disabled")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
             appearance: value("appearance"),
             language: value("language"),
             device_name: value("device_name"),
@@ -221,6 +225,8 @@ impl ClientHost for NativeClientHost {
 
     fn save_preferences(&self, preferences: &ClientPreferences) {
         let mut prefs = self.prefs();
+        prefs["desktop_notifications_disabled"] =
+            serde_json::json!(preferences.desktop_notifications_disabled);
         prefs["appearance"] = serde_json::json!(preferences.appearance);
         prefs["language"] = serde_json::json!(preferences.language);
         prefs["device_name"] = serde_json::json!(preferences.device_name);
@@ -765,6 +771,7 @@ mod tests {
         assert_eq!(host.device_id(), device_id);
         assert!(dir.0.join("device.json").exists());
         host.save_preferences(&ClientPreferences {
+            desktop_notifications_disabled: true,
             appearance: Some("light".into()),
             language: None,
             device_name: Some("Renamed".into()),
@@ -777,6 +784,7 @@ mod tests {
         assert_eq!(saved["last_host_id"], "host-before-client-seam");
         assert_eq!(saved["future_field"]["preserve"], true);
         assert_eq!(saved["appearance"], "light");
+        assert!(host.load_preferences().desktop_notifications_disabled);
         assert_eq!(
             host.load_preferences().navigation.unwrap()["history"],
             serde_json::json!(["hosts", "threads"])

@@ -362,6 +362,7 @@ fn main() {
     gpui_platform::application()
         .with_assets(assets::Assets)
         .run(move |cx| {
+            cx.set_app_identity("com.tryanks.tcode", "Tcode");
             #[cfg(not(any(target_os = "macos", target_os = "windows")))]
             let application_fonts: Vec<Cow<'static, [u8]>> = vec![
                 Cow::Borrowed(assets::DM_SANS),

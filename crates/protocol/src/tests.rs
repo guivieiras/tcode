@@ -1018,3 +1018,26 @@ fn path_info_kinds_read_older_peers_and_spell_the_flags() {
     );
     assert!(!relayed.probing_direct);
 }
+
+#[test]
+fn thread_attention_literal_wire_events() {
+    for (wire, kind) in [
+        ("completed", ThreadAttentionKind::Completed),
+        ("question", ThreadAttentionKind::Question),
+        ("approval", ThreadAttentionKind::Approval),
+    ] {
+        let fixture = json!({"type":"thread_attention","content":{
+            "session_id":"thread-1","title":"A title","kind":wire
+        }});
+        let event = RuntimeNotification::ThreadAttention {
+            session_id: "thread-1".into(),
+            title: "A title".into(),
+            kind,
+        };
+        assert_eq!(serde_json::to_value(&event).unwrap(), fixture);
+        assert_eq!(
+            serde_json::from_value::<RuntimeNotification>(fixture).unwrap(),
+            event
+        );
+    }
+}
