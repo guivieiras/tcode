@@ -10832,6 +10832,7 @@ dependencies = [
  "image",
  "imara-diff",
  "jpeg-decoder",
+ "libc",
  "log",
  "memchr",
  "percent-encoding",

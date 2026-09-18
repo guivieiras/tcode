@@ -1,3 +1,4 @@
+mod development;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -54,6 +55,7 @@ pub use tcode_protocol::ForkAvailability;
 /// store projections they render.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TopicKind {
+    Development,
     SessionEvents,
     SessionStatus,
     SessionPlan,
@@ -81,6 +83,7 @@ impl From<&Topic> for TopicKind {
             Topic::Scope => Self::Index,
             Topic::Index => Self::Index,
             Topic::Settings => Self::Settings,
+            Topic::Development => Self::Development,
             Topic::Providers => Self::Providers,
             Topic::GitStatus { .. } => Self::GitStatus,
             Topic::RuntimeEvents => Self::RuntimeEvents,
@@ -149,6 +152,7 @@ impl WorkspaceScope {
 /// Views observe this entity and use its typed accessors instead of retaining
 /// or reading the backend `AppState` entity directly.
 pub struct WorkspaceStore {
+    pub(crate) development: tcode_protocol::DevelopmentSnapshot,
     host: HostLink,
     scope: WorkspaceScope,
     scoped_providers: Vec<ScopedProviderChoice>,
@@ -383,6 +387,7 @@ impl WorkspaceStore {
             scope: WorkspaceScope::Full,
             scoped_providers: Vec::new(),
             attachment,
+            development: Default::default(),
             client_host,
             current_host,
             client_preferences,
@@ -793,6 +798,19 @@ impl WorkspaceStore {
         match &self.attachment {
             WorkspaceAttachment::Local => None,
             WorkspaceAttachment::Remote { host_id, .. } => Some(host_id),
+        }
+    }
+
+    // Settings needs the host baseline, not the selected conversation's history.
+    pub(crate) fn settings_connection_state(&self) -> ConnectionState {
+        match self.host.connection_state() {
+            ConnectionState::Connected { path }
+                if !(self.baseline_topics.contains(&Topic::Index)
+                    && self.baseline_topics.contains(&Topic::Settings)) =>
+            {
+                ConnectionState::Syncing { path }
+            }
+            state => state,
         }
     }
 
@@ -1229,6 +1247,9 @@ impl WorkspaceStore {
             (Topic::Index, ServerEvent::IndexSnapshot(snapshot)) => {
                 self.index_hydrated = true;
                 let fresh_baseline = self.baseline_topics.insert(index_topic.clone());
+                if fresh_baseline {
+                    self.development_offered(snapshot.summary.development == Some(true));
+                }
                 for project in &snapshot.projects {
                     if fresh_baseline
                         || self
@@ -1278,6 +1299,7 @@ impl WorkspaceStore {
                         for project in &self.index_replica.1 {
                             images::invalidate_project_icon(project, cx);
                         }
+                        self.development_offered(self.index_summary.development == Some(true));
                     }
                     self.restore_index_selection();
                     if self.archived_holds > 0 {
@@ -1318,6 +1340,9 @@ impl WorkspaceStore {
                 if matches!(envelope.event, ServerEvent::SettingsSnapshot(_)) {
                     self.baseline_topics.insert(Topic::Settings);
                 }
+            }
+            (Topic::Development, ServerEvent::DevelopmentStateReplaced(state)) => {
+                self.development = state.clone();
             }
             (Topic::Providers, ServerEvent::ProvidersReplaced(status)) => {
                 self.providers_replica = status.clone();
@@ -6330,6 +6355,38 @@ pub(crate) mod tests {
         host.to_host.close();
         host.from_host.close();
         host.stopped.recv_blocking().unwrap();
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[gpui::test]
+    fn development_controls_do_not_wait_for_selected_conversation_history(cx: &mut TestAppContext) {
+        use tcode_client::ConnectionState;
+        let root = scratch_root("development-ready");
+        let host = test_host(SessionStore::open_at(root.clone()).unwrap());
+        let mut driver = LocalHostDriver::new(&host);
+        let workspace = driver.workspace(cx);
+        driver.wait_until(cx, &workspace, "host baseline", |cx| {
+            workspace.read_with(cx, |store, _| store.baseline_ready())
+        });
+        workspace.update(cx, |store, _| {
+            store.selected_session_id = Some("draft-without-history".into());
+            assert!(!store.baseline_ready());
+            assert!(store.settings_connection_state().is_connected());
+            store
+                .host
+                .set_connection_state(ConnectionState::Reconnecting {
+                    attempt: 1,
+                    reason: None,
+                });
+            assert!(matches!(
+                store.settings_connection_state(),
+                ConnectionState::Reconnecting { .. }
+            ));
+            store
+                .host
+                .set_connection_state(ConnectionState::Connected { path: None });
+        });
+        driver.shutdown(cx, &workspace, &host);
         let _ = std::fs::remove_dir_all(root);
     }
 

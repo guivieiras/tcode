@@ -447,6 +447,7 @@ async fn connection_loop(
                         if hello["type"].as_str() != Some("hello_ok") {
                             break;
                         }
+                        outgoing.discard_retained_writes(&mut buffered);
                         let _ = state.try_send(ConnectionState::Syncing { path: None });
                         timer.take();
                         let mut failed = false;
