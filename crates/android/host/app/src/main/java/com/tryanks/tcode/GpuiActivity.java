@@ -47,12 +47,12 @@ public final class GpuiActivity extends NativeActivity {
     private static final int HOST_ERROR = 2;
 
     private VideoPreview videoPreview;
-    public void gpuiPlayVideo(long id, String url, String title, String error, String close) {
+    public void gpuiPlayVideo(long id, String url, String title, String error, String close, String controls) throws org.json.JSONException {
         if (videoPreview != null) videoPreview.close();
         boolean dark = appBackgroundDark != null ? appBackgroundDark
                 : (getResources().getConfiguration().uiMode
                     & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        videoPreview = new VideoPreview(this, id, url, title, error, close, dark);
+        videoPreview = new VideoPreview(this, id, url, title, error, close, dark, new org.json.JSONObject(controls));
     }
     public void gpuiCloseVideo(long id) {
         if (videoPreview != null && videoPreview.id == id) {

@@ -42,6 +42,7 @@ native-preview = [
     "dep:webview2-com",
     "dep:windows-core",
     "dep:tempfile",
+    "dep:libloading",
 ]
 # macOS 26 dictation in the composer.
 voice = ["dep:tcode-voice"]
@@ -159,3 +160,6 @@ preview-mcp = { path = "../preview-mcp", optional = true }
 [target.'cfg(target_os = "android")'.dependencies]
 gpui-android = { path = "../platform/gpui-android", optional = true }
 futures = "0.3"
+
+[target.'cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))'.dependencies]
+libloading = { version = "0.8", optional = true }

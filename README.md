@@ -164,6 +164,12 @@ For an unsigned macOS build, remove quarantine after installing the app with
 `xattr -dr com.apple.quarantine /Applications/Tcode.app`. The embedded preview
 browser is available on macOS, Windows and Android; voice input requires macOS 26 or later.
 
+In-app desktop video playback uses the **libmpv** runtime. Install your Linux
+distribution’s libmpv package (for example, `libmpv2` on Debian/Ubuntu), or `mpv`
+with Homebrew on macOS. On Windows, place a matching `libmpv-2.dll` or `mpv-2.dll`
+beside `tcode.exe`. Android uses its built-in media player. Both show persistent
+play/pause, restart, mute, time, and seek controls.
+
 Each release uses the native application icon format for its platform: `.icns`
 inside the macOS app bundle, an `.ico` resource embedded directly in the Windows
 executable, and an XDG desktop entry plus themed PNG on Linux. Release downloads

@@ -2550,7 +2550,15 @@ impl WorkspaceStore {
         )
     }
 
-    #[cfg(all(feature = "native-preview", target_os = "android"))]
+    #[cfg(all(
+        feature = "native-preview",
+        any(
+            target_os = "android",
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "windows"
+        )
+    ))]
     pub(crate) fn video_stream(
         &self,
         path: PathBuf,

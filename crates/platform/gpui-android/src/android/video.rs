@@ -18,12 +18,18 @@ static NEXT: AtomicU64 = AtomicU64::new(1);
 static PLAYERS: LazyLock<Mutex<HashMap<u64, oneshot::Sender<Result<(), String>>>>> =
     LazyLock::new(Default::default);
 
-pub async fn play(url: String, title: String, error: String, close: String) -> Result<(), String> {
+pub async fn play(
+    url: String,
+    title: String,
+    error: String,
+    close: String,
+    controls: String,
+) -> Result<(), String> {
     let id = NEXT.fetch_add(1, Ordering::Relaxed);
     let (sender, receiver) = oneshot::channel();
     PLAYERS.lock().insert(id, sender);
     let _guard = Player(id);
-    dispatch(id, Some([url, title, error, close]));
+    dispatch(id, Some([url, title, error, close, controls]));
     receiver
         .await
         .map_err(|_| "Video player was closed".to_string())?
@@ -43,7 +49,7 @@ fn finish(id: u64, result: Result<(), String>) {
     }
 }
 
-fn dispatch(id: u64, arguments: Option<[String; 4]>) {
+fn dispatch(id: u64, arguments: Option<[String; 5]>) {
     let Some(app) = super::host::APP.lock().clone() else {
         finish(id, Err("Android activity is unavailable".into()));
         return;
@@ -66,13 +72,14 @@ fn dispatch(id: u64, arguments: Option<[String; 4]>) {
                     env.call_method(
                         &activity,
                         jni_str!("gpuiPlayVideo"),
-                        jni_sig!("(JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"),
+                        jni_sig!("(JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"),
                         &[
                             JValue::Long(id as i64),
                             JValue::Object(strings[0].as_ref()),
                             JValue::Object(strings[1].as_ref()),
                             JValue::Object(strings[2].as_ref()),
                             JValue::Object(strings[3].as_ref()),
+                            JValue::Object(strings[4].as_ref()),
                         ],
                     )
                 } else {
