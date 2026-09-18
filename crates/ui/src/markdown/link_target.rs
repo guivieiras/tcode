@@ -34,6 +34,45 @@ pub(super) fn resolve_link(url: &str) -> LinkTarget {
     LinkTarget::Local(PathBuf::from(url))
 }
 
+/// The explicit desktop escape hatch resolves on the viewing machine, as the
+/// system opener did before host previews. Preserve literal names before
+/// interpreting a trailing source location.
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+pub(super) fn system_path(target: &str, base_dir: Option<&std::path::Path>) -> Option<PathBuf> {
+    let resolve = |target: &str| {
+        if target.starts_with("file://") {
+            return url::Url::parse(target).ok()?.to_file_path().ok();
+        }
+        let path = PathBuf::from(target);
+        let path = if let Some(rest) = target.strip_prefix("~/") {
+            let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+            PathBuf::from(home).join(rest)
+        } else if path.is_absolute() {
+            path
+        } else {
+            base_dir?.join(path)
+        };
+        path.exists().then_some(path)
+    };
+    if let Some(path) = resolve(target) {
+        return Some(path);
+    }
+    let mut target = target;
+    if let Some((path, line)) = target.rsplit_once("#L")
+        && line.parse::<u32>().is_ok()
+    {
+        target = path;
+    }
+    for _ in 0..2 {
+        if let Some((path, line)) = target.rsplit_once(':')
+            && line.parse::<u32>().is_ok()
+        {
+            target = path;
+        }
+    }
+    resolve(target)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -58,5 +97,26 @@ mod tests {
         ] {
             assert_eq!(resolve_link(url), LinkTarget::Web(url.into()));
         }
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+    fn system_open_resolves_workspace_paths_and_source_locations() {
+        let root = std::env::temp_dir().join(format!("tcode-system-link-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("my file.txt");
+        std::fs::write(&path, "hello").unwrap();
+        for target in [
+            "my file.txt".to_owned(),
+            "my file.txt:12:3".to_owned(),
+            "my file.txt#L12".to_owned(),
+            path.display().to_string(),
+            url::Url::from_file_path(&path).unwrap().to_string(),
+        ] {
+            assert_eq!(system_path(&target, Some(&root)), Some(path.clone()));
+        }
+        assert_eq!(system_path("my file.txt", None), None);
+        assert_eq!(system_path("missing.txt", Some(&root)), None);
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
