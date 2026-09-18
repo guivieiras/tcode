@@ -1120,6 +1120,10 @@ impl AppState {
         {
             return;
         }
+        *self
+            .pending_child_callbacks
+            .entry(child_id.to_owned())
+            .or_default() += 1;
         let child_id = child_id.to_string();
         let parent_id = child.parent_session_id.clone().unwrap();
         let title = child.title;
@@ -1130,6 +1134,12 @@ impl AppState {
         HostCx::spawn_detached(cx, async move {
             let timeline = fold.await;
             host_cx.enqueue(move |state, cx| {
+                if let Some(pending) = state.pending_child_callbacks.get_mut(&child_id) {
+                    *pending -= 1;
+                    if *pending == 0 {
+                        state.pending_child_callbacks.remove(&child_id);
+                    }
+                }
                 let timeline = match timeline {
                     Ok(timeline) => timeline,
                     Err(error) => {

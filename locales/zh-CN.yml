@@ -321,6 +321,9 @@ settings:
     summary_merge: "合并：%{value}"
     save: "保存"
   source_control: "源代码管理"
+  desktop_notifications:
+    title: "桌面通知"
+    description: "工作完成或会话需要你处理时发送通知。"
   title: "设置"
   sections: "全部设置"
   this_device: "本设备"
@@ -2262,3 +2265,7 @@ tabs:
 choice:
   recommended: "推荐"
   recommended_option: "%{label}（推荐）"
+desktop_notifications:
+  completed: "会话已完成"
+  question: "需要回答"
+  approval: "需要批准"
