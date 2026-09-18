@@ -1125,3 +1125,11 @@ project_icon:
   saving: "Saving…"
   choose: "Use image"
   load_failed: "Could not load this folder."
+
+file_preview:
+  loading: "Loading file…"
+  error: "Could not preview this file: %{error}"
+  unsupported: "This file format cannot be previewed."
+  video_error: "This video could not be played. Its format may be unsupported, or the connection to the host was lost."
+  video_unavailable: "Video playback is currently available in the Android app."
+  close: "Close"

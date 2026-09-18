@@ -675,6 +675,30 @@ fn dispatch_query(
                     .map_err(io_protocol_error)
             })
         }
+        Query::PreviewFile { target, base_dir } => {
+            let task = cx
+                .unblock(move || tcode_services::file_preview::open(&target, base_dir.as_deref()));
+            cx.spawn_background(async move {
+                task.await
+                    .map(QueryResponse::FilePreview)
+                    .map_err(io_protocol_error)
+            })
+        }
+        Query::ReadFileRange {
+            path,
+            offset,
+            length,
+            expected_size,
+        } => {
+            let task = cx.unblock(move || {
+                tcode_services::file_preview::read_range(&path, offset, length, expected_size)
+            });
+            cx.spawn_background(async move {
+                task.await
+                    .map(QueryResponse::FileBytes)
+                    .map_err(io_protocol_error)
+            })
+        }
         Query::ReadFileBytes { path } => {
             let task = cx.unblock(move || std::fs::read(&path));
             cx.spawn_background(async move {

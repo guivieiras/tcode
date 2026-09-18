@@ -3,6 +3,7 @@
 pub mod acp_registry;
 pub mod desktop;
 pub mod export;
+pub mod file_preview;
 pub mod git;
 pub mod import;
 pub mod process;

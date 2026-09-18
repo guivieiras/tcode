@@ -67,5 +67,7 @@ windows = { version = "=0.62.2", features = [
 
 [dev-dependencies]
 env_logger = "0.11"
+tcode-runtime = { path = "../runtime" }
+tcode-services = { path = "../services" }
 # Tests cover every layer, whichever features the consumer picks.
 tcode-traverse = { path = ".", features = ["browser", "native"] }

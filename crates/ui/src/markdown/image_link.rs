@@ -75,8 +75,15 @@ pub(super) fn badge(
         .on_click(move |_, window, cx| {
             gpui_base::TextSelection::end(window, cx);
             cx.stop_propagation();
-            let source = view.read(cx).image_source(&url.to_string().into());
-            crate::attachments::open_image_lightbox(source, label.to_string(), window, cx);
+            if matches!(
+                view.read(cx).resolve_link(&url),
+                super::link_target::LinkTarget::Local(_)
+            ) {
+                view.update(cx, |state, cx| state.open_link(&url, window, cx));
+            } else {
+                let source = view.read(cx).image_source(&url.to_string().into());
+                crate::attachments::open_image_lightbox(source, label.to_string(), window, cx);
+            }
         });
     // Preserve the line's spacing while shortening only the visible badge.
     div()

@@ -22,11 +22,11 @@ pub use event::{
     TerminalSplitStatus, TerminalStatus, Topic,
 };
 pub use query::{
-    ExternalThread, GitDiffResult, GitDiffScope, GitFileText, HostedDevice, HostingAction,
-    HostingState, IconImageEntry, MAX_SESSION_HISTORY_BYTES, MAX_THREAD_EXPORT_BYTES,
-    OUTPUT_PREVIEW_BYTES, PathEntry, PathInfo, PathKind, Query, QueryResponse, RecentDir,
-    SESSION_HISTORY_RECORDS, SESSION_WINDOW_BYTES, STORED_OUTPUT_COLS, STORED_OUTPUT_ROWS,
-    SessionSearchHit, SourceTool,
+    ExternalThread, FilePreview, FilePreviewContent, GitDiffResult, GitDiffScope, GitFileText,
+    HostedDevice, HostingAction, HostingState, IconImageEntry, MAX_FILE_PREVIEW_BYTES,
+    MAX_FILE_RANGE_BYTES, MAX_SESSION_HISTORY_BYTES, MAX_THREAD_EXPORT_BYTES, OUTPUT_PREVIEW_BYTES,
+    PathEntry, PathInfo, PathKind, Query, QueryResponse, RecentDir, SESSION_HISTORY_RECORDS,
+    SESSION_WINDOW_BYTES, STORED_OUTPUT_COLS, STORED_OUTPUT_ROWS, SessionSearchHit, SourceTool,
 };
 pub use terminal::{TerminalDelta, TerminalFrame};
 pub use wire::{

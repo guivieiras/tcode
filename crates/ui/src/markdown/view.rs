@@ -1,9 +1,8 @@
 //! Markdown view element adapted from gpui-component's Apache-2.0
 //! `text/text_view.rs` implementation.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use crate::overlay::{Notification, OverlayExt as _};
 use crate::theme::ActiveTheme as _;
 use crate::touch_selection::SelectAllTouched;
 use crate::widgets::input::SelectAll;
@@ -12,7 +11,6 @@ use gpui::{
     Action, AnyElement, App, Bounds, ClipboardItem, Element, ElementId, Entity, GlobalElementId,
     Hitbox, HitboxBehavior, InspectorElementId, InteractiveElement as _, IntoElement, LayoutId,
     MouseButton, MouseDownEvent, ParentElement as _, Pixels, StyleRefinement, Styled, Window, div,
-    prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, TouchHandleLayout};
 use serde::Deserialize;
@@ -28,21 +26,6 @@ struct CopyLinkAddress(String);
 #[derive(Action, Clone, PartialEq, Eq, Deserialize)]
 #[action(namespace = tcode_markdown_link, no_json)]
 struct CopyLinkText(String);
-#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
-#[action(namespace = tcode_markdown_link, no_json)]
-struct OpenPath(String);
-#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
-#[action(namespace = tcode_markdown_link, no_json)]
-struct OpenPathInZed(String);
-#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
-#[action(namespace = tcode_markdown_link, no_json)]
-struct RevealPath(String);
-#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
-#[action(namespace = tcode_markdown_link, no_json)]
-struct CopyPath(String);
-#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
-#[action(namespace = tcode_markdown_link, no_json)]
-struct CopyRelativePath(String);
 
 /// A GPUI element that renders an [`Entity<MarkdownState>`].
 #[derive(Clone)]
@@ -182,17 +165,6 @@ impl Element for MarkdownView {
             .on_action(|action: &CopyLinkText, _, cx| {
                 cx.write_to_clipboard(ClipboardItem::new_string(action.0.clone()))
             })
-            .on_action(|action: &OpenPath, _, cx| cx.open_with_system(Path::new(&action.0)))
-            .on_action(|action: &OpenPathInZed, window, cx| {
-                open_in_zed(Path::new(&action.0), window, cx)
-            })
-            .on_action(|action: &RevealPath, _, cx| cx.reveal_path(Path::new(&action.0)))
-            .on_action(|action: &CopyPath, _, cx| {
-                cx.write_to_clipboard(ClipboardItem::new_string(action.0.clone()))
-            })
-            .on_action(|action: &CopyRelativePath, _, cx| {
-                cx.write_to_clipboard(ClipboardItem::new_string(action.0.clone()))
-            })
             .child(state.clone())
             .refine_style(&self.style)
             .context_menu({
@@ -217,38 +189,23 @@ impl Element for MarkdownView {
                                 crate::tr!("markdown.link_copy_text").into_owned(),
                                 Box::new(CopyLinkText(pending.text.to_string())),
                             ),
-                        LinkTarget::Local(path) => {
-                            let path = path.to_string_lossy().into_owned();
-                            let relative_path = markdown.base_dir().map(|base_dir| {
-                                crate::workspace_walk::relativize_to_workspace(&path, base_dir)
-                            });
-                            menu.menu(
+                        LinkTarget::Local(_) => menu
+                            .menu(
                                 crate::tr!("chat.open").into_owned(),
-                                Box::new(OpenPath(path.clone())),
-                            )
-                            .menu(
-                                crate::tr!("chat.open_zed").into_owned(),
-                                Box::new(OpenPathInZed(path.clone())),
-                            )
-                            .menu(
-                                crate::tr!("chat.reveal_in_file_manager").into_owned(),
-                                Box::new(RevealPath(path.clone())),
+                                Box::new(crate::file_preview::OpenFilePreview {
+                                    target: pending.raw_url.to_string(),
+                                    base_dir: markdown.base_dir.clone(),
+                                }),
                             )
                             .separator()
                             .menu(
-                                crate::tr!("chat.copy_path").into_owned(),
-                                Box::new(CopyPath(path)),
+                                crate::tr!("markdown.link_copy_address").into_owned(),
+                                Box::new(CopyLinkAddress(pending.raw_url.to_string())),
                             )
-                            .when_some(
-                                relative_path,
-                                |menu, relative_path| {
-                                    menu.menu(
-                                        crate::tr!("markdown.path_copy_relative").into_owned(),
-                                        Box::new(CopyRelativePath(relative_path)),
-                                    )
-                                },
-                            )
-                        }
+                            .menu(
+                                crate::tr!("markdown.link_copy_text").into_owned(),
+                                Box::new(CopyLinkText(pending.text.to_string())),
+                            ),
                     }
                 }
             })
@@ -340,18 +297,6 @@ impl Element for MarkdownView {
                 cx,
             );
         }
-    }
-}
-
-/// Launching an editor is the client's own process work, so it is injected
-/// through the client host rather than linked here. A client without one (a
-/// phone, a browser) reports that plainly.
-fn open_in_zed(path: &Path, window: &mut Window, cx: &mut App) {
-    if !matches!(crate::remote::open_in_editor(path, cx), Some(Ok(()))) {
-        window.push_notification(
-            Notification::error(crate::tr!("errors.zed_cli_missing")),
-            cx,
-        );
     }
 }
 

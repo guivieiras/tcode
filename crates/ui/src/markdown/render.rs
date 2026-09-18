@@ -27,7 +27,6 @@ use crate::{diff::model::sub_runs, highlight};
 use super::{
     inline::{Inline, InlineState},
     inline_flow::{InlineCodeStyle, InlineFlow, InlineFlowItem},
-    link_target::LinkTarget,
     nodes::{BlockNode, CodeBlock, ColumnumnAlign, Paragraph, Table, TextMark},
     state::MarkdownState,
     utils::list_item_prefix,
@@ -599,10 +598,7 @@ fn render_paragraph(
                         gpui_base::TextSelection::end(window, cx);
                         cx.stop_propagation();
                         if let Some(link) = &link {
-                            match view.read(cx).resolve_link(&link.url) {
-                                LinkTarget::Web(url) => cx.open_url(&url),
-                                LinkTarget::Local(path) => cx.open_with_system(&path),
-                            }
+                            view.update(cx, |state, cx| state.open_link(&link.url, window, cx));
                         } else {
                             crate::attachments::open_image_lightbox(
                                 source.clone(),

@@ -1119,3 +1119,11 @@ project_icon:
   saving: "正在保存…"
   choose: "使用图片"
   load_failed: "无法加载此文件夹。"
+
+file_preview:
+  loading: "正在加载文件…"
+  error: "无法预览此文件：%{error}"
+  unsupported: "无法预览此文件格式。"
+  video_error: "无法播放此视频。格式可能不受支持，或与主机的连接已断开。"
+  video_unavailable: "目前仅 Android 应用支持视频播放。"
+  close: "关闭"
