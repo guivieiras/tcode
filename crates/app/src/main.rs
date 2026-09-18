@@ -188,8 +188,12 @@ fn pair_command(args: &[String], client_host: &NativeClientHost) -> Result<Strin
 
 /// Start the in-process host and put the mux in front of it. This window is
 /// then one ordinary client among every link attached to that mux.
-fn start_local(store: SessionStore) -> std::io::Result<(SpawnedHost, HostMux)> {
+fn start_local(
+    store: SessionStore,
+    development: Option<tcode_runtime::app::development::DevelopmentCapabilities>,
+) -> std::io::Result<(SpawnedHost, HostMux)> {
     let mut host_services = HostServices {
+        development,
         background_startup_probes: true,
         ai_title_generation: true,
         drop_superseded_diffs: true,
@@ -309,17 +313,39 @@ enum LocalStart {
     Migrate(SessionStore),
 }
 
+/// What a start of the local host is given to build and install Tcode with.
+fn development_capabilities(
+    data_dir: &std::path::Path,
+    quit: &smol::channel::Sender<()>,
+) -> Option<tcode_runtime::app::development::DevelopmentCapabilities> {
+    #[cfg(target_os = "linux")]
+    {
+        Some(development::capabilities(
+            data_dir.to_path_buf(),
+            machine_name(),
+            quit.clone(),
+        ))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (data_dir, quit);
+        None
+    }
+}
+
 /// Take ownership of the data dir and start the local host on it: at launch,
 /// and again on Retry. The error is what the window shows instead of that
 /// host.
-fn start_local_host() -> Result<LocalStart, String> {
+fn start_local_host(
+    development: Option<tcode_runtime::app::development::DevelopmentCapabilities>,
+) -> Result<LocalStart, String> {
     let store = SessionStore::open_host(None).map_err(|error| {
         tcode_ui::tr!("hosts.local.default_settings", reason = error.to_string()).into_owned()
     })?;
     if store.needs_migration().map_err(|error| error.to_string())? {
         return Ok(LocalStart::Migrate(store));
     }
-    LocalKernel::start(store)
+    LocalKernel::start(store, development)
         .map(LocalStart::Started)
         .map_err(|error| error.to_string())
 }
@@ -332,8 +358,11 @@ struct LocalKernel {
 }
 
 impl LocalKernel {
-    fn start(store: SessionStore) -> std::io::Result<Self> {
-        let (host, mux) = start_local(store)?;
+    fn start(
+        store: SessionStore,
+        development: Option<tcode_runtime::app::development::DevelopmentCapabilities>,
+    ) -> std::io::Result<Self> {
+        let (host, mux) = start_local(store, development)?;
         let connection = mux.attach(tcode_protocol::Principal::Full);
         let control_link = HostLink::new(connection.to_host, connection.from_host);
         let pump_link = control_link.clone();
@@ -439,7 +468,14 @@ impl LocalKernel {
     }
 }
 
+#[cfg(target_os = "linux")]
+mod development;
+
 fn main() {
+    #[cfg(target_os = "linux")]
+    if development::run_helper() {
+        return;
+    }
     env_logger::init();
 
     if std::env::args().any(|arg| arg == "--cu-smoke") {
@@ -545,7 +581,12 @@ fn main() {
     // before it starts, behind a window of their own; with nothing to
     // migrate, it starts before the event loop. A kernel that does not start
     // leaves the window without a local host, and says why there.
-    let started = start_local_host();
+    let (restart_quit, restart_requests) = smol::channel::bounded(1);
+    let development = {
+        let data_dir = data_dir.clone();
+        move || development_capabilities(&data_dir, &restart_quit)
+    };
+    let started = start_local_host(development());
 
     gpui_platform::application()
         .with_assets(assets::Assets)
@@ -599,7 +640,14 @@ fn main() {
                     }
                 }
             });
+            cx.spawn(async move |cx| {
+                if restart_requests.recv().await.is_ok() {
+                    cx.update(|cx| cx.quit());
+                }
+            })
+            .detach();
 
+            let migrated_development = development.clone();
             let launch = move |cx: &mut App, started: Result<LocalKernel, String>| {
                 let initial_target = initial_target();
                 let (kernel, failure) = match started {
@@ -616,7 +664,7 @@ fn main() {
                     if let Some(kernel) = owned.borrow().as_ref() {
                         return Ok(kernel.transport());
                     }
-                    match start_local_host()? {
+                    match start_local_host(development())? {
                         LocalStart::Started(kernel) => {
                             kernel.own(&data_dir, cx);
                             let transport = kernel.transport();
@@ -728,7 +776,10 @@ fn main() {
                     let options = window_options(cx, Some(INACTIVE_FRAME_INTERVAL));
                     let kernel_store = store.clone();
                     migration::run(cx, store, options, appearance, move |cx| {
-                        launch(cx, Ok(LocalKernel::start(kernel_store)?));
+                        launch(
+                            cx,
+                            Ok(LocalKernel::start(kernel_store, migrated_development())?),
+                        );
                         Ok(())
                     });
                 }

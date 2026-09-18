@@ -831,6 +831,7 @@ impl PluginManagementSettings {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content", rename_all = "snake_case")]
 pub enum SettingsPatch {
+    DevelopmentCheckout(Option<PathBuf>),
     /// Adds the host with `kind` when the settings do not list it yet; the kind of a listed host
     /// never changes.
     SourceControlHost {
@@ -1035,6 +1036,8 @@ impl BrowserSettings {
 // agent crate derives only `PartialEq` for.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub development_checkout: Option<PathBuf>,
     #[serde(default)]
     pub source_control: SourceControlSettings,
     /// Legacy input: moved into `source_control` on load; never written back.
@@ -1219,6 +1222,7 @@ fn deserialize_days_override<'de, D: serde::Deserializer<'de>>(
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            development_checkout: None,
             source_control: SourceControlSettings::default(),
             github: None,
             language: None,
@@ -1269,6 +1273,7 @@ impl Settings {
     /// value outside its field's range is refused and changes nothing.
     pub fn apply(&mut self, patch: SettingsPatch) -> Result<(), &'static str> {
         match patch {
+            SettingsPatch::DevelopmentCheckout(value) => self.development_checkout = value,
             SettingsPatch::SourceControlHost {
                 host,
                 kind,

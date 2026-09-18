@@ -20,6 +20,7 @@ use crate::host::{HostCx, HostFn};
 #[derive(Default)]
 pub struct HostServices {
     pub user_directories: tcode_services::user_files::UserDirectories,
+    pub development: Option<crate::app::development::DevelopmentCapabilities>,
     /// Run provider catalog, version, and status probes during host startup.
     pub background_startup_probes: bool,
     /// Generate AI-authored titles for new threads and explicit regeneration.
@@ -165,6 +166,9 @@ pub fn spawn_host(store: SessionStore, mut services: HostServices) -> std::io::R
             }
             if let Some(server) = services.computer_use.take() {
                 state.attach_computer_use_mcp(server.url, server.tokens);
+            }
+            if let Some(capabilities) = services.development.take() {
+                state.attach_development(capabilities);
             }
             let mut cx = HostCx::new(mailbox_tx, event_tx);
             state.pump_pull_request_requests(services.pull_requests.take(), &mut cx);
@@ -413,6 +417,33 @@ fn dispatch_command(app: &mut AppState, cx: &mut HostCx, command: Command) -> Co
     }
     let mut response = CommandResponse::Unit;
     match command {
+        Command::StartDevelopmentBuild {
+            host_instance_id,
+            target,
+        } => {
+            return CommandOutcome::Immediate(
+                app.start_development_build(&host_instance_id, target, cx)
+                    .map(|()| CommandResponse::Unit),
+            );
+        }
+        Command::RestartDevelopmentDesktop {
+            host_instance_id,
+            build_id,
+            allow_interrupt,
+        } => {
+            return CommandOutcome::Immediate(
+                app.restart_development_desktop(&host_instance_id, &build_id, allow_interrupt, cx)
+                    .map(|()| CommandResponse::Unit),
+            );
+        }
+        Command::PatchSettings {
+            patch: tcode_protocol::SettingsPatch::DevelopmentCheckout(path),
+        } => {
+            return CommandOutcome::Immediate(
+                app.set_development_checkout(path, cx)
+                    .map(|()| CommandResponse::Unit),
+            );
+        }
         Command::TerminalInput { terminal_id, bytes } => {
             if let Some(terminal) = app.terminal_handle(terminal_id) {
                 terminal.write_input(bytes);

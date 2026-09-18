@@ -120,6 +120,7 @@ impl AppState {
                 | Topic::Providers
                 | Topic::RuntimeEvents
                 | Topic::Preview
+                | Topic::Development
                 | Topic::ExternalImport { .. } => Err(refusal("subscription")),
             },
             ClientPayload::Command(command) => match command {
@@ -324,7 +325,9 @@ impl AppState {
                 | Command::UpdateProviderPlugin { .. }
                 | Command::AddProviderMarketplace { .. }
                 | Command::RemoveProviderMarketplace { .. }
-                | Command::ResolvePluginChallenge { .. } => Err(refusal("command")),
+                | Command::ResolvePluginChallenge { .. }
+                | Command::StartDevelopmentBuild { .. }
+                | Command::RestartDevelopmentDesktop { .. } => Err(refusal("command")),
             },
             ClientPayload::Query(query) => match query {
                 Query::Ping | Query::SearchSessionContent { .. } | Query::ArchivedSessions => {

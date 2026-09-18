@@ -46,6 +46,18 @@ public final class GpuiActivity extends NativeActivity {
     private static final int HOST_CANCELLED = 1;
     private static final int HOST_ERROR = 2;
 
+    private ApkInstaller apkInstaller;
+    public void gpuiOpenApkInstaller(long id, String path) {
+        if (apkInstaller == null) apkInstaller = new ApkInstaller(this);
+        apkInstaller.open(id, path);
+    }
+    static void apkResult(long id, int status, String value) {
+        // A successful self-update can deliver its result in a fresh process
+        // before a native client exists to receive it.
+        try { nativeApkResult(id, status, value); }
+        catch (UnsatisfiedLinkError noClient) { Log.i("Tcode", "Installer result: " + value); }
+    }
+    private static native void nativeApkResult(long id, int status, String value);
     private VideoPreview videoPreview;
     public void gpuiPlayVideo(long id, String url, String title, String error, String close, String controls) throws org.json.JSONException {
         if (videoPreview != null) videoPreview.close();
@@ -533,6 +545,7 @@ public final class GpuiActivity extends NativeActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == ApkInstaller.PERMISSION_REQUEST && apkInstaller != null) { apkInstaller.permissionResult(); return; }
         if (requestCode == REQUEST_IMAGES) {
             long request = imageRequest;
             imageRequest = 0;

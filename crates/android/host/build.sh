@@ -22,9 +22,21 @@ elif [[ $# -ne 0 ]]; then
     exit 2
 fi
 
-export ANDROID_HOME="${ANDROID_HOME:-/opt/homebrew/share/android-commandlinetools}"
-export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk/27.1.12297006}"
-export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@21}"
+if [[ $(uname -s) == Darwin ]]; then
+    export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/opt/homebrew/share/android-commandlinetools}}"
+    export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@21}"
+else
+    export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+fi
+export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-$ANDROID_HOME/ndk/27.1.12297006}}"
+[[ -d "$ANDROID_HOME" ]] || { echo "Android SDK not found. Set ANDROID_HOME to your installed SDK." >&2; exit 1; }
+[[ -d "$ANDROID_NDK_HOME" ]] || { echo "Android NDK not found. Set ANDROID_NDK_HOME to your installed NDK." >&2; exit 1; }
+if [[ -n ${JAVA_HOME:-} ]]; then
+    [[ -x "$JAVA_HOME/bin/java" ]] || { echo "JAVA_HOME must contain bin/java." >&2; exit 1; }
+else
+    command -v java >/dev/null || { echo "Java is required. Set JAVA_HOME or put java on PATH." >&2; exit 1; }
+fi
+cargo ndk --version >/dev/null || { echo "cargo-ndk is required. Install it before building an APK." >&2; exit 1; }
 export CARGO_NDK_PLATFORM="${CARGO_NDK_PLATFORM:-26}"
 
 cd "$CRATE_DIR"
@@ -50,7 +62,7 @@ fi
 # Keep crash symbols, but force fresh APK entries and native packaging intermediates.
 rm -rf "$SCRIPT_DIR/app/build/outputs" "$SCRIPT_DIR/app/build/intermediates"
 cd "$SCRIPT_DIR"
-./gradlew "$GRADLE_TASK"
+./gradlew --no-daemon "$GRADLE_TASK"
 
 VARIANT=debug
 if $RELEASE; then VARIANT=release; fi

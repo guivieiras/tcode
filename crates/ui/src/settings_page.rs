@@ -68,6 +68,7 @@ enum Section {
     ProjectThreadRules,
     Providers,
     SourceControl,
+    Development,
     Usage,
     Browser,
     ComputerUse,
@@ -84,13 +85,14 @@ enum Section {
 /// headless listener in a browser. Choosing a machine, and the invitation other
 /// devices pair with, live in `crate::remote`.
 #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
-const SECTIONS: [Section; 11] = [
+const SECTIONS: [Section; 12] = [
     Section::General,
     Section::Remote,
     Section::ThreadBehavior,
     Section::Providers,
     Section::SourceControl,
     Section::Usage,
+    Section::Development,
     Section::Orchestrate,
     Section::Plugins,
     Section::ComputerUse,
@@ -98,12 +100,13 @@ const SECTIONS: [Section; 11] = [
     Section::Archived,
 ];
 #[cfg(not(any(feature = "remote-hosting", target_family = "wasm")))]
-const SECTIONS: [Section; 10] = [
+const SECTIONS: [Section; 11] = [
     Section::General,
     Section::ThreadBehavior,
     Section::Providers,
     Section::SourceControl,
     Section::Usage,
+    Section::Development,
     Section::Orchestrate,
     Section::Plugins,
     Section::ComputerUse,
@@ -173,6 +176,7 @@ impl Section {
             | Self::ProjectThreadRules
             | Self::SourceControl
             | Self::Providers
+            | Self::Development
             | Self::Usage
             | Self::Browser
             | Self::ComputerUse
@@ -201,6 +205,7 @@ impl Section {
             | Self::General
             | Self::SourceControl
             | Self::Providers
+            | Self::Development
             | Self::Usage
             | Self::ComputerUse
             | Self::Orchestrate
@@ -215,6 +220,7 @@ impl Section {
             Self::ThreadBehavior => "settings-nav-thread-behavior",
             Self::ProjectThreadRules => "settings-nav-project-rules",
             Self::SourceControl => "settings-nav-source-control",
+            Self::Development => "settings-nav-development",
             Self::Providers => "settings-nav-providers",
             Self::Usage => "settings-nav-usage",
             Self::Browser => "settings-nav-browser",
@@ -232,6 +238,7 @@ impl Section {
             Self::General => IconName::Settings,
             Self::ThreadBehavior | Self::ProjectThreadRules => IconName::Inbox,
             Self::SourceControl => IconName::Github,
+            Self::Development => IconName::Settings,
             Self::Providers => IconName::Bot,
             Self::Usage => IconName::ChartPie,
             Self::Browser => IconName::Globe,
@@ -251,6 +258,7 @@ impl Section {
                 crate::tr!("settings.thread_behavior")
             }
             Self::SourceControl => crate::tr!("settings.source_control"),
+            Self::Development => crate::tr!("development.title"),
             Self::Providers => crate::tr!("settings.providers"),
             Self::Usage => crate::tr!("settings.usage"),
             Self::Browser => crate::tr!("settings.browser"),
@@ -340,6 +348,7 @@ pub struct SettingsPage {
     /// Each enabled profile's native plugin catalog.
     plugins_panel: Entity<PluginsSettingsPanel>,
     source_control_panel: Entity<crate::source_control_settings::SourceControlPanel>,
+    development_panel: Entity<crate::development_page::DevelopmentPage>,
     /// Hosting this machine. Absent where the client cannot listen at all.
     #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
     #[cfg(not(target_family = "wasm"))]
@@ -406,6 +415,7 @@ impl SettingsPage {
         window_state
             .update(cx, |state, _| state.pending_settings_section.take())
             .map(|section| match section.as_str() {
+                "development" => Section::Development,
                 "providers" => Section::Providers,
                 "usage" => Section::Usage,
                 "source_control" => Section::SourceControl,
@@ -586,11 +596,13 @@ impl SettingsPage {
             )
         });
         let mut page = Self {
-            store,
+            store: store.clone(),
             window_state,
             provider_cards: Vec::new(),
             provider_card_subscriptions: Vec::new(),
             acp_panel,
+            development_panel: cx
+                .new(|cx| crate::development_page::DevelopmentPage::new(store.clone(), window, cx)),
             orchestrate_panel,
             plugins_panel,
             source_control_panel,
@@ -1324,6 +1336,7 @@ impl SettingsPage {
             Section::ThreadBehavior => self.render_thread_behavior(cx),
             Section::ProjectThreadRules => v_flex().children(self.project_rules_editor.clone()),
             Section::SourceControl => self.render_source_control(cx),
+            Section::Development => v_flex().child(self.development_panel.clone()),
             Section::Providers => self.render_providers(window, cx),
             Section::Usage => self.render_usage(cx),
             Section::Browser => self.render_browser(cx),

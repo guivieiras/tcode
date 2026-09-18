@@ -248,6 +248,7 @@ mod events;
 mod git;
 mod history;
 use history::{Hydration, Joined, SessionLog};
+pub mod development;
 mod lifecycle;
 mod options;
 mod orchestrate;
@@ -329,6 +330,7 @@ impl Default for TcodeUpdateState {
 }
 
 pub struct AppState {
+    development: development::Development,
     store: SessionStore,
     user_directories: user_files::UserDirectories,
     settings_store: SettingsStore,
@@ -526,6 +528,7 @@ impl AppState {
         let (store_write_failures, store_write_failure_receiver) = smol::channel::unbounded();
         let session_search = Arc::new(std::sync::Mutex::new(SessionSearch::new(store.clone())));
         Ok(Self {
+            development: Default::default(),
             store,
             user_directories,
             settings_store,

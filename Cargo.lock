@@ -10988,6 +10988,7 @@ dependencies = [
  "futures-lite",
  "image",
  "imara-diff",
+ "libc",
  "log",
  "percent-encoding",
  "serde",

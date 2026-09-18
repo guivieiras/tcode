@@ -440,6 +440,7 @@ fn space_refuses_foreign_sessions_paths_terminals_and_host_subscriptions() {
         Topic::Providers,
         Topic::RuntimeEvents,
         Topic::Preview,
+        Topic::Development,
         Topic::ExternalImport {
             project_id: host.a.id.clone(),
         },
@@ -473,6 +474,13 @@ fn space_refuses_foreign_sessions_paths_terminals_and_host_subscriptions() {
             session_id: "b".into(),
             text: "forged".into(),
             attachment_paths: Vec::new(),
+        }),
+    ));
+    denied(host.request(
+        member.clone(),
+        ClientPayload::Command(Command::StartDevelopmentBuild {
+            host_instance_id: "any".into(),
+            target: tcode_protocol::DevelopmentTarget::Desktop,
         }),
     ));
     denied(host.request(
