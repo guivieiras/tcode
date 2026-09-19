@@ -63,14 +63,15 @@ final class ApkInstaller {
                     params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
                 }
                 sessionId = installer.createSession(params);
-                try (PackageInstaller.Session session = installer.openSession(sessionId);
-                     FileInputStream input = new FileInputStream(source);
-                     OutputStream output = session.openWrite("base.apk", 0, source.length())) {
-                    byte[] buffer = new byte[65536];
-                    int count;
-                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
-                    session.fsync(output);
-                    output.close();
+                try (PackageInstaller.Session session = installer.openSession(sessionId)) {
+                    // Close the APK stream exactly once, before committing the session.
+                    try (FileInputStream input = new FileInputStream(source);
+                         OutputStream output = session.openWrite("base.apk", 0, source.length())) {
+                        byte[] buffer = new byte[65536];
+                        int count;
+                        while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                        session.fsync(output);
+                    }
                     Intent callback = new Intent(activity, InstallResultReceiver.class)
                             .setAction(activity.getPackageName() + ".INSTALL_RESULT")
                             .putExtra("request_id", id);
