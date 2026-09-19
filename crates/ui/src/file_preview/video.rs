@@ -30,6 +30,12 @@ pub(super) struct VideoView {
 
 impl VideoView {
     pub fn new(stream: FileStream, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        cx.on_release(|this, cx| {
+            if let Some(frame) = this.frame.take() {
+                cx.drop_image(frame, None);
+            }
+        })
+        .detach();
         let (player, updates) = Player::new(stream);
         let seek = cx.new(|_| SliderState::new().min(0.).max(1000.).step(1.));
         let subscription = cx.subscribe_in(&seek, window, |this, _, event, _, cx| {
@@ -79,7 +85,11 @@ impl VideoView {
         if let Some(frame) = state.frame.take() {
             let pixels =
                 image::RgbaImage::from_raw(frame.width, frame.height, frame.bytes).unwrap();
-            self.frame = Some(Arc::new(RenderImage::new(vec![image::Frame::new(pixels)])));
+            let frame = Arc::new(RenderImage::new(vec![image::Frame::new(pixels)]));
+            if let Some(previous) = self.frame.replace(frame) {
+                // RenderImage's CPU lifetime does not evict its cached GPU texture.
+                cx.drop_image(previous, Some(window));
+            }
         }
         if let Some(error) = &state.error {
             self.error = Some(match error {
@@ -262,5 +272,89 @@ fn timestamp(seconds: f64) -> String {
         )
     } else {
         format!("{}:{:02}", seconds / 60, seconds % 60)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::TestAppContext;
+    use std::{
+        path::PathBuf,
+        time::{Duration, Instant},
+    };
+
+    #[gpui::test]
+    #[ignore = "Requires libmpv and TCODE_VIDEO_TEST_FILE pointing to a video at least 3 seconds long"]
+    fn playback_releases_replaced_and_final_gpu_images(cx: &mut TestAppContext) {
+        cx.update(crate::theme::init);
+        let path = PathBuf::from(std::env::var("TCODE_VIDEO_TEST_FILE").expect("video fixture"));
+        let size = std::fs::metadata(&path).unwrap().len();
+        let root = std::env::temp_dir().join(format!("tcode-video-atlas-{}", std::process::id()));
+        let host = tcode_runtime::pipe::spawn_host(
+            tcode_services::store::SessionStore::open_at(root.clone()).unwrap(),
+            tcode_runtime::pipe::HostServices::default(),
+        )
+        .unwrap();
+        let stream = FileStream::new(host.link(), path, size, "video/mp4".into()).unwrap();
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = VideoView::new(stream, window, cx);
+            // Drive refresh on the test thread: GPUI's scheduler rejects wakeups
+            // from the real decoder thread.
+            view._updates = Task::ready(());
+            view
+        });
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut displayed: Vec<Arc<RenderImage>> = Vec::new();
+        while displayed.len() < 12 {
+            cx.run_until_parked();
+            cx.update(|window, cx| {
+                view.update(cx, |view, cx| view.refresh(window, cx));
+                let _ = window.draw(cx);
+                let current = view.read(cx).frame.clone();
+                assert!(view.read(cx).error.is_none(), "{:?}", view.read(cx).error);
+                if let Some(frame) = current
+                    && displayed.last().is_none_or(|last| last.id != frame.id)
+                {
+                    assert!(
+                        window.has_image_atlas_entry(&frame),
+                        "frame must be uploaded"
+                    );
+                    for previous in &displayed {
+                        assert!(
+                            !window.has_image_atlas_entry(previous),
+                            "replaced frame leaked"
+                        );
+                    }
+                    displayed.push(frame);
+                }
+            });
+            assert!(
+                Instant::now() < deadline,
+                "video did not produce enough frames"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let final_frame = view.read_with(cx, |view, _| view.frame.clone().unwrap());
+        let weak = view.downgrade();
+        drop(view);
+        cx.update(|window, cx| {
+            window.replace_root(cx, |_, _| gpui::Empty);
+            let _ = window.draw(cx);
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            let _ = window.draw(cx);
+        });
+        cx.run_until_parked();
+        assert!(weak.upgrade().is_none(), "preview must be released");
+        cx.update(|window, _| {
+            assert!(
+                !window.has_image_atlas_entry(&final_frame),
+                "final frame leaked"
+            );
+        });
+        host.shutdown_blocking().unwrap();
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
