@@ -111,6 +111,7 @@ impl FilePreviewView {
                 None => Content::Error(crate::tr!("file_preview.unsupported").into_owned()),
             },
             FilePreviewContent::Video { size, mime } => {
+                let audio_only = mime.starts_with("audio/");
                 #[cfg(all(feature = "native-preview", target_os = "android"))]
                 {
                     match _store
@@ -127,6 +128,8 @@ impl FilePreviewView {
                             let error = crate::tr!("file_preview.video_error").into_owned();
                             let close = crate::tr!("file_preview.close").into_owned();
                             let controls = serde_json::json!({
+                                "size": size,
+                                "audio": if audio_only { crate::tr!("file_preview.audio").into_owned() } else { String::new() },
                                 "play": crate::tr!("file_preview.play"),
                                 "pause": crate::tr!("file_preview.pause"),
                                 "restart": crate::tr!("file_preview.restart"),
@@ -164,9 +167,9 @@ impl FilePreviewView {
                 ))]
                 {
                     match _store.read(cx).video_stream(preview.path, size, mime) {
-                        Ok(stream) => {
-                            Content::Video(cx.new(|cx| video::VideoView::new(stream, window, cx)))
-                        }
+                        Ok(stream) => Content::Video(
+                            cx.new(|cx| video::VideoView::new(stream, audio_only, window, cx)),
+                        ),
                         Err(error) => Content::Error(error.to_string()),
                     }
                 }
@@ -180,7 +183,7 @@ impl FilePreviewView {
                     )
                 )))]
                 {
-                    let _ = (size, mime);
+                    let _ = (size, mime, audio_only);
                     Content::Error(crate::tr!("file_preview.video_unavailable").into_owned())
                 }
             }

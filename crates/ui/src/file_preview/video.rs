@@ -16,6 +16,7 @@ use tcode_traverse::file_stream::FileStream;
 pub(super) struct VideoView {
     player: Player,
     frame: Option<Arc<RenderImage>>,
+    audio_only: bool,
     position: f64,
     duration: f64,
     paused: bool,
@@ -29,7 +30,12 @@ pub(super) struct VideoView {
 }
 
 impl VideoView {
-    pub fn new(stream: FileStream, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        stream: FileStream,
+        audio_only: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         cx.on_release(|this, cx| {
             if let Some(frame) = this.frame.take() {
                 cx.drop_image(frame, None);
@@ -63,6 +69,7 @@ impl VideoView {
         Self {
             player,
             frame: None,
+            audio_only,
             position: 0.,
             duration: 0.,
             paused: false,
@@ -165,7 +172,7 @@ impl VideoView {
 
 impl Render for VideoView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let ready = self.frame.is_some() && self.error.is_none();
+        let ready = (self.frame.is_some() || self.duration > 0.) && self.error.is_none();
         let picture = if let Some(error) = &self.error {
             div()
                 .p_4()
@@ -177,6 +184,14 @@ impl Render for VideoView {
                 .absolute()
                 .size_full()
                 .object_fit(gpui::ObjectFit::Contain)
+                .into_any_element()
+        } else if self.audio_only {
+            div()
+                .flex()
+                .size_full()
+                .items_center()
+                .justify_center()
+                .child(crate::tr!("file_preview.audio").into_owned())
                 .into_any_element()
         } else {
             div()
@@ -298,7 +313,7 @@ mod tests {
         .unwrap();
         let stream = FileStream::new(host.link(), path, size, "video/mp4".into()).unwrap();
         let (view, cx) = cx.add_window_view(|window, cx| {
-            let mut view = VideoView::new(stream, window, cx);
+            let mut view = VideoView::new(stream, false, window, cx);
             // Drive refresh on the test thread: GPUI's scheduler rejects wakeups
             // from the real decoder thread.
             view._updates = Task::ready(());

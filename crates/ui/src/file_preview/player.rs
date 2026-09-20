@@ -386,10 +386,14 @@ mod tests {
     use std::{path::PathBuf, time::Instant};
 
     #[test]
-    #[ignore = "Requires libmpv and TCODE_VIDEO_TEST_FILE pointing to a video at least 3 seconds long"]
+    #[ignore = "Requires libmpv and TCODE_VIDEO_TEST_FILE pointing to audio or video at least 3 seconds long"]
     fn native_playback_controls_and_close_release_the_stream() {
         let path = PathBuf::from(std::env::var("TCODE_VIDEO_TEST_FILE").expect("video fixture"));
-        let size = std::fs::metadata(&path).unwrap().len();
+        let preview = tcode_services::file_preview::open(path.to_str().unwrap(), None).unwrap();
+        let tcode_protocol::FilePreviewContent::Video { size, mime } = preview.content else {
+            panic!("media must use the streaming preview");
+        };
+        let audio_only = mime.starts_with("audio/");
         let root =
             std::env::temp_dir().join(format!("tcode-video-controls-{}", std::process::id()));
         let host = tcode_runtime::pipe::spawn_host(
@@ -397,7 +401,7 @@ mod tests {
             tcode_runtime::pipe::HostServices::default(),
         )
         .unwrap();
-        let stream = FileStream::new(host.link(), path, size, "video/mp4".into()).unwrap();
+        let stream = FileStream::new(host.link(), preview.path, size, mime).unwrap();
         let url = url::Url::parse(stream.url()).unwrap();
         let address = format!("127.0.0.1:{}", url.port().unwrap());
         let (player, _updates) = Player::new(stream);
@@ -418,7 +422,9 @@ mod tests {
                 std::thread::sleep(Duration::from_millis(20));
             }
         };
-        until(&|state| state.frame.is_some() && state.duration > 3. && state.position > 0.1);
+        until(&|state| {
+            (audio_only || state.frame.is_some()) && state.duration > 3. && state.position > 0.1
+        });
         player.send(Command::Pause(true));
         until(&|state| state.paused);
         let position = player.snapshot.lock().unwrap().position;
