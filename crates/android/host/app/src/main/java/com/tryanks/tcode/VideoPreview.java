@@ -48,7 +48,14 @@ final class VideoPreview {
         Context context = new ContextThemeWrapper(activity, dark
                 ? android.R.style.Theme_Material_NoActionBar
                 : android.R.style.Theme_Material_Light_NoActionBar);
-        dialog = new Dialog(context);
+        dialog = new Dialog(context) {
+            @Override protected void onStop() {
+                // VideoView releases its player when the surface detaches. Stop
+                // polling synchronously; OnDismiss runs later on the UI queue.
+                releasePlayback();
+                super.onStop();
+            }
+        };
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout content = new LinearLayout(context);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -140,14 +147,7 @@ final class VideoPreview {
         video.setOnCompletionListener(ignored -> updateControls());
         video.setOnErrorListener(onError);
         dialog.setContentView(content);
-        dialog.setOnDismissListener(ignored -> {
-            handler.removeCallbacks(tick);
-            player = null;
-            if (audioSource != null) audioSource.close();
-            if (audioPlayer != null) audioPlayer.release();
-            video.stopPlayback();
-            nativeClosed(id);
-        });
+        dialog.setOnDismissListener(ignored -> nativeClosed(id));
         dialog.show();
         dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         if (audioOnly) {
@@ -203,6 +203,17 @@ final class VideoPreview {
 
     private void startPlayback() {
         if (audioPlayer != null) player.start(); else video.start();
+    }
+
+    private void releasePlayback() {
+        handler.removeCallbacks(tick);
+        player = null;
+        if (audioSource != null) audioSource.close();
+        if (audioPlayer != null) {
+            audioPlayer.release();
+            audioPlayer = null;
+        }
+        video.stopPlayback();
     }
 
     private void pausePlayback() {
