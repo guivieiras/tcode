@@ -28,6 +28,8 @@ final class VideoPreview {
     private final JSONObject labels;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private MediaPlayer player;
+    private MediaPlayer audioPlayer;
+    private HttpMediaSource audioSource;
     private boolean startWhenReady = true;
     private boolean muted;
     private boolean dragging;
@@ -65,7 +67,12 @@ final class VideoPreview {
         content.addView(header);
         FrameLayout body = new FrameLayout(context);
         video = new VideoView(context);
-        body.addView(video, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+        boolean audioOnly = !labels.optString("audio").isEmpty();
+        if (!audioOnly) body.addView(video, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+        TextView audio = new TextView(context);
+        audio.setText(labels.optString("audio"));
+        audio.setGravity(Gravity.CENTER);
+        body.addView(audio, new FrameLayout.LayoutParams(-1, -1));
         ProgressBar loading = new ProgressBar(context);
         body.addView(loading, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
         TextView failure = new TextView(context);
@@ -92,14 +99,14 @@ final class VideoPreview {
         content.addView(buttons);
         enableControls(false);
         play.setOnClickListener(v -> {
-            if (video.isPlaying()) video.pause();
+            if (player.isPlaying()) pausePlayback();
             else {
-                if (video.getCurrentPosition() >= video.getDuration()) video.seekTo(0);
-                video.start();
+                if (player.getCurrentPosition() >= player.getDuration()) seekPlayback(0);
+                startPlayback();
             }
             updateControls();
         });
-        restart.setOnClickListener(v -> { video.seekTo(0); video.start(); updateControls(); });
+        restart.setOnClickListener(v -> { seekPlayback(0); startPlayback(); updateControls(); });
         mute.setOnClickListener(v -> {
             muted = !muted;
             player.setVolume(muted ? 0 : 1, muted ? 0 : 1);
@@ -110,35 +117,56 @@ final class VideoPreview {
             @Override public void onStopTrackingTouch(SeekBar bar) { dragging = false; updateControls(); }
             @Override public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
                 if (fromUser && player != null) {
-                    video.seekTo((int) ((long) video.getDuration() * progress / 1000));
+                    seekPlayback((int) ((long) player.getDuration() * progress / 1000));
                 }
             }
         });
-        video.setOnPreparedListener(prepared -> {
+        MediaPlayer.OnPreparedListener onPrepared = prepared -> {
             player = prepared;
             loading.setVisibility(View.GONE);
             enableControls(true);
-            if (startWhenReady) video.start();
+            if (startWhenReady) startPlayback();
             updateControls();
-        });
-        video.setOnCompletionListener(ignored -> updateControls());
-        video.setOnErrorListener((ignored, what, extra) -> {
+        };
+        MediaPlayer.OnErrorListener onError = (ignored, what, extra) -> {
             player = null;
             loading.setVisibility(View.GONE);
+            audio.setVisibility(View.GONE);
             failure.setVisibility(View.VISIBLE);
             enableControls(false);
             return true;
-        });
+        };
+        video.setOnPreparedListener(onPrepared);
+        video.setOnCompletionListener(ignored -> updateControls());
+        video.setOnErrorListener(onError);
         dialog.setContentView(content);
         dialog.setOnDismissListener(ignored -> {
             handler.removeCallbacks(tick);
             player = null;
+            if (audioSource != null) audioSource.close();
+            if (audioPlayer != null) audioPlayer.release();
             video.stopPlayback();
             nativeClosed(id);
         });
         dialog.show();
         dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        video.setVideoURI(Uri.parse(url));
+        if (audioOnly) {
+            // HTTP streaming can estimate OGG duration from its nominal bitrate.
+            // Random-access input lets the extractor read its actual end position.
+            audioPlayer = new MediaPlayer();
+            audioPlayer.setOnPreparedListener(onPrepared);
+            audioPlayer.setOnCompletionListener(ignored -> updateControls());
+            audioPlayer.setOnErrorListener(onError);
+            try {
+                audioSource = new HttpMediaSource(url, labels.optLong("size"));
+                audioPlayer.setDataSource(audioSource);
+                audioPlayer.prepareAsync();
+            } catch (java.io.IOException failureToOpen) {
+                onError.onError(audioPlayer, 0, 0);
+            }
+        } else {
+            video.setVideoURI(Uri.parse(url));
+        }
         handler.post(tick);
     }
 
@@ -159,11 +187,11 @@ final class VideoPreview {
 
     private void updateControls() {
         if (player == null) return;
-        int duration = Math.max(0, video.getDuration());
-        int position = Math.max(0, video.getCurrentPosition());
+        int duration = Math.max(0, player.getDuration());
+        int position = Math.max(0, player.getCurrentPosition());
         if (!dragging && duration > 0) seek.setProgress((int) ((long) position * 1000 / duration));
         time.setText(timestamp(position) + " / " + timestamp(duration));
-        play.setText(labels.optString(video.isPlaying() ? "pause" : "play"));
+        play.setText(labels.optString(player.isPlaying() ? "pause" : "play"));
         mute.setText(labels.optString(muted ? "unmute" : "mute"));
     }
 
@@ -173,6 +201,18 @@ final class VideoPreview {
         return String.format(java.util.Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60);
     }
 
-    void pause() { startWhenReady = false; video.pause(); updateControls(); }
+    private void startPlayback() {
+        if (audioPlayer != null) player.start(); else video.start();
+    }
+
+    private void pausePlayback() {
+        if (audioPlayer != null) player.pause(); else video.pause();
+    }
+
+    private void seekPlayback(int milliseconds) {
+        if (audioPlayer != null) player.seekTo(milliseconds); else video.seekTo(milliseconds);
+    }
+
+    void pause() { startWhenReady = false; if (player != null) pausePlayback(); updateControls(); }
     void close() { dialog.dismiss(); }
 }

@@ -48,7 +48,7 @@ pub fn open(target: &str, base_dir: Option<&Path>) -> io::Result<FilePreview> {
         .and_then(|s| s.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
-    let content = if let Some(mime) = video_mime(&ext) {
+    let content = if let Some(mime) = media_mime(&ext) {
         FilePreviewContent::Video {
             size: metadata.len(),
             mime: mime.into(),
@@ -110,8 +110,11 @@ pub fn read_range(
     Ok(bytes)
 }
 
-fn video_mime(extension: &str) -> Option<&'static str> {
+fn media_mime(extension: &str) -> Option<&'static str> {
     match extension {
+        "wav" => Some("audio/wav"),
+        "ogg" => Some("audio/ogg"),
+        "mp3" => Some("audio/mpeg"),
         "mp4" | "m4v" => Some("video/mp4"),
         "webm" => Some("video/webm"),
         "mov" => Some("video/quicktime"),
@@ -146,6 +149,33 @@ fn split_location(target: &str) -> (&str, Option<u32>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn audio_files_stream_instead_of_entering_the_text_preview() {
+        let root =
+            std::env::temp_dir().join(format!("tcode-audio-preview-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        for (name, mime) in [
+            ("sample.WAV", "audio/wav"),
+            ("sample.ogg", "audio/ogg"),
+            ("sample.mp3", "audio/mpeg"),
+        ] {
+            let path = root.join(name);
+            let size = MAX_FILE_PREVIEW_BYTES as u64 + 1;
+            File::create(&path).unwrap().set_len(size).unwrap();
+            assert_eq!(
+                open(name, Some(&root)).unwrap(),
+                FilePreview {
+                    path: path.canonicalize().unwrap(),
+                    content: FilePreviewContent::Video {
+                        size,
+                        mime: mime.into()
+                    },
+                }
+            );
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn resolves_host_links_and_refuses_unpreviewable_files() {

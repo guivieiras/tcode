@@ -388,6 +388,7 @@ pub enum FilePreviewContent {
         #[serde(with = "crate::wire::base64_bytes")]
         bytes: Vec<u8>,
     },
+    /// Streamed audio or video; the MIME type selects the media format.
     Video {
         size: u64,
         mime: String,
