@@ -1528,6 +1528,24 @@ impl Mapper {
         answers: &serde_json::Map<String, Value>,
     ) -> Option<Value> {
         let questions = self.pending_user_input.remove(request_id)?;
+        // Claude requires strings even for multi-select answers; the shared
+        // user-input contract represents those selections as string arrays.
+        let answers: serde_json::Map<String, Value> = answers
+            .iter()
+            .map(|(question, answer)| {
+                let answer = match answer {
+                    Value::Array(labels) => Value::String(
+                        labels
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    ),
+                    answer => answer.clone(),
+                };
+                (question.clone(), answer)
+            })
+            .collect();
         Some(control_response(
             request_id,
             json!({
@@ -5025,6 +5043,29 @@ mod tests {
         );
         // Consumed once.
         assert!(m.build_user_input_response("ctrl-9", &answers).is_none());
+    }
+
+    #[test]
+    fn ask_user_question_multi_select_answers_are_comma_separated() {
+        for (answer, expected) in [
+            (json!(["Red"]), "Red"),
+            (json!(["Red", "Blue"]), "Red, Blue"),
+        ] {
+            let mut m = Mapper::new();
+            m.start_turn();
+            feed(
+                &mut m,
+                r#"{"type":"control_request","request_id":"ctrl-multi","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"Which colors?","header":"Colors","options":[{"label":"Red","description":"warm"},{"label":"Blue","description":"cool"}],"multiSelect":true}]}}}"#,
+            );
+            let answers = serde_json::Map::from_iter([("Which colors?".into(), answer)]);
+            let response = m
+                .build_user_input_response("ctrl-multi", &answers)
+                .expect("response for pending multi-select question");
+            assert_eq!(
+                response["response"]["response"]["updatedInput"]["answers"],
+                json!({ "Which colors?": expected })
+            );
+        }
     }
 
     #[test]
