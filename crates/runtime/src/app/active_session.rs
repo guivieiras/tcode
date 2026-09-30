@@ -190,6 +190,8 @@ pub struct ActiveSession {
     pub(super) turn_in_flight: bool,
     /// Set once an interrupt reached the provider; cleared when the turn ends.
     pub(super) interrupt_requested: bool,
+    /// A successful live turn awaiting settled work; never restored from history.
+    pub(super) completion_candidate: bool,
     /// Provider-owned background tasks which outlive a completed model turn.
     /// Claude currently supplies this transient liveness signal.
     pub(super) background_task_count: usize,
@@ -248,6 +250,7 @@ impl ActiveSession {
             delivery_in_flight: None,
             turn_in_flight: false,
             interrupt_requested: false,
+            completion_candidate: false,
             background_task_count: 0,
             idle_since: None,
             provider_commands,
@@ -334,6 +337,7 @@ impl ActiveSession {
         self.delivery_in_flight = None;
         self.turn_in_flight = false;
         self.interrupt_requested = false;
+        self.completion_candidate = false;
         self.background_task_count = 0;
         self.idle_since = None;
         self._pump = None;
@@ -345,6 +349,7 @@ impl ActiveSession {
         self.delivery_in_flight = None;
         self.turn_in_flight = false;
         self.interrupt_requested = false;
+        self.completion_candidate = false;
         self.background_task_count = 0;
         self._pump = None;
     }

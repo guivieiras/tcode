@@ -216,6 +216,12 @@ quit:
   description: "仍有 %{count} 个会话正在工作。退出将停止这些会话。"
   confirm: "退出"
 settings:
+  android_notifications:
+    title: "通知"
+    description: "连接期间，在任务完成或会话需要关注时通知。需要允许 Android 通知权限。"
+  desktop_notifications:
+    title: "桌面通知"
+    description: "工作完成或会话需要你处理时发送通知。"
   title: "设置"
   sections: "全部设置"
   this_device: "本设备"
@@ -1172,3 +1178,8 @@ project_icon:
   saving: "正在保存…"
   choose: "使用图片"
   load_failed: "无法加载此文件夹。"
+
+desktop_notifications:
+  completed: "会话已完成"
+  question: "需要回答"
+  approval: "需要批准"

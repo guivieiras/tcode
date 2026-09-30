@@ -133,6 +133,8 @@ pub enum ThreadAppearance {
 pub struct ClientPreferences {
     #[serde(default)]
     pub thread_appearance: ThreadAppearance,
+    #[serde(default)]
+    pub desktop_notifications_disabled: bool,
     pub appearance: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub zoom_percent: Option<u16>,
@@ -314,5 +316,19 @@ mod tests {
             assert!(valid_device_id(&minted));
             assert_eq!(stored.take().as_deref(), Some(minted.as_str()));
         }
+    }
+}
+
+#[cfg(test)]
+mod notification_preference_tests {
+    use super::*;
+
+    #[test]
+    fn older_preferences_enable_desktop_notifications() {
+        let old: ClientPreferences = serde_json::from_str(
+            r#"{"appearance":"dark","language":null,"device_name":"Desktop"}"#,
+        )
+        .unwrap();
+        assert!(!old.desktop_notifications_disabled);
     }
 }

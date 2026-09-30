@@ -91,6 +91,7 @@ impl TestAppContext {
                 let mut state = state.borrow_mut();
                 message(&mut state, &mut host_cx);
                 state.sync_terminal_handles();
+                state.reconcile_attention(&mut host_cx);
             }
             while let Ok(line) = self.outgoing_rx.try_recv() {
                 self.outgoing.push(line);

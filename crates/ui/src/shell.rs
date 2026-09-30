@@ -12,6 +12,15 @@
 //! or above it. Wide and unattached, the shell is the hosts page and nothing
 //! else until it attaches somewhere.
 
+#[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "android"
+))]
+#[path = "thread_notifications.rs"]
+mod thread_notifications;
+
 use crate::sizing::design;
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -257,6 +266,13 @@ pub struct AppShell {
     pending_navigation_restore: Option<PendingNavigationRestore>,
     operation_toasts: HashMap<RuntimeOperationId, ToastId>,
     next_toast_id: ToastId,
+    #[cfg(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    ))]
+    thread_notifications: thread_notifications::ThreadNotifications,
     /// Tracks the palette's open state across frames so it can be focused on the
     /// open transition.
     palette_was_open: bool,
@@ -374,6 +390,13 @@ impl AppShell {
                 }
                 this.sync_nav(NavMotion::Animated, cx);
                 this.schedule_navigation_save(cx);
+                #[cfg(any(
+                    target_os = "windows",
+                    target_os = "macos",
+                    target_os = "linux",
+                    target_os = "android"
+                ))]
+                this.reconcile_thread_notifications(window, cx);
                 cx.notify();
             }),
             cx.subscribe_in(&window_state, window, |this, _, _: &OpenThread, w, cx| {
@@ -404,12 +427,26 @@ impl AppShell {
             pending_navigation_restore: None,
             operation_toasts: HashMap::new(),
             next_toast_id: 1,
+            #[cfg(any(
+                target_os = "windows",
+                target_os = "macos",
+                target_os = "linux",
+                target_os = "android"
+            ))]
+            thread_notifications: Default::default(),
             palette_was_open: false,
             keyboard_focus: None,
             last_viewport_width: None,
             _subscriptions: subscriptions,
             setup,
         };
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        shell.register_thread_notifications(window, cx);
         if let Some(target) = shell.setup.initial.take() {
             shell.attach(target, window, cx);
         }
@@ -620,6 +657,13 @@ impl AppShell {
     /// Leave the current host without opening another one. The host keeps
     /// running; only this window's link to it closes.
     pub fn detach(&mut self, cx: &mut Context<Self>) {
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        self.thread_notifications.close(cx);
         let Some(attachment) = self.attachment.take() else {
             return;
         };
@@ -632,6 +676,13 @@ impl AppShell {
 
     fn attach(&mut self, target: AttachmentTarget, window: &mut Window, cx: &mut Context<Self>) {
         self.pending_navigation_restore = None;
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        self.thread_notifications.close(cx);
         if let Some(old) = self.attachment.take() {
             old.link.close(cx).close();
         }
@@ -688,6 +739,13 @@ impl AppShell {
                 }
                 this.reconcile_navigation_restore(cx);
                 this.schedule_navigation_save(cx);
+                #[cfg(any(
+                    target_os = "windows",
+                    target_os = "macos",
+                    target_os = "linux",
+                    target_os = "android"
+                ))]
+                this.reconcile_thread_notifications(window, cx);
                 cx.notify();
             }),
             cx.subscribe_in(&store, window, |this, _, event: &RuntimeEvent, w, cx| {
@@ -1130,7 +1188,30 @@ impl AppShell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if let RuntimeEvent::ThreadAttention {
+            session_id,
+            title,
+            kind,
+        } = event
+        {
+            #[cfg(any(
+                target_os = "windows",
+                target_os = "macos",
+                target_os = "linux",
+                target_os = "android"
+            ))]
+            self.show_thread_attention(session_id, title, *kind, window, cx);
+            #[cfg(not(any(
+                target_os = "windows",
+                target_os = "macos",
+                target_os = "linux",
+                target_os = "android"
+            )))]
+            let _ = (session_id, title, kind);
+            return;
+        }
         let toast = match event {
+            RuntimeEvent::ThreadAttention { .. } => unreachable!(),
             RuntimeEvent::Effect(RuntimeEffect::ApplyLocale { .. }) => {
                 let Some(attachment) = &self.attachment else {
                     return;
@@ -2402,6 +2483,13 @@ impl Render for AppShell {
         // The window may have been resized without a bounds notification (a
         // first frame, or an inset change that narrowed the content box).
         self.sync_layout(window, cx);
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        self.reconcile_thread_notifications(window, cx);
         // The palette takes focus on the frame it opens, at either width.
         let (palette_open, focus_query) = {
             let state = self.window_state.read(cx);
@@ -2874,6 +2962,226 @@ mod tests {
             cx.debug_bounds("compact-threads-page").is_some(),
             "the Threads page is what shows it"
         );
+    }
+
+    #[cfg(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    ))]
+    #[gpui::test]
+    fn thread_notifications_visibility_activation_and_expired_callbacks(cx: &mut TestAppContext) {
+        cx.update(|cx| cx.set_app_identity("com.tryanks.tcode", "Tcode"));
+        let (shell, host, _, cx) =
+            mount_restored_at_width(cx, &["hosts", "threads", "thread"], true, 1024., "plan");
+        restore_index(&shell, &host, true, cx);
+        restore_status(&shell, &host, cx);
+        assert!(
+            cx.shown_system_notifications().is_empty(),
+            "hydration must not alert"
+        );
+        let event = RuntimeEvent::ThreadAttention {
+            session_id: "thread-a".into(),
+            title: "Only the thread title".into(),
+            kind: tcode_protocol::ThreadAttentionKind::Completed,
+        };
+        shell.update_in(cx, |shell, window, cx| {
+            window.activate_window();
+            shell.open_thread(window, cx);
+        });
+        draw(cx);
+        shell.update_in(cx, |shell, window, cx| {
+            shell.present_app_event(&event, window, cx);
+        });
+        assert!(
+            cx.shown_system_notifications().is_empty(),
+            "visible active thread"
+        );
+        cx.deactivate_window();
+        shell.update_in(cx, |shell, window, cx| {
+            shell.present_app_event(&event, window, cx)
+        });
+        let banner = cx.shown_system_notifications().last().unwrap().clone();
+        assert_eq!(banner.body.as_ref(), "Only the thread title");
+        cx.simulate_system_notification_response(gpui::SystemNotificationResponse {
+            tag: banner.tag.clone(),
+            action_id: None,
+        });
+        shell.read_with(cx, |shell, cx| {
+            assert_eq!(
+                shell
+                    .store()
+                    .unwrap()
+                    .read(cx)
+                    .active_session_id()
+                    .as_deref(),
+                Some("thread-a")
+            );
+            assert_eq!(shell.window_state.read(cx).route(), Route::Chat);
+        });
+        draw(cx);
+        assert!(cx.dismissed_system_notifications().contains(&banner.tag));
+
+        shell.update_in(cx, |shell, window, cx| {
+            shell.go(Destination::Settings, cx);
+            shell.present_app_event(&event, window, cx);
+        });
+        assert_eq!(
+            cx.shown_system_notifications().len(),
+            2,
+            "Settings hides the conversation"
+        );
+        let settings_banner = cx.shown_system_notifications().last().unwrap().tag.clone();
+        cx.simulate_system_notification_response(gpui::SystemNotificationResponse {
+            tag: settings_banner,
+            action_id: None,
+        });
+        shell.read_with(cx, |shell, cx| {
+            assert_eq!(shell.window_state.read(cx).route(), Route::Chat)
+        });
+        shell.update_in(cx, |shell, window, cx| {
+            shell.go(Destination::Settings, cx);
+            shell.present_app_event(&event, window, cx);
+        });
+        let store = store_of(&shell, cx);
+        store.update(cx, |store, cx| {
+            store.set_thread_notifications_enabled(false);
+            cx.notify();
+        });
+        draw(cx);
+        assert!(cx.delivered_system_notifications().is_empty());
+        shell.update_in(cx, |shell, window, cx| {
+            shell.present_app_event(&event, window, cx)
+        });
+        assert_eq!(cx.shown_system_notifications().len(), 3);
+        store.update(cx, |store, cx| {
+            store.reset_client_preferences();
+            cx.notify();
+        });
+        draw(cx);
+        assert_eq!(
+            cx.shown_system_notifications().len(),
+            3,
+            "enabling does not replay"
+        );
+        shell.update_in(cx, |shell, window, cx| {
+            shell.present_app_event(&event, window, cx)
+        });
+        let expired = cx.shown_system_notifications().last().unwrap().tag.clone();
+        restore_index(&shell, &host, false, cx);
+        await_restore_update(&shell, cx, |store| !store.contains_session("thread-a"));
+        shell.update(cx, |shell, cx| shell.go(Destination::Settings, cx));
+        cx.simulate_system_notification_response(gpui::SystemNotificationResponse {
+            tag: expired,
+            action_id: None,
+        });
+        shell.read_with(cx, |shell, cx| {
+            assert_eq!(shell.window_state.read(cx).route(), Route::Settings)
+        });
+
+        restore_index(&shell, &host, true, cx);
+        await_restore_update(&shell, cx, |store| store.contains_session("thread-a"));
+        shell.update_in(cx, |shell, window, cx| {
+            shell.present_app_event(&event, window, cx)
+        });
+        let expired = cx.shown_system_notifications().last().unwrap().tag.clone();
+        shell.update(cx, |shell, cx| shell.detach(cx));
+        cx.simulate_system_notification_response(gpui::SystemNotificationResponse {
+            tag: expired,
+            action_id: None,
+        });
+        shell.read_with(cx, |shell, cx| {
+            assert!(shell.store().is_none());
+            assert_eq!(
+                shell.window_state.read(cx).destination(),
+                Destination::Hosts
+            );
+        });
+    }
+
+    #[cfg(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    ))]
+    #[gpui::test]
+    fn thread_notifications_pending_resolution_and_compact_visibility(cx: &mut TestAppContext) {
+        cx.update(|cx| cx.set_app_identity("com.tryanks.tcode", "Tcode"));
+        let (shell, host, _, cx) = mount_restored(cx, &["hosts", "threads"], true);
+        restore_index(&shell, &host, true, cx);
+        restore_status(&shell, &host, cx);
+        for kind in [
+            tcode_protocol::ThreadAttentionKind::Question,
+            tcode_protocol::ThreadAttentionKind::Approval,
+        ] {
+            let mut status = session_status("thread-a", std::path::Path::new("/project"));
+            if kind == tcode_protocol::ThreadAttentionKind::Question {
+                status.pending_user_input = Some(tcode_core::session::PendingUserInput {
+                    request_id: "question".into(),
+                    questions: Vec::new(),
+                    delivery: agent::UserInputDelivery::Blocking,
+                });
+            } else {
+                status.pending_approvals = vec![agent::ApprovalRequest {
+                    id: "approve".into(),
+                    turn_id: None,
+                    kind: agent::ApprovalKind::FileRead {
+                        detail: "Cargo.toml".into(),
+                    },
+                    options: Vec::new(),
+                }];
+            }
+            host.incoming
+                .try_send(
+                    encode_line(&HostMessage::Event(EventEnvelope {
+                        request_id: None,
+                        topic: Topic::SessionStatus {
+                            session_id: "thread-a".into(),
+                        },
+                        event: ServerEvent::SessionStatusReplaced(status),
+                    }))
+                    .unwrap(),
+                )
+                .unwrap();
+            await_restore_update(&shell, cx, |store| {
+                store.pending_user_input_for("thread-a") || store.pending_approval_for("thread-a")
+            });
+            let count = cx.shown_system_notifications().len();
+            draw(cx);
+            assert_eq!(
+                cx.shown_system_notifications().len(),
+                count,
+                "pending snapshots are silent"
+            );
+            shell.update_in(cx, |shell, window, cx| {
+                window.activate_window();
+                shell.present_app_event(
+                    &RuntimeEvent::ThreadAttention {
+                        session_id: "thread-a".into(),
+                        title: "Question thread".into(),
+                        kind,
+                    },
+                    window,
+                    cx,
+                );
+            });
+            assert_eq!(
+                cx.shown_system_notifications().len(),
+                count + 1,
+                "compact Threads hides the conversation"
+            );
+            restore_status(&shell, &host, cx);
+            await_restore_update(&shell, cx, |store| {
+                !store.pending_user_input_for("thread-a") && !store.pending_approval_for("thread-a")
+            });
+            draw(cx);
+            assert!(
+                cx.delivered_system_notifications().is_empty(),
+                "resolved request is dismissed"
+            );
+        }
     }
 
     #[gpui::test]

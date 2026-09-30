@@ -216,6 +216,12 @@ quit:
   description: "%{count} session(s) are still working. Quitting will stop them."
   confirm: "Quit"
 settings:
+  android_notifications:
+    title: "Notifications"
+    description: "Notify while connected when work finishes or a thread needs your attention. Android notification permission is required."
+  desktop_notifications:
+    title: "Desktop notifications"
+    description: "Notify when work finishes or a thread needs your attention."
   title: "Settings"
   sections: "All settings"
   this_device: "This device"
@@ -1178,3 +1184,8 @@ project_icon:
   saving: "Saving…"
   choose: "Use image"
   load_failed: "Could not load this folder."
+
+desktop_notifications:
+  completed: "Thread completed"
+  question: "Answer needed"
+  approval: "Approval needed"

@@ -60,6 +60,9 @@ pub fn android_main(app: android_activity::AndroidApp) {
             let (native_host, system_locale) = host::native_host(app.clone(), cx)
                 .expect("failed to initialize Android host services");
             let host: Rc<dyn ClientHost> = native_host;
+            if !host.load_preferences().desktop_notifications_disabled {
+                gpui_android::request_notification_permission();
+            }
             tcode_ui::run_shell(
                 cx,
                 host.clone(),
@@ -140,6 +143,21 @@ mod jni_exports {
         JString::cast_local(env, value)
             .and_then(|value| value.try_to_string(env))
             .map(Some)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "system" fn Java_com_tryanks_tcode_GpuiActivity_nativeNotificationResponse<
+        'local,
+    >(
+        mut env: EnvUnowned<'local>,
+        _activity: JObject<'local>,
+        tag: JString<'local>,
+    ) {
+        env.with_env(|env| -> jni::errors::Result<()> {
+            gpui_android::jni_notification_response(tag.try_to_string(env)?);
+            Ok(())
+        })
+        .resolve::<LogErrorAndDefault>()
     }
 
     #[unsafe(no_mangle)]

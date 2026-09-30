@@ -210,6 +210,10 @@ impl ClientHost for NativeClientHost {
                 .cloned()
                 .and_then(|value| serde_json::from_value(value).ok())
                 .unwrap_or_default(),
+            desktop_notifications_disabled: prefs
+                .get("desktop_notifications_disabled")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
             appearance: value("appearance"),
             zoom_percent: prefs
                 .get("zoom_percent")
@@ -232,6 +236,8 @@ impl ClientHost for NativeClientHost {
     fn save_preferences(&self, preferences: &ClientPreferences) {
         let mut prefs = self.prefs();
         prefs["thread_appearance"] = serde_json::json!(preferences.thread_appearance);
+        prefs["desktop_notifications_disabled"] =
+            serde_json::json!(preferences.desktop_notifications_disabled);
         prefs["appearance"] = serde_json::json!(preferences.appearance);
         prefs["zoom_percent"] = serde_json::json!(preferences.zoom_percent);
         prefs["theme"] = serde_json::json!(preferences.theme);
@@ -798,6 +804,7 @@ mod tests {
         assert!(dir.0.join("device.json").exists());
         host.save_preferences(&ClientPreferences {
             thread_appearance: tcode_client::host::ThreadAppearance::IconColumn,
+            desktop_notifications_disabled: true,
             appearance: Some("light".into()),
             zoom_percent: Some(125),
             language: None,
@@ -820,6 +827,7 @@ mod tests {
         assert_eq!(saved["zoom_percent"], 125);
         assert_eq!(host.load_preferences().zoom_percent, Some(125));
         assert_eq!(host.load_preferences().theme.unwrap()["light"], "Paper");
+        assert!(host.load_preferences().desktop_notifications_disabled);
         assert_eq!(
             host.load_preferences().navigation.unwrap()["history"],
             serde_json::json!(["hosts", "threads"])

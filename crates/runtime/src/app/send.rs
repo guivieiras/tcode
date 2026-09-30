@@ -686,6 +686,7 @@ impl AppState {
             .map_err(provider_command_error)?;
         if let Some(active) = self.resident_mut(target_id) {
             active.interrupt_requested = true;
+            active.completion_candidate = false;
         }
         self.cancel_computer_use_feedback(target_id);
         Ok(())
