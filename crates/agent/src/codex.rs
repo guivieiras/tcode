@@ -151,11 +151,7 @@ async fn collect_models(
         let response = wait_for_response(lines, id).await?;
         id += 1;
         if let Some(data) = response.get("data").and_then(Value::as_array) {
-            for model in data {
-                if let Some(spec) = map_model(model) {
-                    models.push(spec);
-                }
-            }
+            models.extend(data.iter().cloned());
         }
         cursor = response
             .get("nextCursor")
@@ -166,7 +162,32 @@ async fn collect_models(
             break;
         }
     }
-    Ok(models)
+    Ok(map_models(models))
+}
+
+/// Supplement older CLI catalogs until they advertise the new models. Explicit
+/// CLI entries, including hidden ones, always take precedence over fallbacks.
+fn map_models(mut models: Vec<Value>) -> Vec<ModelSpec> {
+    // https://developers.openai.com/api/docs/models/gpt-6-sol
+    // https://developers.openai.com/api/docs/models/gpt-6-luna
+    for id in ["gpt-6-sol", "gpt-6-luna"] {
+        if models.iter().any(|model| model["model"] == id) {
+            continue;
+        }
+        models.push(json!({
+            "model": id,
+            "defaultReasoningEffort": "medium",
+            "supportedReasoningEfforts": [
+                {"reasoningEffort": "none"},
+                {"reasoningEffort": "low"},
+                {"reasoningEffort": "medium"},
+                {"reasoningEffort": "high"},
+                {"reasoningEffort": "xhigh"},
+                {"reasoningEffort": "max"}
+            ]
+        }));
+    }
+    models.iter().filter_map(map_model).collect()
 }
 
 /// Map one `model/list` entry to a [`ModelSpec`]; `None` for hidden models.
@@ -3374,6 +3395,36 @@ mod tests {
             let _ = actor.child.kill();
             let _ = actor.child.wait();
         });
+    }
+
+    #[test]
+    fn supplements_old_catalogs_without_overriding_cli_models() {
+        let models = map_models(vec![json!({"model": "existing", "isDefault": true})]);
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| model.id.as_str())
+                .collect::<Vec<_>>(),
+            ["existing", "gpt-6-sol", "gpt-6-luna"]
+        );
+        assert!(models[0].is_default);
+        assert!(models[1..].iter().all(|model| !model.is_default));
+
+        // Discovery owns capabilities and visibility once the CLI knows a model.
+        let sol = json!({
+            "model": "gpt-6-sol",
+            "displayName": "Sol from CLI",
+            "isDefault": true,
+            "supportedReasoningEfforts": [{"reasoningEffort": "high"}],
+            "defaultReasoningEffort": "high"
+        });
+        let models = map_models(vec![
+            sol.clone(),
+            json!({
+                "model": "gpt-6-luna", "hidden": true
+            }),
+        ]);
+        assert_eq!(models, vec![map_model(&sol).unwrap()]);
     }
 
     #[test]
