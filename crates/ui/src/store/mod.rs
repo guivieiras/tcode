@@ -5,7 +5,7 @@ use std::rc::Rc;
 use gpui::{App, Context, Entity, EventEmitter, Subscription as GpuiSubscription, Task};
 use tcode_client::{
     ConnectionState, HostLink,
-    host::{ClientHost, ClientPreferences, LiveHost},
+    host::{ClientHost, ClientPreferences, LiveHost, ThreadAppearance},
 };
 use tcode_core::{
     git::{GitFileEntry, MenuItem, QuickAction, menu_items, quick_action},
@@ -1662,6 +1662,19 @@ impl WorkspaceStore {
         self.client_host.as_ref()?.open_in_editor(path)
     }
 
+    pub fn thread_appearance(&self) -> ThreadAppearance {
+        self.client_preferences.thread_appearance
+    }
+
+    pub fn set_thread_appearance(&mut self, appearance: ThreadAppearance, cx: &mut Context<Self>) {
+        self.client_preferences.thread_appearance = appearance;
+        self.save_client_preferences();
+        cx.emit(StoreChange {
+            topic: TopicKind::Settings,
+        });
+        cx.notify();
+    }
+
     pub fn client_theme_override(&self) -> Option<ThemeMode> {
         match self.client_preferences.appearance.as_deref() {
             Some("system") => Some(ThemeMode::System),
@@ -1846,6 +1859,13 @@ impl WorkspaceStore {
 
     pub fn active_session_id(&self) -> Option<String> {
         self.selected_session_id.clone()
+    }
+
+    pub fn working_started_at_for(&self, session_id: &str) -> Option<u64> {
+        self.index_summary
+            .working_started_at
+            .get(session_id)
+            .copied()
     }
 
     pub fn turn_running_for(&self, session_id: &str) -> bool {
@@ -3195,7 +3215,12 @@ mod tests {
         let window_state =
             cx.new(|_| crate::window_state::WindowState::new(false).with_compact(true));
         let (_sidebar, cx) = cx.add_window_view(|_, cx| {
-            crate::sidebar::SessionsSidebar::new(store.clone(), window_state, cx)
+            crate::sidebar::SessionsSidebar::new(
+                store.clone(),
+                window_state,
+                cx.new(|_| Default::default()),
+                cx,
+            )
         });
         cx.simulate_resize(size(px(393.), px(852.)));
         cx.update(|window, cx| {
