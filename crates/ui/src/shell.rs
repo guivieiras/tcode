@@ -4964,6 +4964,7 @@ mod tests {
             provider_commands: Vec::new(),
             git_branch: None,
             branches: Vec::new(),
+            worktrees: Vec::new(),
             draft: false,
             draft_workspace: Default::default(),
             worktree: None,

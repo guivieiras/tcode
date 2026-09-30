@@ -401,18 +401,6 @@ impl<E: Element> Element for Registered<E> {
             registry.entries[entry_index].hitbox = Some(hitbox.id);
             registry.parents.pop();
         }
-        if self.root {
-            // Accept layout's anchor adjustments, and retire animations when
-            // their view disappears.
-            let registry = registry(window, cx);
-            if let Some(motion) = &mut registry.motion {
-                if let Some(entry) = registry.entries.iter().find(|entry| entry.id == motion.id) {
-                    motion.expected = Position::read(&entry.handle);
-                } else {
-                    registry.motion = None;
-                }
-            }
-        }
         result
     }
     fn paint(
@@ -426,6 +414,18 @@ impl<E: Element> Element for Registered<E> {
         cx: &mut App,
     ) {
         if self.root {
+            // Deferred popovers prepaint after the root. Reconcile only once
+            // their viewports have also been registered for this frame:
+            // accept layout's anchor adjustments, and retire animations when
+            // their view disappears.
+            let registry = registry(window, cx);
+            if let Some(motion) = &mut registry.motion {
+                if let Some(entry) = registry.entries.iter().find(|entry| entry.id == motion.id) {
+                    motion.expected = Position::read(&entry.handle);
+                } else {
+                    registry.motion = None;
+                }
+            }
             install(window);
         }
         self.element

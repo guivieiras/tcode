@@ -1,4 +1,7 @@
 use super::super::*;
+use crate::scroll::ScrollableElement as _;
+use gpui::ScrollHandle;
+use gpui_base::{Scrollbar, ScrollbarMode};
 
 impl Composer {
     pub(in super::super) fn render_checkout_row(
@@ -20,7 +23,20 @@ impl Composer {
 
         // The branch chip: a popover listing local branches. While a turn runs
         // the selector is disabled (it just shows a "wait" tooltip).
-        let right: AnyElement = if turn_running {
+        let right: AnyElement = if is_draft && worktree_mode {
+            let store = self.workspace_store.clone();
+            Button::new("worktree-base-picker")
+                .ghost()
+                .outline()
+                .compact()
+                .icon(Icon::empty().path("icons/git-branch.svg").xsmall())
+                .label(picker_current.clone())
+                .tooltip(crate::tr!("composer.worktree_base"))
+                .on_click(move |_, window, cx| {
+                    super::worktree_dialog::open(store.clone(), window, cx)
+                })
+                .into_any_element()
+        } else if turn_running {
             Button::new("branch-picker")
                 .ghost()
                 .outline()
@@ -64,7 +80,7 @@ impl Composer {
                 })
                 .content(move |_state, _window, cx| {
                     let muted = cx.theme().muted_foreground;
-                    let mut col = v_flex()
+                    let col = v_flex()
                         .w(px(220.))
                         .max_h(px(280.))
                         .pt_1()
@@ -72,18 +88,6 @@ impl Composer {
                         // The last branch row carries its gap.
                         .pb(px(if branches.is_empty() { 4. } else { 2. }))
                         .gap_0p5();
-                    if worktree_mode {
-                        col = col.child(
-                            div()
-                                .flex_none()
-                                .px_2()
-                                .py_1()
-                                .text_size(px(11.))
-                                .font_medium()
-                                .text_color(muted)
-                                .child(crate::tr!("composer.worktree_base")),
-                        );
-                    }
                     if branches.is_empty() {
                         return col
                             .child(
@@ -112,7 +116,6 @@ impl Composer {
                                             index,
                                             &branches[index],
                                             branches[index] == *current,
-                                            worktree_mode,
                                             &store,
                                             &popover,
                                             cx,
@@ -129,8 +132,7 @@ impl Composer {
                 .into_any_element()
         };
 
-        let left =
-            self.render_workspace_chip(is_draft, worktree_mode, worktree.is_some(), &branch, cx);
+        let left = self.render_workspace_chip(is_draft, checkout.workspace, worktree.is_some(), cx);
 
         Some(
             h_flex()
@@ -146,21 +148,24 @@ impl Composer {
         )
     }
 
-    /// The left-hand workspace chip: a draft can pick current checkout vs a new
-    /// dedicated worktree; a started session shows its locked workspace.
+    /// Drafts choose a checkout; a started session keeps its workspace locked.
     pub(in super::super) fn render_workspace_chip(
         &self,
         is_draft: bool,
-        worktree_mode: bool,
+        workspace: WorkspaceMode,
         has_worktree: bool,
-        base_default: &str,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let muted = cx.theme().muted_foreground;
-        let label = if worktree_mode || has_worktree {
-            crate::tr!("composer.new_worktree")
-        } else {
-            crate::tr!("composer.local_checkout")
+        let label = match &workspace {
+            WorkspaceMode::ExistingWorktree { path } => {
+                tcode_core::project::project_name_from_root(path)
+            }
+            WorkspaceMode::NewWorktree { name, .. } => name.clone(),
+            WorkspaceMode::LocalCheckout if has_worktree => {
+                crate::tr!("composer.new_worktree").into_owned()
+            }
+            WorkspaceMode::LocalCheckout => crate::tr!("composer.local_checkout").into_owned(),
         };
 
         if !is_draft {
@@ -173,8 +178,8 @@ impl Composer {
                 .into_any_element();
         }
 
+        let store_open = self.workspace_store.clone();
         let store_content = self.workspace_store.clone();
-        let base_default = base_default.to_string();
         let trigger = Button::new("workspace-picker")
             .ghost()
             .outline()
@@ -186,83 +191,118 @@ impl Composer {
                     .text_size(px(13.))
                     .text_color(muted)
                     .child(Icon::empty().path("icons/folder-closed.svg").xsmall())
-                    .child(label)
+                    .child(div().max_w(px(180.)).truncate().child(label))
                     .child(Icon::new(IconName::ChevronDown).xsmall().text_color(muted)),
             );
         crate::material::overlay_popover("workspace-popover")
             .anchor(Anchor::BottomLeft)
             .trigger(trigger)
-            .content(move |_state, _window, cx| {
+            .on_open_change(move |open, _window, cx| {
+                if *open {
+                    store_open.update(cx, |store, _cx| store.load_worktrees());
+                }
+            })
+            .content(move |_state, window, cx| {
+                let scroll = window
+                    .use_keyed_state("workspace-scroll", cx, |_, _| ScrollHandle::new())
+                    .read(cx)
+                    .clone();
                 let popover = cx.entity();
-                let store_local = store_content.clone();
-                let store_worktree = store_content.clone();
-                let pop_local = popover.clone();
-                let pop_worktree = popover.clone();
-                let base = base_default.clone();
-                let workspace_row = |label: gpui::SharedString,
-                                     selected: bool,
-                                     cx: &mut Context<PopoverState>|
-                 -> gpui::Div {
-                    h_flex()
-                        .w_full()
-                        .px_2()
-                        .py_1p5()
-                        .gap_2()
-                        .items_center()
-                        .rounded(px(6.))
-                        .cursor_pointer()
-                        .text_size(px(13.))
-                        .hover(|s| s.bg(cx.theme().muted))
-                        .child(div().flex_1().min_w_0().child(label))
-                        .when(selected, |this| {
-                            this.child(
-                                Icon::new(IconName::Check)
-                                    .xsmall()
-                                    .text_color(cx.theme().primary),
-                            )
-                        })
+                let Some(checkout) = store_content.read(cx).composer_state().checkout else {
+                    return div().into_any_element();
                 };
-                v_flex()
-                    .w(px(200.))
+                let mut options = vec![
+                    (
+                        Some(WorkspaceMode::LocalCheckout),
+                        crate::tr!("composer.local_checkout").into_owned(),
+                    ),
+                    (None, crate::tr!("composer.new_worktree").into_owned()),
+                ];
+                options.extend(checkout.worktrees.into_iter().map(|path| {
+                    let label = tcode_core::project::project_name_from_root(&path);
+                    (Some(WorkspaceMode::ExistingWorktree { path }), label)
+                }));
+                let mut list = v_flex()
+                    .id("workspace-list")
+                    .role(Role::Menu)
+                    .aria_label(crate::tr!("composer.workspace"))
+                    .w(px(260.))
+                    .max_h(px(280.))
+                    .overflow_y_scroll_area()
+                    .track_scroll(&scroll)
                     .p_1()
+                    .pr(px(16.))
                     .gap_0p5()
                     .child(
                         div()
+                            .flex_none()
                             .px_2()
                             .py_1()
                             .text_size(px(11.))
                             .font_medium()
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("composer.workspace")),
-                    )
+                    );
+                for (index, (mode, label)) in options.into_iter().enumerate() {
+                    if index == 2 {
+                        list = list.child(
+                            div()
+                                .flex_none()
+                                .h(px(1.))
+                                .mx_2()
+                                .my_1()
+                                .bg(cx.theme().border),
+                        );
+                    }
+                    let selected = match &mode {
+                        None => matches!(checkout.workspace, WorkspaceMode::NewWorktree { .. }),
+                        Some(mode) => *mode == checkout.workspace,
+                    };
+                    let store = store_content.clone();
+                    let pop = popover.clone();
+                    let mut row = Button::new(("workspace-option", index))
+                        .ghost()
+                        .compact()
+                        .aria_label(label.clone())
+                        .selected(selected)
+                        .flex_none()
+                        .w_full()
+                        .px_2()
+                        .child(
+                            h_flex()
+                                .w_full()
+                                .gap_2()
+                                .items_center()
+                                .child(div().flex_1().min_w_0().text_left().truncate().child(label))
+                                .when(selected, |row| {
+                                    row.child(
+                                        Icon::new(IconName::Check)
+                                            .xsmall()
+                                            .text_color(cx.theme().primary),
+                                    )
+                                }),
+                        );
+                    if let Some(WorkspaceMode::ExistingWorktree { path }) = &mode {
+                        row = row.tooltip(path.display().to_string());
+                    }
+                    list = list.child(row.on_click(move |_, window, cx| {
+                        pop.update(cx, |st, cx| st.dismiss(window, cx));
+                        if let Some(mode) = &mode {
+                            store.update(cx, |store, _cx| store.set_draft_workspace(mode.clone()));
+                        } else {
+                            super::worktree_dialog::open(store.clone(), window, cx);
+                        }
+                    }));
+                }
+                div()
+                    .relative()
+                    .child(list)
                     .child(
-                        workspace_row(
-                            crate::tr!("composer.local_checkout").into_owned().into(),
-                            false,
-                            cx,
-                        )
-                        .id("workspace-local")
-                        .on_click(move |_, window, cx| {
-                            store_local.update(cx, |store, _cx| {
-                                store.set_draft_workspace(WorkspaceMode::LocalCheckout);
-                            });
-                            pop_local.update(cx, |st, cx| st.dismiss(window, cx));
-                        }),
-                    )
-                    .child(
-                        workspace_row(
-                            crate::tr!("composer.new_worktree").into_owned().into(),
-                            false,
-                            cx,
-                        )
-                        .id("workspace-worktree")
-                        .on_click(move |_, window, cx| {
-                            let base = base.clone();
-                            store_worktree.update(cx, |store, _cx| {
-                                store.set_draft_workspace(WorkspaceMode::NewWorktree { base });
-                            });
-                            pop_worktree.update(cx, |st, cx| st.dismiss(window, cx));
-                        }),
+                        div().absolute().inset_0().child(
+                            Scrollbar::vertical(&scroll)
+                                .id("workspace-scrollbar")
+                                .mode(ScrollbarMode::Always),
+                        ),
                     )
                     .into_any_element()
             })
@@ -274,7 +314,6 @@ fn branch_row(
     index: usize,
     name: &str,
     is_current: bool,
-    worktree_mode: bool,
     store: &Entity<WorkspaceStore>,
     popover: &Entity<PopoverState>,
     cx: &App,
@@ -308,13 +347,7 @@ fn branch_row(
                 .on_click(move |_, window, cx| {
                     let branch_name = branch_name.clone();
                     store.update(cx, |store, _cx| {
-                        if worktree_mode {
-                            store.set_draft_workspace(WorkspaceMode::NewWorktree {
-                                base: branch_name,
-                            });
-                        } else {
-                            store.checkout_branch(branch_name);
-                        }
+                        store.checkout_branch(branch_name);
                     });
                     popover.update(cx, |st, cx| st.dismiss(window, cx));
                 }),

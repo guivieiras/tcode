@@ -360,11 +360,15 @@ pub fn load_git_diff(
 }
 
 /// Read the current git branch (or short detached-HEAD sha) for `cwd`, if it is
-/// a git repository. Reads `.git/HEAD` directly (no git process); returns None
-/// when `cwd` is not a repo. Worktrees/submodules (`.git` is a file) are treated
-/// as non-repos here — the below-card branch row simply hides.
+/// a git repository. Reads HEAD directly, following the `.git` pointer in a
+/// linked worktree or submodule; returns None when `cwd` is not a repo.
 pub fn read_git_branch(cwd: &Path) -> Option<String> {
-    let head = std::fs::read_to_string(cwd.join(".git").join("HEAD")).ok()?;
+    let mut git_dir = cwd.join(".git");
+    if git_dir.is_file() {
+        let pointer = std::fs::read_to_string(&git_dir).ok()?;
+        git_dir = cwd.join(pointer.trim().strip_prefix("gitdir: ")?);
+    }
+    let head = std::fs::read_to_string(git_dir.join("HEAD")).ok()?;
     let head = head.trim();
     if let Some(reference) = head.strip_prefix("ref: ") {
         // e.g. "refs/heads/feature/x" -> "feature/x"
