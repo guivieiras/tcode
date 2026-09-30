@@ -1,3 +1,4 @@
+mod development;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -48,6 +49,7 @@ pub(crate) use snapshots::{ComposerState, PanelState};
 /// store projections they render.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TopicKind {
+    Development,
     SessionEvents,
     SessionStatus,
     Index,
@@ -68,6 +70,7 @@ impl From<&Topic> for TopicKind {
             Topic::SessionStatus { .. } => Self::SessionStatus,
             Topic::Index => Self::Index,
             Topic::Settings => Self::Settings,
+            Topic::Development => Self::Development,
             Topic::Providers => Self::Providers,
             Topic::GitStatus { .. } => Self::GitStatus,
             Topic::RuntimeEvents => Self::RuntimeEvents,
@@ -119,6 +122,7 @@ pub(crate) type PreviewTarget = (
 /// Views observe this entity and use its typed accessors instead of retaining
 /// or reading the backend `AppState` entity directly.
 pub struct WorkspaceStore {
+    pub(crate) development: tcode_protocol::DevelopmentSnapshot,
     host: HostLink,
     attachment: WorkspaceAttachment,
     client_host: Option<Rc<dyn ClientHost>>,
@@ -324,6 +328,7 @@ impl WorkspaceStore {
         let store = Self {
             host: host.clone(),
             attachment,
+            development: Default::default(),
             client_host,
             current_host,
             client_preferences,
@@ -578,6 +583,19 @@ impl WorkspaceStore {
         }
     }
 
+    // Settings needs the host baseline, not the selected conversation's history.
+    pub(crate) fn settings_connection_state(&self) -> ConnectionState {
+        match self.host.connection_state() {
+            ConnectionState::Connected { path }
+                if !(self.baseline_topics.contains(&Topic::Index)
+                    && self.baseline_topics.contains(&Topic::Settings)) =>
+            {
+                ConnectionState::Syncing { path }
+            }
+            state => state,
+        }
+    }
+
     /// Connected only once the baseline is in: the transport's `Connected`
     /// says the host answers, the replayed snapshots say the screen is current.
     /// Either way the path is the transport's.
@@ -613,6 +631,9 @@ impl WorkspaceStore {
             // cannot satisfy readiness for the new one. HostLink correlates the
             // replies against these new request IDs and retains applied cursors.
             for subscription in self.host.subscriptions() {
+                if subscription.topic == Topic::Development {
+                    continue;
+                }
                 let _ = self.host.subscribe(subscription);
             }
         }
@@ -899,6 +920,16 @@ impl WorkspaceStore {
             (Topic::Index, ServerEvent::IndexSnapshot(snapshot)) => {
                 self.index_hydrated = true;
                 let fresh_baseline = self.baseline_topics.insert(Topic::Index);
+                if fresh_baseline {
+                    if snapshot.summary.development == Some(true) {
+                        let _ = self.host.subscribe(Subscription {
+                            topic: Topic::Development,
+                            after: None,
+                        });
+                    } else {
+                        self.development = Default::default();
+                    }
+                }
                 for project in &snapshot.projects {
                     if fresh_baseline
                         || self
@@ -944,6 +975,9 @@ impl WorkspaceStore {
                 if matches!(envelope.event, ServerEvent::SettingsSnapshot(_)) {
                     self.baseline_topics.insert(Topic::Settings);
                 }
+            }
+            (Topic::Development, ServerEvent::DevelopmentStateReplaced(state)) => {
+                self.development = state.clone();
             }
             (Topic::Providers, ServerEvent::ProvidersReplaced(status)) => {
                 self.providers_replica = status.clone();
@@ -2637,6 +2671,40 @@ impl WorkspaceStore {
         )
     }
 
+    pub(crate) fn preview_file(
+        &self,
+        target: String,
+        base_dir: Option<PathBuf>,
+        cx: &mut App,
+    ) -> Task<Result<tcode_protocol::FilePreview, String>> {
+        let host = self.host.clone();
+        cx.spawn(
+            async move |_| match host.query(Query::PreviewFile { target, base_dir }).await {
+                Ok(QueryResponse::FilePreview(preview)) => Ok(preview),
+                Ok(_) => Err("Unexpected file preview response".into()),
+                Err(error) => Err(error.message),
+            },
+        )
+    }
+
+    #[cfg(all(
+        feature = "native-preview",
+        any(
+            target_os = "android",
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "windows"
+        )
+    ))]
+    pub(crate) fn video_stream(
+        &self,
+        path: PathBuf,
+        size: u64,
+        mime: String,
+    ) -> std::io::Result<tcode_traverse::file_stream::FileStream> {
+        tcode_traverse::file_stream::FileStream::new(self.host.clone(), path, size, mime)
+    }
+
     pub fn read_file_bytes(&self, path: PathBuf, cx: &mut App) -> Task<std::io::Result<Vec<u8>>> {
         let host = self.host.clone();
         cx.spawn(
@@ -4103,6 +4171,34 @@ mod tests {
             smol::block_on(smol::Timer::after(std::time::Duration::from_millis(1)));
         }
         panic!("timed out waiting for {description}");
+    }
+
+    #[gpui::test]
+    fn development_controls_do_not_wait_for_selected_conversation_history(cx: &mut TestAppContext) {
+        use tcode_client::ConnectionState;
+        let root = scratch_root("development-ready");
+        let host = test_host(SessionStore::open_at(root.clone()).unwrap());
+        let workspace = cx.new(|cx| WorkspaceStore::new(host.link(), cx));
+        wait_until(cx, &workspace, "host baseline", |cx| {
+            workspace.read_with(cx, |store, _| store.baseline_ready())
+        });
+        workspace.update(cx, |store, _| {
+            store.selected_session_id = Some("draft-without-history".into());
+            assert!(!store.baseline_ready());
+            assert!(store.settings_connection_state().is_connected());
+            store
+                .host
+                .set_connection_state(ConnectionState::Reconnecting {
+                    attempt: 1,
+                    reason: None,
+                });
+            assert!(matches!(
+                store.settings_connection_state(),
+                ConnectionState::Reconnecting { .. }
+            ));
+        });
+        host.shutdown_blocking().unwrap();
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[gpui::test]

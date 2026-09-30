@@ -13,9 +13,13 @@
 //! `browser` is the plain HTTP listener a headless machine serves the browser
 //! client from.
 
+#[cfg(feature = "native")]
+mod apk;
 #[cfg(feature = "browser")]
 pub mod browser;
 pub mod client;
+#[cfg(feature = "native")]
+pub mod file_stream;
 pub mod host;
 pub mod hosts;
 #[cfg(any(feature = "browser", feature = "native"))]

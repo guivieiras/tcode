@@ -281,12 +281,18 @@ mod tests {
     struct ImageMessage {
         markdown: Entity<MarkdownState>,
         cwd: PathBuf,
+        opened_file: Option<crate::file_preview::OpenFilePreview>,
     }
 
     impl Render for ImageMessage {
-        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
             div()
                 .id("image-message")
+                .on_action(cx.listener(
+                    |this, action: &crate::file_preview::OpenFilePreview, _, _| {
+                        this.opened_file = Some(action.clone());
+                    },
+                ))
                 .tab_index(0)
                 .w(px(320.))
                 .child(MarkdownView::new(&self.markdown).base_dir(self.cwd.clone()))
@@ -294,7 +300,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn markdown_images_and_badge_previews_read_files_from_the_host(cx: &mut TestAppContext) {
+    fn markdown_images_read_host_bytes_and_badges_request_file_previews(cx: &mut TestAppContext) {
         cx.update(crate::theme::init);
         cx.update(crate::markdown::init);
         let (to_host, requests) = async_channel::unbounded();
@@ -319,6 +325,7 @@ mod tests {
             let view = cx.new(|cx| ImageMessage {
                 markdown: cx.new(|cx| MarkdownState::new("", cx)),
                 cwd: cwd.clone(),
+                opened_file: None,
             });
             message = Some(view.clone());
             gpui_base::Root::new(view, window, cx)
@@ -441,18 +448,14 @@ mod tests {
         );
         cx.simulate_click(gpui::point(px(40.), px(14.)), gpui::Modifiers::default());
         cx.run_until_parked();
-        let request = decode_client_line(
-            &requests
-                .try_recv()
-                .expect("clicking the image badge must read its host image"),
-        )
-        .unwrap();
-        assert_eq!(
-            request.payload,
-            ClientPayload::Query(Query::ReadFileBytes {
-                path: cwd.join("preview.png")
-            })
-        );
+        view.read_with(cx, |view, _| {
+            let action = view
+                .opened_file
+                .as_ref()
+                .expect("image badge opens a file preview");
+            assert_eq!(action.target, "preview.png");
+            assert_eq!(action.base_dir.as_ref(), Some(&cwd));
+        });
         assert!(
             cx.opened_url().is_none(),
             "host image badges must open in the app"

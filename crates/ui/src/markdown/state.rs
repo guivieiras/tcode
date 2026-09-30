@@ -14,7 +14,7 @@ use gpui::{
 use gpui_base::{ElementExt as _, v_flex};
 
 use super::{
-    link_target::{LinkTarget, LinkTargetCache},
+    link_target::LinkTarget,
     nodes::{BlockNode, TextPosition},
     render::{self, RootItem},
     selection_adapter::MarkdownSelectionAdapter,
@@ -34,7 +34,6 @@ pub struct MarkdownState {
     pub(super) selectable: bool,
     pub(super) compact_headings: bool,
     pub(super) base_dir: Option<PathBuf>,
-    link_targets: LinkTargetCache,
     pub(super) pending_context_link: Option<PendingLinkMenu>,
     /// Window position of the last left mouse-down that landed on a link;
     /// a mouse-up nearby is a click, anything farther is a drag-selection.
@@ -76,7 +75,6 @@ impl MarkdownState {
             selectable: false,
             compact_headings: false,
             base_dir: None,
-            link_targets: LinkTargetCache::default(),
             pending_context_link: None,
             link_press_origin: None,
             is_selecting: false,
@@ -164,7 +162,6 @@ impl MarkdownState {
             return;
         }
         self.base_dir = base_dir;
-        self.link_targets.clear();
         cx.notify();
     }
 
@@ -173,7 +170,29 @@ impl MarkdownState {
     }
 
     pub(super) fn resolve_link(&self, url: &str) -> LinkTarget {
-        self.link_targets.resolve(url, self.base_dir())
+        super::link_target::resolve_link(url)
+    }
+
+    pub(super) fn open_link(&self, url: &str, window: &mut Window, cx: &mut gpui::App) {
+        #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+        if window.modifiers().control && matches!(self.resolve_link(url), LinkTarget::Local(_)) {
+            if let Some(path) = super::link_target::system_path(url, self.base_dir()) {
+                cx.open_with_system(&path);
+            } else {
+                cx.open_url(url);
+            }
+            return;
+        }
+        match self.resolve_link(url) {
+            LinkTarget::Web(url) => cx.open_url(&url),
+            LinkTarget::Local(_) => window.dispatch_action(
+                Box::new(crate::file_preview::OpenFilePreview {
+                    target: url.into(),
+                    base_dir: self.base_dir.clone(),
+                }),
+                cx,
+            ),
+        }
     }
 
     /// Markdown file images belong to the attached host, including relative paths.
@@ -220,7 +239,6 @@ impl MarkdownState {
     }
 
     fn prepare_reparse(&mut self, cx: &mut Context<Self>) {
-        self.link_targets.clear();
         // Don't interrupt an active drag-selection; the window-level endpoints
         // stay valid for append-only growth and per-inline ranges repaint.
         if !self.is_selecting {
@@ -574,7 +592,6 @@ impl Render for MarkdownState {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, process, time::SystemTime};
 
     use gpui::{
         AppContext as _, Context, Entity, IntoElement, Render, TestAppContext, VisualTestContext,
@@ -691,65 +708,6 @@ mod tests {
             assert_eq!(state.last_reparse_bytes(), state.text.len());
             assert_eq!(*state.parsed, super::super::parse(&state.text));
         });
-    }
-
-    #[gpui::test]
-    fn link_target_cache_tracks_document_content_and_base_dir(cx: &mut TestAppContext) {
-        cx.update(crate::theme::init);
-        cx.update(super::super::init);
-        let nonce = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("clock should be after Unix epoch")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "tcode-markdown-state-link-cache-{}-{nonce}",
-            process::id()
-        ));
-        let first_base = root.join("first");
-        let second_base = root.join("second");
-        fs::create_dir_all(&first_base).expect("create first base directory");
-        fs::create_dir_all(&second_base).expect("create second base directory");
-        let path = first_base.join("linked.md");
-        fs::write(&path, b"linked").expect("create linked file");
-
-        let state = cx.update(|cx| cx.new(|cx| MarkdownState::new("[link](linked.md)", cx)));
-        state.update(cx, |state, cx| {
-            state.set_base_dir(Some(first_base.clone()), cx);
-            assert_eq!(
-                state.resolve_link("linked.md"),
-                LinkTarget::Local(path.clone())
-            );
-        });
-
-        fs::remove_file(&path).expect("remove linked file");
-        state.update(cx, |state, cx| {
-            assert_eq!(
-                state.resolve_link("linked.md"),
-                LinkTarget::Local(path.clone())
-            );
-            state.set_text("changed [link](linked.md)", cx);
-            assert_eq!(
-                state.resolve_link("linked.md"),
-                LinkTarget::Web("linked.md".to_string())
-            );
-        });
-
-        fs::write(&path, b"linked again").expect("recreate linked file");
-        state.update(cx, |state, cx| {
-            assert_eq!(
-                state.resolve_link("linked.md"),
-                LinkTarget::Web("linked.md".to_string())
-            );
-            state.set_base_dir(Some(second_base), cx);
-            assert_eq!(
-                state.resolve_link("linked.md"),
-                LinkTarget::Web("linked.md".to_string())
-            );
-            state.set_base_dir(Some(first_base), cx);
-            assert_eq!(state.resolve_link("linked.md"), LinkTarget::Local(path));
-        });
-
-        fs::remove_dir_all(root).expect("remove temporary directory");
     }
 
     #[gpui::test]

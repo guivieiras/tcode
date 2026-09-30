@@ -324,6 +324,17 @@ fn next_sidebar_overlay_visibility(
 }
 
 impl AppShell {
+    fn on_file_preview(
+        &mut self,
+        action: &crate::file_preview::OpenFilePreview,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(attachment) = &self.attachment {
+            crate::file_preview::open(attachment.link.store.clone(), action, window, cx);
+        }
+    }
+
     pub fn new(
         window_state: Entity<WindowState>,
         mut setup: ShellSetup,
@@ -1587,13 +1598,22 @@ impl AppShell {
                 page.render_compact_list(cx)
             }
         });
+        // Over a remote link Settings also names the link's state: its
+        // host-backed controls wait for the host baseline, not a thread's.
+        let subtitle = self.attachment.as_ref().and_then(|attachment| {
+            let store = attachment.link.store.read(cx);
+            store.remote_host_name()?;
+            Some(crate::remote::connection_label(
+                &store.settings_connection_state(),
+            ))
+        });
         v_flex()
             .size_full()
             .bg(crate::material::content_surface(cx))
             .child(nav_bar(
                 back,
                 title,
-                None,
+                subtitle.map(|subtitle| nav_subtitle(subtitle, cx)),
                 vec![self.palette_action(cx)],
                 window,
                 cx,
@@ -1975,6 +1995,7 @@ impl AppShell {
             .text_size(design(16.))
             .line_height(design(22.))
             .on_action(cx.listener(Self::on_toggle_palette))
+            .on_action(cx.listener(Self::on_file_preview))
             // Every compact page, settings included, is one entry of the same
             // stack: one nav bar, one Back, one transition.
             .child(stack)
@@ -2156,6 +2177,7 @@ impl AppShell {
                 })
                 .text_color(cx.theme().foreground)
                 .on_action(cx.listener(Self::on_toggle_palette))
+                .on_action(cx.listener(Self::on_file_preview))
                 .child(
                     div()
                         .id("workspace")
@@ -2184,6 +2206,7 @@ impl AppShell {
                 })
                 .text_color(cx.theme().foreground)
                 .on_action(cx.listener(Self::on_toggle_palette))
+                .on_action(cx.listener(Self::on_file_preview))
                 .child(
                     h_flex()
                         .id("workspace")
@@ -2438,6 +2461,7 @@ impl AppShell {
             })
             .text_color(cx.theme().foreground)
             .on_action(cx.listener(Self::on_toggle_palette))
+            .on_action(cx.listener(Self::on_file_preview))
             .child(
                 div()
                     .id("workspace")

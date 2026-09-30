@@ -15,6 +15,8 @@ use crate::{
     lan::{Browse, LanOptions, SystemBrowser},
 };
 
+type ApkInstaller =
+    dyn Fn(PathBuf) -> HostFuture<'static, Result<tcode_client::host::ApkInstallerState, String>>;
 type QrScanner = dyn Fn() -> HostFuture<'static, Result<String, String>>;
 type ImagePicker = dyn Fn(usize) -> HostFuture<'static, Result<Vec<PickedImage>, String>>;
 type EditorOpener = dyn Fn(&Path) -> Result<(), String>;
@@ -32,6 +34,8 @@ pub struct NativeClientHost {
     multicast_lock: Option<Arc<MulticastLock>>,
     system_browser: Option<Arc<SystemBrowser>>,
     device: OnceLock<Result<DeviceIdentity, String>>,
+    apk_installer: Option<Box<ApkInstaller>>,
+    downloads: Arc<crate::apk::Downloads>,
 }
 
 impl NativeClientHost {
@@ -48,6 +52,8 @@ impl NativeClientHost {
             multicast_lock: None,
             system_browser: None,
             device: OnceLock::new(),
+            apk_installer: None,
+            downloads: Default::default(),
         }
     }
 
@@ -156,6 +162,18 @@ impl NativeClientHost {
         self
     }
 
+    pub fn with_apk_installer(
+        mut self,
+        install: impl Fn(
+            PathBuf,
+        )
+            -> HostFuture<'static, Result<tcode_client::host::ApkInstallerState, String>>
+        + 'static,
+    ) -> Self {
+        self.apk_installer = Some(Box::new(install));
+        self
+    }
+
     fn prefs_path(&self) -> PathBuf {
         self.data_dir.join("mobile.json")
     }
@@ -179,6 +197,42 @@ impl NativeClientHost {
 }
 
 impl ClientHost for NativeClientHost {
+    fn supports_apk_install(&self) -> bool {
+        self.apk_installer.is_some()
+    }
+    fn apk_download_state(&self, host: &str, build: &str) -> tcode_client::host::ApkDownloadState {
+        self.downloads.state(host, build)
+    }
+    fn download_apk(
+        &self,
+        host: String,
+        link: tcode_client::HostLink,
+        artifact: tcode_protocol::DevelopmentArtifact,
+    ) -> HostFuture<'_, Result<(), String>> {
+        if self.apk_installer.is_none() {
+            return Box::pin(async { Err("APK download is unavailable on this client".into()) });
+        }
+        let receiver = self
+            .downloads
+            .start(self.data_dir.clone(), host, link, artifact);
+        Box::pin(async move { receiver.recv().await.map_err(|e| e.to_string())? })
+    }
+    fn open_apk_installer(
+        &self,
+        host: String,
+        build: String,
+    ) -> HostFuture<'_, Result<tcode_client::host::ApkInstallerState, String>> {
+        if self.downloads.state(&host, &build) != tcode_client::host::ApkDownloadState::Ready {
+            return Box::pin(async { Err("Download and verify the APK first".into()) });
+        }
+        match &self.apk_installer {
+            Some(install) => install(crate::apk::cache_path(&self.data_dir, &host, &build)),
+            None => {
+                Box::pin(async { Err("APK installation is unavailable on this client".into()) })
+            }
+        }
+    }
+
     fn device_name(&self) -> String {
         self.load_preferences()
             .device_name

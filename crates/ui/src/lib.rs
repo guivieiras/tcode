@@ -11,6 +11,7 @@ mod composer_trigger;
 mod context_meter;
 mod conversation_ui;
 pub(crate) mod diff;
+mod file_preview;
 #[doc(hidden)]
 pub mod gallery_support;
 pub(crate) mod git;
@@ -24,6 +25,7 @@ pub mod icon;
 mod local_permissions;
 pub mod markdown;
 // Shared material helpers are also used by the phone shell.
+mod development_page;
 #[cfg(target_os = "macos")]
 mod macos_backdrop;
 pub mod material;

@@ -67,6 +67,7 @@ enum Section {
     General,
     Appearance,
     Providers,
+    Development,
     Usage,
     Browser,
     ComputerUse,
@@ -82,23 +83,25 @@ enum Section {
 /// headless listener in a browser. Choosing a machine, and the invitation other
 /// devices pair with, live in `crate::remote`.
 #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
-const SECTIONS: [Section; 9] = [
+const SECTIONS: [Section; 10] = [
     Section::General,
     Section::Appearance,
     Section::Remote,
     Section::Providers,
     Section::Usage,
+    Section::Development,
     Section::Orchestrate,
     Section::ComputerUse,
     Section::Browser,
     Section::Archived,
 ];
 #[cfg(not(any(feature = "remote-hosting", target_family = "wasm")))]
-const SECTIONS: [Section; 8] = [
+const SECTIONS: [Section; 9] = [
     Section::General,
     Section::Appearance,
     Section::Providers,
     Section::Usage,
+    Section::Development,
     Section::Orchestrate,
     Section::ComputerUse,
     Section::Browser,
@@ -158,6 +161,7 @@ impl Section {
                 }
             }
             Self::Providers
+            | Self::Development
             | Self::Usage
             | Self::Browser
             | Self::ComputerUse
@@ -183,6 +187,7 @@ impl Section {
             Self::General
             | Self::Appearance
             | Self::Providers
+            | Self::Development
             | Self::Usage
             | Self::ComputerUse
             | Self::Orchestrate
@@ -194,6 +199,7 @@ impl Section {
         match self {
             Self::General => "settings-nav-general",
             Self::Appearance => "settings-nav-appearance",
+            Self::Development => "settings-nav-development",
             Self::Providers => "settings-nav-providers",
             Self::Usage => "settings-nav-usage",
             Self::Browser => "settings-nav-browser",
@@ -209,6 +215,7 @@ impl Section {
         match self {
             Self::General => IconName::Settings,
             Self::Appearance => IconName::Palette,
+            Self::Development => IconName::Settings,
             Self::Providers => IconName::Bot,
             Self::Usage => IconName::ChartPie,
             Self::Browser => IconName::Globe,
@@ -224,6 +231,7 @@ impl Section {
         match self {
             Self::General => crate::tr!("settings.general"),
             Self::Appearance => crate::tr!("settings.appearance"),
+            Self::Development => crate::tr!("development.title"),
             Self::Providers => crate::tr!("settings.providers"),
             Self::Usage => crate::tr!("settings.usage"),
             Self::Browser => crate::tr!("settings.browser"),
@@ -308,6 +316,7 @@ pub struct SettingsPage {
     acp_panel: Entity<AcpPanel>,
     /// Editable main-model identities and child-model routing matrix.
     orchestrate_panel: Entity<OrchestrateSettingsPanel>,
+    development_panel: Entity<crate::development_page::DevelopmentPage>,
     /// Hosting this machine. Absent where the client cannot listen at all.
     #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
     #[cfg(not(target_family = "wasm"))]
@@ -367,6 +376,7 @@ impl SettingsPage {
             .update(cx, |state, _| state.pending_settings_section.take())
             .map(|section| match section.as_str() {
                 "appearance" => Section::Appearance,
+                "development" => Section::Development,
                 "providers" => Section::Providers,
                 "usage" => Section::Usage,
                 "browser" => Section::Browser,
@@ -524,10 +534,12 @@ impl SettingsPage {
             cx.new(|cx| crate::local_permissions::LocalPermissions::new(store, window, cx))
         });
         let mut page = Self {
-            store,
+            store: store.clone(),
             window_state,
             provider_cards: Vec::new(),
             acp_panel,
+            development_panel: cx
+                .new(|cx| crate::development_page::DevelopmentPage::new(store.clone(), window, cx)),
             orchestrate_panel,
             #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
             hosting_panel,
@@ -1305,6 +1317,7 @@ impl SettingsPage {
         let column = match self.section {
             Section::General => self.render_general(cx),
             Section::Appearance => self.render_appearance(cx),
+            Section::Development => v_flex().child(self.development_panel.clone()),
             Section::Providers => self.render_providers(window, cx),
             Section::Usage => self.render_usage(cx),
             Section::Browser => self.render_browser(cx),

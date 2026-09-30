@@ -136,6 +136,9 @@ impl OutgoingReceiver {
             }
         });
         let mut queue = self.queue.lock().unwrap();
+        queue
+            .subscriptions
+            .retain(|key, _| key != r#"{"type":"development"}"#);
         let lines = std::mem::take(&mut queue.lines);
         for line in lines {
             if retained_write(&line) {
@@ -174,7 +177,15 @@ pub fn subscription_key(line: &str) -> Option<String> {
 fn retained_write(line: &str) -> bool {
     serde_json::from_str::<serde_json::Value>(line)
         .ok()
-        .is_some_and(|value| value.get("key").is_some_and(serde_json::Value::is_string))
+        .is_some_and(|value| {
+            value.get("key").is_some_and(serde_json::Value::is_string)
+                || matches!(
+                    value
+                        .pointer("/payload/content/type")
+                        .and_then(serde_json::Value::as_str),
+                    Some("start_development_build" | "restart_development_desktop")
+                )
+        })
 }
 
 #[cfg(test)]
@@ -234,5 +245,34 @@ mod tests {
         );
         assert_eq!(sender.queued(), 1);
         assert_eq!(smol::block_on(receiver.recv()).unwrap().len(), MAX_BYTES);
+    }
+}
+
+#[cfg(test)]
+mod development_tests {
+    use super::*;
+    use tcode_protocol::{ClientMessage, ClientPayload, Command, DevelopmentTarget, encode_line};
+    #[test]
+    fn reconnect_discards_buffered_and_queued_development_controls() {
+        let (sender, receiver) = channel();
+        let build = |id| {
+            encode_line(&ClientMessage {
+                id,
+                key: None,
+                payload: ClientPayload::Command(Command::StartDevelopmentBuild {
+                    host_instance_id: "old-process".into(),
+                    target: DevelopmentTarget::Desktop,
+                }),
+            })
+            .unwrap()
+        };
+        sender.try_send(build(1)).unwrap();
+        sender.try_send(build(2)).unwrap();
+        sender.try_send("unrelated".into()).unwrap();
+        let mut buffered = VecDeque::from([smol::block_on(receiver.recv()).unwrap()]);
+        receiver.discard_retained_writes(&mut buffered);
+        assert!(buffered.is_empty());
+        assert_eq!(sender.queued(), 1);
+        assert_eq!(smol::block_on(receiver.recv()).unwrap(), "unrelated");
     }
 }

@@ -658,9 +658,10 @@ impl AndroidWindow {
         self.sync_input_state(false);
         if let Some(position) = self.0.keyboard_tap.take() {
             self.with_input_handler(|handler| {
-                if handler
-                    .element_bounds()
-                    .is_some_and(|bounds| bounds.contains(&position))
+                if handler.query_accepts_text_input()
+                    && handler
+                        .element_bounds()
+                        .is_some_and(|bounds| bounds.contains(&position))
                 {
                     // IME dismissal preserves GPUI focus, so FocusGained alone
                     // cannot reopen it when the user resumes editing.

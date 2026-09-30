@@ -1,6 +1,6 @@
 use crate::sizing::design;
 #[path = "input_configuration.rs"]
-mod input_configuration;
+pub(crate) mod input_configuration;
 
 use crate::{
     sizing::{Sizable, Size},

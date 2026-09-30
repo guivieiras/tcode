@@ -19,7 +19,6 @@ use gpui::{
 
 use super::{
     inline::{Inline, InlineState},
-    link_target::LinkTarget,
     nodes::LinkMark,
     state::MarkdownState,
 };
@@ -180,10 +179,7 @@ impl InlineFlow {
                 gpui_base::TextSelection::end(window, cx);
                 cx.stop_propagation();
                 if let Some(link) = &link {
-                    match view.read(cx).resolve_link(&link.url) {
-                        LinkTarget::Web(url) => cx.open_url(&url),
-                        LinkTarget::Local(path) => cx.open_with_system(&path),
-                    }
+                    view.update(cx, |state, cx| state.open_link(&link.url, window, cx));
                 } else {
                     crate::attachments::open_image_lightbox(
                         source.clone(),

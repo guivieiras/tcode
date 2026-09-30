@@ -26,6 +26,7 @@ pub enum Topic {
     SessionStatus { session_id: String },
     Index,
     Settings,
+    Development,
     Providers,
     GitStatus { session_id: String },
     RuntimeEvents,
@@ -80,6 +81,7 @@ pub enum ServerEvent {
     SettingsReplaced(Settings),
     /// Visit times that changed while the rest of the settings did not.
     LastVisitedChanged(HashMap<String, u64>),
+    DevelopmentStateReplaced(crate::DevelopmentSnapshot),
     Runtime(RuntimeNotification),
 
     /// A provider-native rewind prompt is delivered once over the serialized
@@ -355,6 +357,9 @@ pub struct IndexSummary {
     /// Current working turn start, in Unix milliseconds, including parked sessions.
     #[serde(default)]
     pub working_started_at: HashMap<String, u64>,
+    /// Whether the host offers Development builds; absent from older hosts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub development: Option<bool>,
     /// Working, approval, user-input and background-only flags for sidebar rows.
     #[serde(default)]
     pub activity: HashMap<String, (bool, bool, bool, bool)>,

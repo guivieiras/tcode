@@ -18,6 +18,7 @@ use crate::host::{HostCx, HostEvent, HostFn};
 /// client traffic.
 #[derive(Default)]
 pub struct HostServices {
+    pub development: Option<crate::app::development::DevelopmentCapabilities>,
     /// Run provider catalog, version, and status probes during host startup.
     pub background_startup_probes: bool,
     /// Generate AI-authored titles for new threads and explicit regeneration.
@@ -131,6 +132,9 @@ pub fn spawn_host(store: SessionStore, mut services: HostServices) -> std::io::R
             }
             if let Some(server) = services.computer_use.take() {
                 state.attach_computer_use_mcp(server.url, server.tokens);
+            }
+            if let Some(capabilities) = services.development.take() {
+                state.attach_development(capabilities);
             }
             let mut cx = HostCx::new(mailbox_tx, event_tx);
             state.pump_orchestrate_requests(&mut cx);
@@ -306,6 +310,33 @@ fn dispatch_command(app: &mut AppState, cx: &mut HostCx, command: Command) -> Co
     }
     let mut response = CommandResponse::Unit;
     match command {
+        Command::StartDevelopmentBuild {
+            host_instance_id,
+            target,
+        } => {
+            return CommandOutcome::Immediate(
+                app.start_development_build(&host_instance_id, target, cx)
+                    .map(|()| CommandResponse::Unit),
+            );
+        }
+        Command::RestartDevelopmentDesktop {
+            host_instance_id,
+            build_id,
+            allow_interrupt,
+        } => {
+            return CommandOutcome::Immediate(
+                app.restart_development_desktop(&host_instance_id, &build_id, allow_interrupt, cx)
+                    .map(|()| CommandResponse::Unit),
+            );
+        }
+        Command::PatchSettings {
+            patch: tcode_protocol::SettingsPatch::DevelopmentCheckout(path),
+        } => {
+            return CommandOutcome::Immediate(
+                app.set_development_checkout(path, cx)
+                    .map(|()| CommandResponse::Unit),
+            );
+        }
         Command::TerminalInput { terminal_id, bytes } => {
             if let Some(terminal) = app.terminal_handle(terminal_id) {
                 terminal.write_input(bytes);
@@ -691,6 +722,30 @@ fn dispatch_query(
             let task = cx.unblock(move || {
                 let project = project.ok_or_else(|| std::io::Error::other("unknown project"))?;
                 tcode_services::project_icons::read_project_icon(&project, pixels)
+            });
+            cx.spawn_background(async move {
+                task.await
+                    .map(QueryResponse::FileBytes)
+                    .map_err(io_protocol_error)
+            })
+        }
+        Query::PreviewFile { target, base_dir } => {
+            let task = cx
+                .unblock(move || tcode_services::file_preview::open(&target, base_dir.as_deref()));
+            cx.spawn_background(async move {
+                task.await
+                    .map(QueryResponse::FilePreview)
+                    .map_err(io_protocol_error)
+            })
+        }
+        Query::ReadFileRange {
+            path,
+            offset,
+            length,
+            expected_size,
+        } => {
+            let task = cx.unblock(move || {
+                tcode_services::file_preview::read_range(&path, offset, length, expected_size)
             });
             cx.spawn_background(async move {
                 task.await

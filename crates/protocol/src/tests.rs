@@ -1043,3 +1043,23 @@ fn thread_attention_literal_wire_events() {
         );
     }
 }
+
+#[test]
+fn older_host_index_has_no_development_capability() {
+    let snapshot: crate::IndexSnapshot =
+        serde_json::from_str(r#"{"sessions":[],"projects":[]}"#).unwrap();
+    assert_eq!(snapshot.summary.development, None);
+    for command in [
+        crate::Command::StartDevelopmentBuild {
+            host_instance_id: "old".into(),
+            target: crate::DevelopmentTarget::Desktop,
+        },
+        crate::Command::RestartDevelopmentDesktop {
+            host_instance_id: "old".into(),
+            build_id: "abc".into(),
+            allow_interrupt: true,
+        },
+    ] {
+        assert!(!command.requires_delivery_key());
+    }
+}

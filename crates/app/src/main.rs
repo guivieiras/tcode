@@ -183,8 +183,12 @@ fn pair_command(args: &[String], client_host: &NativeClientHost) -> Result<Strin
 
 /// Start the in-process host and put the mux in front of it. This window is
 /// then one ordinary client among every link attached to that mux.
-fn start_local(store: SessionStore) -> (SpawnedHost, HostMux) {
+fn start_local(
+    store: SessionStore,
+    development: Option<tcode_runtime::app::development::DevelopmentCapabilities>,
+) -> (SpawnedHost, HostMux) {
     let mut host_services = HostServices {
+        development,
         background_startup_probes: true,
         ai_title_generation: true,
         ..HostServices::default()
@@ -216,8 +220,11 @@ struct LocalKernel {
 }
 
 impl LocalKernel {
-    fn start(store: SessionStore) -> Self {
-        let (host, mux) = start_local(store);
+    fn start(
+        store: SessionStore,
+        development: Option<tcode_runtime::app::development::DevelopmentCapabilities>,
+    ) -> Self {
+        let (host, mux) = start_local(store, development);
         let connection = mux.attach();
         let control_link = HostLink::new(connection.to_host, connection.from_host);
         let pump_link = control_link.clone();
@@ -278,7 +285,14 @@ impl LocalKernel {
     }
 }
 
+#[cfg(target_os = "linux")]
+mod development;
+
 fn main() {
+    #[cfg(target_os = "linux")]
+    if development::run_helper() {
+        return;
+    }
     env_logger::init();
 
     if std::env::args().any(|arg| arg == "--cu-smoke") {
@@ -356,7 +370,19 @@ fn main() {
     };
     // Kernel ownership is process composition, not a property of whichever
     // host the window currently views.
-    let kernel = Rc::new(LocalKernel::start(store));
+    let (restart_quit, restart_requests) = smol::channel::bounded(1);
+    #[cfg(target_os = "linux")]
+    let development = Some(development::capabilities(
+        data_dir.clone(),
+        machine_name(),
+        restart_quit,
+    ));
+    #[cfg(not(target_os = "linux"))]
+    let development = {
+        drop(restart_quit);
+        None
+    };
+    let kernel = Rc::new(LocalKernel::start(store, development));
     let local_settings = kernel.settings();
 
     gpui_platform::application()
@@ -421,6 +447,12 @@ fn main() {
                 }
             });
             quit_subscription.detach();
+            cx.spawn(async move |cx| {
+                if restart_requests.recv().await.is_ok() {
+                    cx.update(|cx| cx.quit());
+                }
+            })
+            .detach();
 
             let window_options = WindowOptions {
                 window_bounds: Some(WindowBounds::centered(size(px(1200.), px(800.)), cx)),

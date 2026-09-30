@@ -549,12 +549,23 @@ impl HostLink {
     ) -> Result<async_channel::Receiver<HostMessage>, ProtocolError> {
         let (sender, receiver) = async_channel::bounded(1);
         let query = matches!(payload, ClientPayload::Query(_));
-        let state_guard = query.then(|| self.inner.connection_state.lock().unwrap());
-        if state_guard.as_ref().is_some_and(|state| {
-            !matches!(
-                **state,
-                ConnectionState::Connected { .. } | ConnectionState::Syncing { .. }
+        let live_control = matches!(
+            &payload,
+            ClientPayload::Command(
+                Command::StartDevelopmentBuild { .. } | Command::RestartDevelopmentDesktop { .. }
             )
+        );
+        let state_guard =
+            (query || live_control).then(|| self.inner.connection_state.lock().unwrap());
+        if state_guard.as_ref().is_some_and(|state| {
+            if live_control {
+                !state.is_connected()
+            } else {
+                !matches!(
+                    **state,
+                    ConnectionState::Connected { .. } | ConnectionState::Syncing { .. }
+                )
+            }
         }) {
             return Err(error("disconnected", "Read requires a connection"));
         }
@@ -808,6 +819,9 @@ impl HostLink {
                 );
             }
             for subscription in self.subscriptions() {
+                if subscription.topic == Topic::Development {
+                    continue;
+                }
                 let _ = self.send_subscription(subscription);
             }
         }
@@ -815,6 +829,9 @@ impl HostLink {
             && !matches!(previous, ConnectionState::Syncing { .. })
         {
             for subscription in self.subscriptions() {
+                if subscription.topic == Topic::Development {
+                    continue;
+                }
                 let _ = self.send_subscription(subscription);
             }
         }

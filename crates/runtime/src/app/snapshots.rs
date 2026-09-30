@@ -6,6 +6,7 @@ use super::*;
 /// appends and one-shot events deliberately remain on their existing paths.
 pub(crate) struct DomainDiff {
     index: IndexSnapshot,
+    development: tcode_protocol::DevelopmentSnapshot,
     settings: Settings,
     providers: ProvidersStatus,
     git_status: HashMap<String, GitStatusStatus>,
@@ -16,6 +17,7 @@ impl DomainDiff {
     pub(crate) fn new(state: &AppState) -> Self {
         Self {
             index: state.index_snapshot(),
+            development: state.development_snapshot(),
             settings: state.settings_snapshot(),
             providers: state.providers_status_snapshot(),
             git_status: HashMap::new(),
@@ -24,6 +26,15 @@ impl DomainDiff {
     }
 
     pub(crate) fn emit_changes(&mut self, state: &AppState, cx: &mut HostCx) {
+        let development = state.development_snapshot();
+        if self.development != development {
+            self.development = development.clone();
+            emit_replacement(
+                Topic::Development,
+                ServerEvent::DevelopmentStateReplaced(development),
+                cx,
+            );
+        }
         let index = state.index_snapshot();
         if self.index != index {
             for event in index_changes(&self.index, &index) {
@@ -164,6 +175,7 @@ fn emit_replacement(topic: Topic, event: ServerEvent, cx: &mut HostCx) {
 impl AppState {
     pub fn index_snapshot(&self) -> IndexSnapshot {
         let mut summary = IndexSummary {
+            development: self.development_supported().then_some(true),
             title_generating: self.title_generating.clone(),
             working_started_at: self
                 .residents
@@ -283,6 +295,9 @@ impl AppState {
     ) -> Option<EventEnvelope> {
         let topic = &subscription.topic;
         let event = match topic {
+            Topic::Development => {
+                ServerEvent::DevelopmentStateReplaced(self.development_snapshot())
+            }
             Topic::Index => ServerEvent::IndexSnapshot(self.index_snapshot()),
             Topic::Settings => ServerEvent::SettingsSnapshot(self.settings_snapshot()),
             Topic::Providers => ServerEvent::ProvidersReplaced(self.providers_status_snapshot()),

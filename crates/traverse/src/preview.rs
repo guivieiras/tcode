@@ -116,11 +116,18 @@ impl PreviewEndpoint {
 
 /// A runtime task that ends with its handle, as do the tasks it spawned
 /// into its own [`JoinSet`].
-struct Task(tokio::task::JoinHandle<()>);
+pub(crate) struct Task(tokio::task::JoinHandle<()>);
 
 impl Task {
     fn spawn(future: impl Future<Output = ()> + Send + 'static) -> Self {
         Self(runtime().spawn(future))
+    }
+
+    /// Abort and wait until the task, and everything it owned, is dropped.
+    #[cfg(test)]
+    pub(crate) async fn cancel(mut self) {
+        self.0.abort();
+        let _ = (&mut self.0).await;
     }
 }
 
@@ -138,23 +145,37 @@ where
     F: Fn(TcpStream, PreviewConnection) -> Fut + Send + 'static,
     Fut: Future<Output = ()> + Send + 'static,
 {
-    Task::spawn(async move {
-        let mut connections = JoinSet::new();
-        while let Ok((socket, _)) = listener.accept().await {
-            let connection = host.connection();
-            let retired = connection.retired.clone();
-            let served = serve(socket, connection);
-            connections.spawn(async move {
-                tokio::select! {
-                    () = served => {}
-                    _ = retired.recv() => {}
-                }
-            });
+    serve_loopback(listener, move |socket| {
+        let connection = host.connection();
+        let retired = connection.retired.clone();
+        let served = serve(socket, connection);
+        async move {
+            tokio::select! {
+                () = served => {}
+                _ = retired.recv() => {}
+            }
         }
     })
 }
 
-fn into_tokio(listener: std::net::TcpListener) -> io::Result<TcpListener> {
+/// Accept on a loopback `listener` until dropped, running `serve` for each
+/// connection; dropping the task also cancels the connections it accepted.
+pub(crate) fn serve_loopback<F, Fut>(listener: TcpListener, serve: F) -> Task
+where
+    F: Fn(TcpStream) -> Fut + Send + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
+{
+    Task::spawn(async move {
+        let mut connections = JoinSet::new();
+        while let Ok((socket, _)) = listener.accept().await {
+            // Reap finished connections so a long-lived listener stays small.
+            while connections.try_join_next().is_some() {}
+            connections.spawn(serve(socket));
+        }
+    })
+}
+
+pub(crate) fn into_tokio(listener: std::net::TcpListener) -> io::Result<TcpListener> {
     listener.set_nonblocking(true)?;
     let _guard = runtime().enter();
     TcpListener::from_std(listener)

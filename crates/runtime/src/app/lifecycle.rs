@@ -358,6 +358,7 @@ impl AppState {
 
     /// Shut down every provider process before the application exits.
     pub fn shutdown_all(&mut self, cx: &mut HostCx) {
+        self.stop_development();
         for id in self
             .mcp
             .computer_use_registrations

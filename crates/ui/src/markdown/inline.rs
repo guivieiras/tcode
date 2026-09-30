@@ -17,7 +17,6 @@ use gpui::{
 };
 
 use super::{
-    link_target::LinkTarget,
     nodes::LinkMark,
     state::{MarkdownState, PendingLinkMenu},
 };
@@ -409,10 +408,7 @@ impl Element for Inline {
                 if let Some(link) = Self::link_for_position(&layout, &links, event.position) {
                     gpui_base::TextSelection::end(window, cx);
                     cx.stop_propagation();
-                    match view.read(cx).resolve_link(&link.url) {
-                        LinkTarget::Web(url) => cx.open_url(&url),
-                        LinkTarget::Local(path) => cx.open_with_system(&path),
-                    }
+                    view.update(cx, |state, cx| state.open_link(&link.url, window, cx));
                 }
             }
         });
