@@ -211,6 +211,11 @@ impl ClientHost for NativeClientHost {
                 .and_then(|value| serde_json::from_value(value).ok())
                 .unwrap_or_default(),
             appearance: value("appearance"),
+            zoom_percent: prefs
+                .get("zoom_percent")
+                .and_then(|v| v.as_u64())
+                .and_then(|v| u16::try_from(v).ok()),
+            theme: prefs.get("theme").filter(|v| !v.is_null()).cloned(),
             language: value("language"),
             device_name: value("device_name"),
             navigation: prefs
@@ -228,12 +233,33 @@ impl ClientHost for NativeClientHost {
         let mut prefs = self.prefs();
         prefs["thread_appearance"] = serde_json::json!(preferences.thread_appearance);
         prefs["appearance"] = serde_json::json!(preferences.appearance);
+        prefs["zoom_percent"] = serde_json::json!(preferences.zoom_percent);
+        prefs["theme"] = serde_json::json!(preferences.theme);
         prefs["language"] = serde_json::json!(preferences.language);
         prefs["device_name"] = serde_json::json!(preferences.device_name);
         prefs["navigation"] = serde_json::json!(preferences.navigation);
         prefs["remote_attachment_limit_mib"] =
             serde_json::json!(preferences.remote_attachment_limit_mib);
         self.write_prefs(&prefs);
+    }
+
+    fn supports_local_files(&self) -> bool {
+        true
+    }
+
+    /// The read runs on the Traverse runtime's blocking pool; the UI executor
+    /// only awaits the result.
+    fn read_local_text(&self, path: PathBuf) -> HostFuture<'static, Result<String, String>> {
+        let (done, result) = async_channel::bounded(1);
+        crate::runtime().spawn_blocking(move || {
+            let _ = done.send_blocking(std::fs::read_to_string(path).map_err(|e| e.to_string()));
+        });
+        Box::pin(async move {
+            result
+                .recv()
+                .await
+                .unwrap_or_else(|_| Err("reading the file was interrupted".into()))
+        })
     }
 
     fn outbox_storage(&self, host_id: &str) -> Option<Arc<dyn tcode_client::outbox::Storage>> {
@@ -773,10 +799,12 @@ mod tests {
         host.save_preferences(&ClientPreferences {
             thread_appearance: tcode_client::host::ThreadAppearance::IconColumn,
             appearance: Some("light".into()),
+            zoom_percent: Some(125),
             language: None,
             device_name: Some("Renamed".into()),
             navigation: Some(serde_json::json!({"history": ["hosts", "threads"]})),
             remote_attachment_limit_mib: Some(4),
+            theme: Some(serde_json::json!({"light":"Paper", "families":[]})),
         });
 
         let saved: serde_json::Value =
@@ -789,6 +817,9 @@ mod tests {
             host.load_preferences().thread_appearance,
             tcode_client::host::ThreadAppearance::IconColumn
         );
+        assert_eq!(saved["zoom_percent"], 125);
+        assert_eq!(host.load_preferences().zoom_percent, Some(125));
+        assert_eq!(host.load_preferences().theme.unwrap()["light"], "Paper");
         assert_eq!(
             host.load_preferences().navigation.unwrap()["history"],
             serde_json::json!(["hosts", "threads"])

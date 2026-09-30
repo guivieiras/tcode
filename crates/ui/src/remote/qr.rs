@@ -1,4 +1,5 @@
-use gpui::{AnyElement, IntoElement as _, ParentElement as _, Styled as _, div, px};
+use crate::sizing::design;
+use gpui::{AnyElement, IntoElement as _, ParentElement as _, Styled as _, div};
 use gpui_base::{h_flex, v_flex};
 /// A QR code as `(width_in_modules, dark_module_flags)`, row-major.
 fn qr_modules(payload: &str) -> Option<(usize, Vec<bool>)> {
@@ -24,7 +25,7 @@ pub(super) fn qr_element(payload: &str) -> Option<AnyElement> {
     let dark = gpui::black();
     let mut grid = v_flex().flex_none();
     for row in modules.chunks(width) {
-        let mut line = h_flex().flex_none().h(px(MODULE));
+        let mut line = h_flex().flex_none().h(design(MODULE));
         let mut start = 0;
         while start < row.len() {
             let mut end = start + 1;
@@ -35,8 +36,8 @@ pub(super) fn qr_element(payload: &str) -> Option<AnyElement> {
             // height would collapse to nothing and paint no modules at all.
             let run = div()
                 .flex_none()
-                .h(px(MODULE))
-                .w(px((end - start) as f32 * MODULE));
+                .h(design(MODULE))
+                .w(design((end - start) as f32 * MODULE));
             line = line.child(if row[start] { run.bg(dark) } else { run });
             start = end;
         }
@@ -45,7 +46,7 @@ pub(super) fn qr_element(payload: &str) -> Option<AnyElement> {
     Some(
         div()
             .flex_none()
-            .p(px(QUIET))
+            .p(design(QUIET))
             .rounded(crate::material::radius_card())
             .bg(gpui::white())
             .child(grid)

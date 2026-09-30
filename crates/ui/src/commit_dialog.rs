@@ -2,6 +2,7 @@
 //! current branch, a default-branch safeguard banner, and a commit-message
 //! textarea pre-filled by AI generation (with a regenerate button).
 
+use crate::sizing::design;
 use std::collections::HashSet;
 
 use crate::theme::ActiveTheme as _;
@@ -14,7 +15,7 @@ use crate::{
 };
 use gpui::{
     App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, Styled as _, Task, Window, div, prelude::FluentBuilder as _, px,
+    ParentElement as _, Render, Styled as _, Task, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -178,7 +179,7 @@ impl CommitDialog {
                     .flex_1()
                     .min_w_0()
                     .truncate()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_family(cx.theme().mono_font_family.clone())
                     .child(path),
             )
@@ -186,7 +187,7 @@ impl CommitDialog {
                 this.child(
                     div()
                         .flex_none()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().success)
                         .child(format!("+{}", file.insertions)),
                 )
@@ -195,7 +196,7 @@ impl CommitDialog {
                 this.child(
                     div()
                         .flex_none()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().danger)
                         .child(format!("-{}", file.deletions)),
                 )
@@ -215,7 +216,7 @@ impl Render for CommitDialog {
             .w_full()
             .gap_1p5()
             .items_center()
-            .text_size(px(13.))
+            .text_size(design(13.))
             .text_color(muted)
             .child(
                 Icon::empty()
@@ -248,7 +249,7 @@ impl Render for CommitDialog {
                         h_flex()
                             .gap_1p5()
                             .items_center()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .font_medium()
                             .text_color(cx.theme().warning)
                             .child(Icon::new(IconName::TriangleAlert).xsmall())
@@ -256,7 +257,7 @@ impl Render for CommitDialog {
                     )
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(muted)
                             .child(crate::tr!("git.commit.default_warning_body")),
                     )
@@ -274,7 +275,7 @@ impl Render for CommitDialog {
 
         let files_header = h_flex().w_full().justify_between().items_center().child(
             div()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .font_medium()
                 .text_color(muted)
                 .child(crate::tr!(
@@ -285,7 +286,7 @@ impl Render for CommitDialog {
         let file_list = if self.files.is_empty() {
             div()
                 .p_2()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(muted)
                 .child(crate::tr!("git.commit.no_changes"))
                 .into_any_element()
@@ -306,7 +307,7 @@ impl Render for CommitDialog {
                 }),
             )
             .w_full()
-            .max_h(px(180.))
+            .max_h(design(180.))
             .into_any_element()
         };
         body = body.child(
@@ -319,7 +320,7 @@ impl Render for CommitDialog {
                     .pt_1()
                     .px_1()
                     // The last file row carries its gap.
-                    .pb(px(if self.files.is_empty() { 4. } else { 2. }))
+                    .pb(design(if self.files.is_empty() { 4. } else { 2. }))
                     .child(file_list),
             ),
         );
@@ -330,7 +331,7 @@ impl Render for CommitDialog {
             .items_center()
             .child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_medium()
                     .text_color(muted)
                     .child(crate::tr!("git.commit.message_label")),
@@ -362,7 +363,7 @@ impl Render for CommitDialog {
         crate::material::overlay_contour(
             div()
                 .w_full()
-                .min_w(px(520.))
+                .min_w(design(520.))
                 .rounded(crate::material::radius_overlay()),
             cx,
         )
@@ -375,7 +376,7 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    use gpui::{ScrollDelta, ScrollWheelEvent, TestAppContext, point};
+    use gpui::{ScrollDelta, ScrollWheelEvent, TestAppContext, point, px};
     use tcode_core::git::GitStatus;
     use tcode_protocol::{
         EventEnvelope, GitStatusStatus, HostMessage, ServerEvent, Topic, encode_line,

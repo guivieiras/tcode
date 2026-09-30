@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::{
     icon::{Icon, IconName},
     sizing::{Sizable, Size},
@@ -6,7 +7,7 @@ use crate::{
 use gpui::{
     AnyElement, App, ElementId, InteractiveElement, Interactivity, IntoElement, ParentElement,
     RenderOnce, SharedString, StatefulInteractiveElement, StyleRefinement, Styled, Window, div,
-    prelude::FluentBuilder as _, px, relative,
+    prelude::FluentBuilder as _, relative,
 };
 use gpui_base::CheckboxIndicator;
 use gpui_base::StyledExt as _;
@@ -78,14 +79,14 @@ impl InteractiveElement for Checkbox {
 impl StatefulInteractiveElement for Checkbox {}
 
 impl RenderOnce for Checkbox {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let checked = self.checked;
         let indicator_size = match self.size {
-            Size::XSmall => px(12.),
-            Size::Small => px(14.),
-            Size::Large => px(18.),
-            Size::Size(v) => v,
-            Size::Medium => px(16.),
+            Size::XSmall => design(12.).to_pixels(window.rem_size()),
+            Size::Small => design(14.).to_pixels(window.rem_size()),
+            Size::Large => design(18.).to_pixels(window.rem_size()),
+            Size::Size(v) => design(f32::from(v)).to_pixels(window.rem_size()),
+            Size::Medium => design(16.).to_pixels(window.rem_size()),
         };
         let label = self.label.clone();
         self.base
@@ -112,7 +113,11 @@ impl RenderOnce for Checkbox {
                     .size(indicator_size)
                     .flex_shrink_0()
                     .border_1()
-                    .rounded(cx.theme().radius.min(px(4.)))
+                    .rounded(
+                        cx.theme()
+                            .radius
+                            .min(design(4.).to_pixels(window.rem_size())),
+                    )
                     .bg(cx.theme().background)
                     .border_color(cx.theme().input)
                     .styles(|styles| {
@@ -127,7 +132,7 @@ impl RenderOnce for Checkbox {
                     .when(checked, |this| {
                         this.child(
                             Icon::new(IconName::Check)
-                                .with_size(Size::Size(indicator_size))
+                                .size(indicator_size)
                                 .text_color(cx.theme().primary_foreground),
                         )
                     }),

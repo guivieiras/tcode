@@ -280,13 +280,14 @@ where
 /// Give `state`'s unmeasured rows `row_height` once the list has laid out, so
 /// wheel, bounce and scrollbar extents include rows not yet in view. Place it
 /// after the list: GPUI clears height hints on the first layout and on width
-/// changes.
-pub(crate) fn list_height_hint(state: &ListState, row_height: Pixels) -> impl IntoElement {
+/// changes. The height is a design size, resolved at the window's zoom.
+pub(crate) fn list_height_hint(state: &ListState, row_height: gpui::Rems) -> impl IntoElement {
     let list = state.clone();
     canvas(
-        move |_, _, _| {
+        move |_, window, _| {
             if list.is_scrolled_to_end().is_none() && list.max_offset_for_scrollbar().y > px(0.) {
-                list.clone().with_uniform_item_height(row_height);
+                list.clone()
+                    .with_uniform_item_height(row_height.to_pixels(window.rem_size()));
             }
         },
         |_, _, _, _| {},

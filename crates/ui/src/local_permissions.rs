@@ -7,6 +7,7 @@
 //! nowhere else. Everything else on the page (the Computer Use switches) is
 //! host configuration and stays editable over a remote link.
 
+use crate::sizing::design;
 use computer_use_mcp::permissions::{
     self, PermissionGrantAction, PermissionGrantFlow, PermissionKind, PermissionStatus,
     open_settings_pane, relaunch_app, request,
@@ -186,7 +187,7 @@ impl LocalPermissions {
         // No reset affordance: the grant lives in the OS, not in settings.json.
         h_flex()
             .w_full()
-            .min_h(px(44.))
+            .min_h(design(44.))
             .px_3()
             .py_2p5()
             .gap_3()
@@ -198,13 +199,13 @@ impl LocalPermissions {
                     .gap_0p5()
                     .child(
                         div()
-                            .text_size(px(15.))
+                            .text_size(design(15.))
                             .font_medium()
                             .child(crate::tr!(name_key)),
                     )
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!(why_key)),
                     ),
@@ -230,7 +231,7 @@ impl LocalPermissions {
             .child(
                 div()
                     .flex_1()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .child(crate::tr!("permissions.restart_banner")),
             )
             .child(

@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 
 use crate::store::{FallbackBlock, FallbackReview};
 use agent::{ClassifierCategory, RewindMode};
@@ -64,7 +65,13 @@ impl Composer {
             .gap_2()
             .items_center()
             .child(Icon::new(IconName::Info).small().text_color(muted))
-            .child(div().flex_1().text_size(px(13.)).font_medium().child(title))
+            .child(
+                div()
+                    .flex_1()
+                    .text_size(design(13.))
+                    .font_medium()
+                    .child(title),
+            )
             .child(
                 crate::material::accessible_clickable(
                     div(),
@@ -73,7 +80,7 @@ impl Composer {
                     crate::tr!("fallback.dismiss"),
                     cx,
                 )
-                .size(px(22.))
+                .size(design(22.))
                 .rounded(crate::material::radius_input())
                 .flex()
                 .items_center()
@@ -101,7 +108,7 @@ impl Composer {
                     Button::new("fallback-edit-retry")
                         .outline()
                         .small()
-                        .h(px(28.))
+                        .h(design(28.))
                         .rounded(crate::material::radius_input())
                         .label(crate::tr!("fallback.edit_retry"))
                         .on_click(cx.listener(move |this, _, _, cx| {
@@ -118,7 +125,7 @@ impl Composer {
                     Button::new("fallback-retry-opus")
                         .primary()
                         .small()
-                        .h(px(28.))
+                        .h(design(28.))
                         .rounded(crate::material::radius_input())
                         .label(crate::tr!("fallback.retry_on", model = model.clone()))
                         .on_click(cx.listener(move |this, _, window, cx| {
@@ -138,19 +145,24 @@ impl Composer {
         v_flex()
             .w_full()
             .gap_2()
-            .p(px(14.))
+            .p(design(14.))
             .rounded(crate::material::radius_card())
             .border_1()
             .border_color(cx.theme().border)
             .bg(cx.theme().popover)
             .shadow_sm()
             .child(header)
-            .child(div().text_size(px(13.)).child(reason))
-            .child(div().text_size(px(11.)).text_color(muted).child(outcome))
+            .child(div().text_size(design(13.)).child(reason))
+            .child(
+                div()
+                    .text_size(design(11.))
+                    .text_color(muted)
+                    .child(outcome),
+            )
             .when(!block.detail.trim().is_empty(), |this| {
                 this.child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .child(block.detail.clone()),
                 )
@@ -200,7 +212,7 @@ impl Composer {
             .child(
                 div()
                     .flex_1()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_medium()
                     .child(crate::tr!("fallback.review_title")),
             )
@@ -212,7 +224,7 @@ impl Composer {
                     crate::tr!("fallback.dismiss"),
                     cx,
                 )
-                .size(px(22.))
+                .size(design(22.))
                 .rounded(crate::material::radius_input())
                 .flex()
                 .items_center()
@@ -229,7 +241,7 @@ impl Composer {
 
         // Model-authored text, rendered as plain text.
         let assessment = div()
-            .text_size(px(13.))
+            .text_size(design(13.))
             .text_color(muted)
             .child(review.assessment.clone());
 
@@ -239,7 +251,7 @@ impl Composer {
             .gap_2()
             .px_2()
             .py_1()
-            .rounded(px(8.))
+            .rounded(design(8.))
             .border_1()
             .border_color(cx.theme().input)
             .bg(cx.theme().popover)
@@ -247,7 +259,7 @@ impl Composer {
                 div().flex_1().min_w_0().child(
                     Textarea::new(&self.fallback_review_input)
                         .appearance(false)
-                        .text_size(px(13.)),
+                        .text_size(design(13.)),
                 ),
             )
             .child(
@@ -258,7 +270,7 @@ impl Composer {
                     crate::tr!("fallback.review_send"),
                     cx,
                 )
-                .size(px(28.))
+                .size(design(28.))
                 .rounded(crate::material::radius_input())
                 .flex()
                 .items_center()
@@ -297,7 +309,7 @@ impl Composer {
         v_flex()
             .w_full()
             .gap_2()
-            .p(px(14.))
+            .p(design(14.))
             .rounded(crate::material::radius_card())
             .border_1()
             .border_color(cx.theme().border)
@@ -310,7 +322,7 @@ impl Composer {
             .when(has_draft, |this| {
                 this.child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .child(crate::tr!("fallback.review_hint")),
                 )
