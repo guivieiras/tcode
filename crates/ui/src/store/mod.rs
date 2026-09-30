@@ -18,7 +18,7 @@ use tcode_core::{
     session::{EntryContent, ReviewComment, StoredEvent, Timeline},
     settings::{
         BrowserSettings, ProjectSort, ProviderSettings, ResolvedProfile, Settings, SidebarLayout,
-        ThemeMode,
+        ThemeMode, ThreadSort,
     },
     ui::{ConversationDestination, RightTab},
 };
@@ -26,7 +26,7 @@ use tcode_protocol::{AcpMarketplaceItem, RuntimeNotification as RuntimeEvent};
 use tcode_protocol::{
     Command, CommandResponse, EventEnvelope, ExternalImportStatus, ExternalThread, GitDiffResult,
     GitDiffScope, GitStatusStatus, IndexSummary, PathEntry, ProtocolError, ProviderVersionStatus,
-    ProvidersStatus, Query, QueryResponse, RecentDir, ServerEvent, SessionSearchHit, SessionStatus,
+    ProvidersStatus, Query, QueryResponse, ServerEvent, SessionSearchHit, SessionStatus,
     Subscription, TerminalFrame, Topic,
 };
 pub(crate) mod terminal;
@@ -1582,6 +1582,7 @@ impl WorkspaceStore {
             &self.index_replica.1,
             &visible,
             self.settings_replica.project_sort,
+            self.thread_sort(),
         )
     }
 
@@ -1778,6 +1779,7 @@ impl WorkspaceStore {
             &self.index_replica.1,
             &archived,
             self.settings_replica.project_sort,
+            ThreadSort::Activity,
         );
         for group in &mut groups {
             group
@@ -1796,6 +1798,10 @@ impl WorkspaceStore {
         self.settings_replica.sidebar_layout
     }
 
+    pub fn thread_sort(&self) -> ThreadSort {
+        self.settings_replica.thread_sort
+    }
+
     pub fn flat_sessions(&self) -> Vec<SessionMeta> {
         let visible = self
             .index_replica
@@ -1804,7 +1810,7 @@ impl WorkspaceStore {
             .filter(|meta| meta.archived_at.is_none())
             .cloned()
             .collect();
-        order_sessions_with_children(visible)
+        order_sessions_with_children(visible, self.thread_sort())
     }
 
     pub(crate) fn project(&self, id: &str) -> Option<&Project> {
@@ -2185,7 +2191,10 @@ impl WorkspaceStore {
     /// Scan the *host's* external-agent histories. A failure is returned rather
     /// than logged away: an empty list and a broken host look identical to the
     /// user otherwise.
-    pub fn scan_external_history(&self, cx: &mut App) -> Task<Result<Vec<RecentDir>, String>> {
+    pub fn scan_external_history(
+        &self,
+        cx: &mut App,
+    ) -> Task<Result<tcode_protocol::ExternalHistoryScan, String>> {
         let host = self.host.clone();
         cx.spawn(
             async move |_| match host.query(Query::ScanExternalHistory).await {
@@ -2193,6 +2202,36 @@ impl WorkspaceStore {
                 Ok(other) => Err(format!("unexpected external-history response: {other:?}")),
                 Err(error) => Err(error.message),
             },
+        )
+    }
+
+    pub fn inspect_t3_project(
+        &self,
+        root: PathBuf,
+        cx: &mut App,
+    ) -> Task<Result<Option<tcode_protocol::T3ProjectHistory>, String>> {
+        let host = self.host.clone();
+        cx.spawn(
+            async move |_| match host.query(Query::InspectT3Project { root }).await {
+                Ok(QueryResponse::T3Project(project)) => Ok(project),
+                Ok(other) => Err(format!("unexpected T3 inspection response: {other:?}")),
+                Err(error) => Err(error.message),
+            },
+        )
+    }
+
+    pub fn start_t3_import(
+        &self,
+        project_id: &str,
+        profiles: std::collections::BTreeMap<String, String>,
+        cx: &mut App,
+    ) -> Task<Result<CommandResponse, ProtocolError>> {
+        self.command(
+            tcode_protocol::Command::StartT3Import {
+                project_id: project_id.into(),
+                profiles,
+            },
+            cx,
         )
     }
 

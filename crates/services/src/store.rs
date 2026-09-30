@@ -11,7 +11,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
-use agent::{AgentEvent, ModelSpec, ProviderCommand, ProviderKind};
+use agent::{AgentEvent, ItemContent, ModelSpec, ProviderCommand, ProviderKind, ThreadItem};
 use serde::{Deserialize, Serialize};
 
 use tcode_core::project::{IndexFile, Project, SessionMeta, migrate_index};
@@ -40,13 +40,16 @@ impl SessionStore {
     /// `TCODE_DATA_DIR` when it is set — which gives a throwaway profile (its own
     /// sessions, settings and installed ACP agents) for demos and screenshots.
     pub fn open_default() -> std::io::Result<Self> {
-        let root = match std::env::var_os("TCODE_DATA_DIR") {
+        Self::open_at(Self::default_root())
+    }
+
+    pub fn default_root() -> PathBuf {
+        match std::env::var_os("TCODE_DATA_DIR") {
             Some(dir) => PathBuf::from(dir),
             None => dirs::data_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
                 .join("tcode"),
-        };
-        Self::open_at(root)
+        }
     }
 
     pub fn open_at(root: PathBuf) -> std::io::Result<Self> {
@@ -63,6 +66,60 @@ impl SessionStore {
     #[cfg(any(test, feature = "test-support"))]
     pub fn event_reads(&self) -> usize {
         self.event_reads.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Inspect an offline store without creating directories or repairing its index.
+    pub fn inspect_at(root: PathBuf) -> Self {
+        Self {
+            root,
+            #[cfg(any(test, feature = "test-support"))]
+            event_reads: Default::default(),
+        }
+    }
+
+    /// Hold for the lifetime of a host or offline writer. Dry-run never creates a lock file.
+    pub fn lock_exclusive(&self, create: bool) -> std::io::Result<Option<File>> {
+        let path = self.root.join("host.lock");
+        let file = if create {
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(path)?
+        } else {
+            match File::open(path) {
+                Ok(file) => file,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                Err(error) => return Err(error),
+            }
+        };
+        file.try_lock().map_err(|error| {
+            std::io::Error::other(format!(
+                "close the destination tcode desktop app and headless host first: {error}"
+            ))
+        })?;
+        Ok(Some(file))
+    }
+
+    /// Unlike startup recovery, an offline import must fail on a damaged index.
+    pub fn read_file_strict(&self) -> std::io::Result<IndexFile> {
+        let bytes = match fs::read(self.index_path()) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(IndexFile::default());
+            }
+            Err(error) => return Err(error),
+        };
+        let file = serde_json::from_slice::<IndexFile>(&bytes)
+            .or_else(|_| {
+                serde_json::from_slice::<Vec<SessionMeta>>(&bytes).map(|sessions| IndexFile {
+                    projects: Vec::new(),
+                    sessions,
+                })
+            })
+            .map_err(std::io::Error::other)?;
+        Ok(file)
     }
 
     pub fn root(&self) -> &PathBuf {
@@ -228,6 +285,32 @@ impl SessionStore {
         let mut metas = self.read_file().sessions;
         metas.sort_by_key(|b| std::cmp::Reverse(b.updated_at));
         metas
+    }
+
+    /// Recover the missing index timestamp from older or imported transcripts.
+    /// Zero records that no timestamped user message was found, avoiding a
+    /// fresh transcript scan on every startup for an empty thread.
+    pub fn recover_last_user_message_at(&self, meta: &mut SessionMeta) {
+        if meta.last_user_message_at.is_some() {
+            return;
+        }
+        meta.last_user_message_at = Some(
+            self.read_events(&meta.id)
+                .iter()
+                .filter(|record| {
+                    matches!(
+                        record.event,
+                        AgentEvent::ItemCompleted(ThreadItem {
+                            content: ItemContent::UserMessage { .. },
+                            ..
+                        }) | AgentEvent::SteerRequested { .. }
+                    )
+                })
+                .filter_map(|record| record.ts)
+                .max()
+                .unwrap_or(0)
+                / 1000,
+        );
     }
 
     /// Insert or replace a meta in the index (by id), then persist.

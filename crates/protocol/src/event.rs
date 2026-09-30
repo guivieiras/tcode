@@ -162,6 +162,9 @@ pub enum ExternalImportState {
         imported: usize,
         skipped: usize,
     },
+    Failed {
+        message: String,
+    },
 }
 
 /// Full provider/settings-page read projection.
