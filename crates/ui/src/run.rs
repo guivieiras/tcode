@@ -132,6 +132,11 @@ pub fn run_shell(
     theme::init_with_json(&options.theme_json, cx);
     crate::markdown::init(cx);
     crate::shortcut::init(cx);
+    // GPUI lays out and presents the whole window for every animation frame,
+    // so a running indicator alone holds a phone at its display refresh rate.
+    if crate::window_seam::is_mobile(cx) {
+        cx.set_reduce_motion(true);
+    }
     // Global ⌘K / Ctrl-K opens/closes the command palette (handled by
     // AppShell). `secondary` is gpui's platform modifier: command on macOS,
     // control on Windows/Linux — where a literal `cmd-` binding would mean the
