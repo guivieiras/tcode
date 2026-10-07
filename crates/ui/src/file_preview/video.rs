@@ -16,6 +16,8 @@ use tcode_traverse::file_stream::FileStream;
 pub(super) struct VideoView {
     player: Player,
     frame: Option<Arc<RenderImage>>,
+    /// The frame the window last painted, which its scene may still reference.
+    painted: Option<Arc<RenderImage>>,
     audio_only: bool,
     position: f64,
     duration: f64,
@@ -37,7 +39,7 @@ impl VideoView {
         cx: &mut Context<Self>,
     ) -> Self {
         cx.on_release(|this, cx| {
-            if let Some(frame) = this.frame.take() {
+            if let Some(frame) = this.painted.take() {
                 cx.drop_image(frame, None);
             }
         })
@@ -69,6 +71,7 @@ impl VideoView {
         Self {
             player,
             frame: None,
+            painted: None,
             audio_only,
             position: 0.,
             duration: 0.,
@@ -92,11 +95,7 @@ impl VideoView {
         if let Some(frame) = state.frame.take() {
             let pixels =
                 image::RgbaImage::from_raw(frame.width, frame.height, frame.bytes).unwrap();
-            let frame = Arc::new(RenderImage::new(vec![image::Frame::new(pixels)]));
-            if let Some(previous) = self.frame.replace(frame) {
-                // RenderImage's CPU lifetime does not evict its cached GPU texture.
-                cx.drop_image(previous, Some(window));
-            }
+            self.frame = Some(Arc::new(RenderImage::new(vec![image::Frame::new(pixels)])));
         }
         if let Some(error) = &state.error {
             self.error = Some(match error {
@@ -171,7 +170,21 @@ impl VideoView {
 }
 
 impl Render for VideoView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.error.is_none()
+            && let Some(frame) = &self.frame
+            && self
+                .painted
+                .as_ref()
+                .is_none_or(|painted| painted.id != frame.id)
+            && let Some(replaced) = self.painted.replace(frame.clone())
+        {
+            // RenderImage's CPU lifetime does not evict its cached GPU texture.
+            // gpui-fast can redraw the dialog from the previous frame's paint
+            // after this view was notified, so the replaced texture is only
+            // freed once a frame painted without it has been presented.
+            window.on_next_frame(move |window, cx| cx.drop_image(replaced, Some(window)));
+        }
         let ready = (self.frame.is_some() || self.duration > 0.) && self.error.is_none();
         let picture = if let Some(error) = &self.error {
             div()
@@ -326,6 +339,7 @@ mod tests {
             cx.update(|window, cx| {
                 view.update(cx, |view, cx| view.refresh(window, cx));
                 let _ = window.draw(cx);
+                window.simulate_next_frame(cx);
                 let current = view.read(cx).frame.clone();
                 assert!(view.read(cx).error.is_none(), "{:?}", view.read(cx).error);
                 if let Some(frame) = current
