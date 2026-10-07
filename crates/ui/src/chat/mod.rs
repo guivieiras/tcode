@@ -888,14 +888,13 @@ impl ChatView {
 
         self.sync_markdown_residency(requested_row, cx);
 
-        // Keep a 100ms ticker alive while a turn runs so the live elapsed timer
-        // advances at decisecond precision; dropping it cancels the task.
+        // Keep a ticker alive while a turn runs so the live elapsed timer
+        // advances; dropping it cancels the task.
         if running && self._tick.is_none() {
+            let tick = components::indicator::elapsed_tick(cx);
             self._tick = Some(cx.spawn(async move |this, cx| {
                 loop {
-                    cx.background_executor()
-                        .timer(Duration::from_millis(100))
-                        .await;
+                    cx.background_executor().timer(tick).await;
                     if this.update(cx, |_, cx| cx.notify()).is_err() {
                         break;
                     }

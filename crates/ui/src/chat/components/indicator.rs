@@ -12,8 +12,8 @@ use gpui::{
 use gpui_base::{StyledExt as _, h_flex};
 
 use super::super::model::{
-    TurnTimeClause, format_elapsed_deciseconds, format_local_time, turn_time_breakdown,
-    turn_time_clauses,
+    TurnTimeClause, format_compact_span, format_elapsed_deciseconds, format_local_time,
+    turn_time_breakdown, turn_time_clauses,
 };
 use crate::time::now_millis;
 use tcode_core::session::TurnMeta;
@@ -57,6 +57,16 @@ pub(crate) fn shimmer_label(id: SharedString, label: Cow<'static, str>, cx: &App
         .into_any_element()
 }
 
+/// How often a running turn's elapsed timer advances. Every advance renders
+/// the whole window, so a phone counts whole seconds.
+pub(crate) fn elapsed_tick(cx: &App) -> Duration {
+    if crate::window_seam::is_mobile(cx) {
+        Duration::from_secs(1)
+    } else {
+        Duration::from_millis(100)
+    }
+}
+
 pub(crate) fn working_indicator(id: SharedString, started_at: Option<u64>, cx: &App) -> AnyElement {
     const DELAYS_MS: [u64; 9] = [90, 180, 270, 0, 90, 180, 90, 180, 270];
     const CYCLE_MS: u64 = 650;
@@ -84,6 +94,11 @@ pub(crate) fn working_indicator(id: SharedString, started_at: Option<u64>, cx: &
     }
 
     let elapsed_ms = started_at.map_or(0, |start| now_millis().saturating_sub(start));
+    let elapsed = if elapsed_tick(cx) < Duration::from_secs(1) {
+        format_elapsed_deciseconds(elapsed_ms)
+    } else {
+        format_compact_span(elapsed_ms / 1000)
+    };
     h_flex()
         .gap(design(10.))
         .items_center()
@@ -105,7 +120,7 @@ pub(crate) fn working_indicator(id: SharedString, started_at: Option<u64>, cx: &
                 // 2x; both fonts ship with the app.
                 .relative()
                 .top(design(2.))
-                .child(format_elapsed_deciseconds(elapsed_ms)),
+                .child(elapsed),
         )
         .into_any_element()
 }
