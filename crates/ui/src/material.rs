@@ -8,7 +8,7 @@ use crate::widgets::Popover;
 use crate::widgets::button::{Button, ButtonVariants as _};
 use gpui::{
     App, BoxShadow, Div, ElementId, Hsla, InteractiveElement, IntoElement, ParentElement as _,
-    Pixels, Rgba, Role, SharedString, Stateful, StatefulInteractiveElement as _, Styled, div,
+    Pixels, Role, SharedString, Stateful, StatefulInteractiveElement as _, Styled, div,
     linear_color_stop, linear_gradient, px,
 };
 use gpui_base::{StyledExt as _, v_flex};
@@ -35,16 +35,6 @@ pub(crate) fn input_height(compact: bool) -> f32 {
     if compact { TOUCH_TARGET } else { 32. }
 }
 
-fn rgba(r: u8, g: u8, b: u8, a: u8) -> Hsla {
-    Rgba {
-        r: r as f32 / 255.,
-        g: g as f32 / 255.,
-        b: b as f32 / 255.,
-        a: a as f32 / 255.,
-    }
-    .into()
-}
-
 /// T0 canvas: the theme's translucent tint over the native window material.
 /// Transparent when the macOS system material already tints the backdrop
 /// (`macos_backdrop`), so the two tints do not stack.
@@ -59,18 +49,14 @@ pub fn canvas(cx: &App) -> Hsla {
 /// Flatten the canvas over fullscreen vibrancy, where its translucent color
 /// would otherwise composite against black.
 pub fn opaque_canvas(cx: &App) -> Hsla {
-    cx.theme().background.opacity(1.)
+    cx.theme().background.alpha(1.)
 }
 
 /// T1 paper: the near-opaque reading plane the chat workspace, right panel and
-/// full-page routes paint over the vibrancy canvas. Warm paper in light mode,
-/// blue-carbon in dark.
+/// full-page routes paint over the vibrancy canvas: the theme's editor
+/// background.
 pub fn content_surface(cx: &App) -> Hsla {
-    if cx.theme().mode.is_dark() {
-        rgba(0x1B, 0x1E, 0x24, 0xF0)
-    } else {
-        rgba(0xFD, 0xFD, 0xFB, 0xF2)
-    }
+    cx.theme().content_surface
 }
 
 /// Popovers, menus, dialogs, toasts: the theme's large-element radius.

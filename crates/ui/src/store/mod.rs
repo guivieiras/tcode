@@ -2279,6 +2279,30 @@ impl WorkspaceStore {
         self.client_host.as_ref()?.open_in_editor(path)
     }
 
+    #[cfg(feature = "native-dialogs")]
+    pub(crate) fn supports_client_files(&self) -> bool {
+        self.client_host
+            .as_ref()
+            .is_some_and(|host| host.supports_local_files())
+    }
+
+    #[cfg(feature = "native-dialogs")]
+    pub(crate) fn read_client_text(
+        &self,
+        path: PathBuf,
+    ) -> tcode_client::host::HostFuture<'static, Result<String, String>> {
+        match &self.client_host {
+            Some(host) => host.read_local_text(path),
+            None => Box::pin(async { Err("this client cannot read local files".into()) }),
+        }
+    }
+
+    /// Persist the theme library and selections `crate::theme` owns.
+    pub(crate) fn save_theme_preferences(&mut self, value: serde_json::Value) {
+        self.client_preferences.theme = Some(value);
+        self.save_client_preferences();
+    }
+
     pub fn client_theme_override(&self) -> Option<ThemeMode> {
         match self.client_preferences.appearance.as_deref() {
             Some("system") => Some(ThemeMode::System),

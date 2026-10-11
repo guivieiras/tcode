@@ -875,7 +875,7 @@ fn render_code_row<H: DiffListHost>(
     let code = div()
         .flex_1()
         .px_2()
-        .text_color(cx.theme().foreground)
+        .text_color(cx.theme().editor_foreground)
         .child(StyledText::new(row.text.clone()).with_highlights(row.runs.iter().cloned()))
         .when(split || wrap, |code| code.min_w_0())
         .when(!wrap, |code| code.whitespace_nowrap());
