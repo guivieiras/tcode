@@ -823,6 +823,7 @@ impl SettingsPage {
         self.store.update(cx, |store, cx| {
             intent(store);
             store.local_settings_changed(cx);
+            cx.notify();
         });
     }
 
@@ -1389,6 +1390,44 @@ impl SettingsPage {
             self.device_name_row(device_name_overridden, cx),
             self.remote_attachment_limit_row(attachment_limit_overridden, cx),
         ];
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        let appearance = {
+            let mut appearance = appearance;
+            let enabled = self.store.read(cx).thread_notifications_enabled();
+            let reset = self.reset_action(
+                "reset-desktop-notifications",
+                !enabled,
+                cx,
+                |this, _, cx| {
+                    this.dispatch_settings(|store| store.set_thread_notifications_enabled(true), cx)
+                },
+            );
+            #[cfg(target_os = "android")]
+            let (title, description) = (
+                crate::tr!("settings.android_notifications.title"),
+                crate::tr!("settings.android_notifications.description"),
+            );
+            #[cfg(not(target_os = "android"))]
+            let (title, description) = (
+                crate::tr!("settings.desktop_notifications.title"),
+                crate::tr!("settings.desktop_notifications.description"),
+            );
+            appearance.push(self.toggle_row(
+                "desktop-notifications",
+                title,
+                description,
+                enabled,
+                reset,
+                cx,
+                WorkspaceStore::set_thread_notifications_enabled,
+            ));
+            appearance
+        };
         if !self.store.read(cx).scope().is_full() {
             return v_flex().gap(px(24.)).child(
                 v_flex()

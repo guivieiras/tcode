@@ -36,6 +36,7 @@ pub(crate) enum HostEvent {
     },
     Back,
     ScrollCapture(ScrollCaptureRequest),
+    NotificationResponse(String),
 }
 
 /// One step of the system screenshot tool's scrolling capture, in physical
@@ -360,4 +361,37 @@ pub(crate) fn rasterize_emoji(glyph: u32, size: f32) -> anyhow::Result<Option<Ve
         }
         result
     })
+}
+
+/// Called by the host on the Java thread; delivery occurs on the GPUI event loop.
+pub fn notification_response(tag: String) {
+    enqueue(HostEvent::NotificationResponse(tag));
+}
+
+pub(crate) fn show_system_notification(notification: gpui::SystemNotification) {
+    with_activity(
+        jni_str!("gpuiShowSystemNotification"),
+        jni_sig!("(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"),
+        vec![
+            OwnedArgument::Text(Some(notification.tag.to_string())),
+            OwnedArgument::Text(Some(notification.title.to_string())),
+            OwnedArgument::Text(Some(notification.body.to_string())),
+        ],
+    );
+}
+
+pub(crate) fn dismiss_system_notification(tag: &str) {
+    with_activity(
+        jni_str!("gpuiDismissSystemNotification"),
+        jni_sig!("(Ljava/lang/String;)V"),
+        vec![OwnedArgument::Text(Some(tag.to_owned()))],
+    );
+}
+
+pub fn request_notification_permission() {
+    with_activity(
+        jni_str!("gpuiRequestNotificationPermission"),
+        jni_sig!("()V"),
+        Vec::new(),
+    );
 }

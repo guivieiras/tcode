@@ -1544,3 +1544,26 @@ fn scope_subscriptions_and_provider_choices_have_literal_wire_contracts() {
         assert_eq!(decode_host_line(&wire.to_string()).unwrap(), response);
     }
 }
+
+#[test]
+fn thread_attention_literal_wire_events() {
+    for (wire, kind) in [
+        ("completed", ThreadAttentionKind::Completed),
+        ("question", ThreadAttentionKind::Question),
+        ("approval", ThreadAttentionKind::Approval),
+    ] {
+        let fixture = json!({"type":"thread_attention","content":{
+            "session_id":"thread-1","title":"A title","kind":wire
+        }});
+        let event = RuntimeNotification::ThreadAttention {
+            session_id: "thread-1".into(),
+            title: "A title".into(),
+            kind,
+        };
+        assert_eq!(serde_json::to_value(&event).unwrap(), fixture);
+        assert_eq!(
+            serde_json::from_value::<RuntimeNotification>(fixture).unwrap(),
+            event
+        );
+    }
+}

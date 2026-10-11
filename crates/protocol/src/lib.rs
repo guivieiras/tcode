@@ -38,7 +38,7 @@ pub use event::{
     RuntimeNotice, RuntimeNotification, RuntimeOperationId, RuntimeToast, Scope,
     ScopedProviderChoice, ServerEvent, SessionActivity, SessionEventRecord, SessionPlan,
     SessionStatus, TcodeUpdateStatus, TerminalContextStatus, TerminalSplitStatus, TerminalStatus,
-    Topic,
+    ThreadAttentionKind, Topic,
 };
 pub use query::{
     DeviceAccess, ExternalThread, GitDiffResult, GitDiffScope, GitFileText, HostedDevice,
