@@ -47,6 +47,21 @@ public final class GpuiActivity extends NativeActivity {
     private static final int HOST_CANCELLED = 1;
     private static final int HOST_ERROR = 2;
 
+    private VideoPreview videoPreview;
+    public void gpuiPlayVideo(long id, String url, String title, String error, String close, String controls) throws org.json.JSONException {
+        if (videoPreview != null) videoPreview.close();
+        boolean dark = appBackgroundDark != null ? appBackgroundDark
+                : (getResources().getConfiguration().uiMode
+                    & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        videoPreview = new VideoPreview(this, id, url, title, error, close, dark, new org.json.JSONObject(controls));
+    }
+    public void gpuiCloseVideo(long id) {
+        if (videoPreview != null && videoPreview.id == id) {
+            videoPreview.close();
+            videoPreview = null;
+        }
+    }
+    @Override protected void onPause() { if (videoPreview != null) videoPreview.pause(); super.onPause(); }
     public PreviewHost previewHost;
     private GpuiInputView inputView;
     /** Android 12 and later only; null below, where scrolling capture does not exist. */
@@ -204,6 +219,7 @@ public final class GpuiActivity extends NativeActivity {
     protected void onDestroy() {
         unwatchDefaultNetwork();
         systemNotifications.close();
+        if (videoPreview != null) videoPreview.close();
         super.onDestroy();
     }
 

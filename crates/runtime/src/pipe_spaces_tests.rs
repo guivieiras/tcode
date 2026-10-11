@@ -483,6 +483,22 @@ fn space_refuses_foreign_sessions_paths_terminals_and_host_subscriptions() {
     ));
     denied(host.request(
         member.clone(),
+        ClientPayload::Query(Query::ReadFileRange {
+            path: host.b.root.join("private.txt"),
+            offset: 0,
+            length: 1,
+            expected_size: 1,
+        }),
+    ));
+    denied(host.request(
+        member.clone(),
+        ClientPayload::Query(Query::PreviewFile {
+            target: host.b.root.join("private.txt").display().to_string(),
+            base_dir: Some(host.a.root.clone()),
+        }),
+    ));
+    denied(host.request(
+        member.clone(),
         ClientPayload::Query(Query::ReadItemOutput {
             session_id: "a".into(),
             item_id: "foreign-tool".into(),
@@ -565,6 +581,13 @@ fn space_refuses_foreign_sessions_paths_terminals_and_host_subscriptions() {
             member.clone(),
             ClientPayload::Query(Query::ReadFileBytes {
                 path: host.a.root.join("escape.txt"),
+            }),
+        ));
+        denied(host.request(
+            member.clone(),
+            ClientPayload::Query(Query::PreviewFile {
+                target: "escape.txt".into(),
+                base_dir: Some(host.a.root.clone()),
             }),
         ));
     }

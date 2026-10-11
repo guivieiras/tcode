@@ -7,7 +7,7 @@ use gpui_base::input::{InputBaseState, InputModeKind, RopeExt as _};
 use std::ops::Range;
 
 // Supply the native selection/length hooks and keyboard intent missing upstream.
-pub(super) struct ConfiguredInput<M: InputModeKind> {
+pub(crate) struct ConfiguredInput<M: InputModeKind> {
     inner: ElementInputHandler<InputBaseState<M>>,
     entity: Entity<InputBaseState<M>>,
     multi_line: bool,
@@ -123,7 +123,7 @@ impl<M: InputModeKind> InputHandler for ConfiguredInput<M> {
         self.inner.apple_press_and_hold_enabled()
     }
     fn accepts_text_input(&mut self, window: &mut Window, cx: &mut App) -> bool {
-        self.inner.accepts_text_input(window, cx)
+        self.entity.read(cx).is_editable() && self.inner.accepts_text_input(window, cx)
     }
     fn text_input_editable_range(
         &mut self,
@@ -155,6 +155,18 @@ mod tests {
     use super::*;
     use gpui::TestAppContext;
     use gpui_base::input::TextareaState;
+
+    #[gpui::test]
+    fn readonly_editor_does_not_request_text_input(cx: &mut TestAppContext) {
+        cx.update(crate::theme::init);
+        let (editor, cx) = cx.add_window_view(gpui_base::input::EditorState::new);
+        cx.update(|window, cx| {
+            let mut handler = ConfiguredInput::new(Bounds::default(), editor.clone(), true);
+            assert!(handler.accepts_text_input(window, cx));
+            editor.update(cx, |editor, cx| editor.set_readonly(true, cx));
+            assert!(!handler.accepts_text_input(window, cx));
+        });
+    }
 
     #[gpui::test]
     fn native_selection_replaces_the_word_after_an_emoji(cx: &mut TestAppContext) {

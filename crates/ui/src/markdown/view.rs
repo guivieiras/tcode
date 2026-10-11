@@ -40,6 +40,26 @@ struct ShowMathSource {
 /// rewind itself, a plan to download itself.
 pub type MenuExtension = Rc<dyn Fn(PopupMenu, &mut Window, &mut App) -> PopupMenu>;
 
+trait SystemPathItems {
+    /// Path actions run on the viewing machine, so a link offers them only
+    /// where it names a file there.
+    fn system_path_items(self, target: &str, base_dir: Option<&Path>) -> Self;
+}
+
+impl SystemPathItems for PopupMenu {
+    fn system_path_items(self, target: &str, base_dir: Option<&Path>) -> Self {
+        #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+        if let Some(path) = super::link_target::system_path(target, base_dir) {
+            return self
+                .separator()
+                .path_items(&path.to_string_lossy(), base_dir);
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+        let _ = (target, base_dir);
+        self
+    }
+}
+
 /// A GPUI element that renders an [`Entity<MarkdownState>`].
 #[derive(Clone)]
 pub struct MarkdownView {
@@ -241,9 +261,24 @@ impl Element for MarkdownView {
                                         )
                                     },
                                 ),
-                            LinkTarget::Local(path) => menu
+                            LinkTarget::Local(_) => menu
                                 .separator()
-                                .path_items(&path.to_string_lossy(), base_dir.as_deref()),
+                                .menu(
+                                    crate::tr!("markdown.link_open_preview").into_owned(),
+                                    Box::new(crate::file_preview::OpenFilePreview {
+                                        target: pending.raw_url.to_string(),
+                                        base_dir: base_dir.clone(),
+                                    }),
+                                )
+                                .menu(
+                                    crate::tr!("markdown.link_copy_address").into_owned(),
+                                    Box::new(CopyText(pending.raw_url.to_string())),
+                                )
+                                .menu(
+                                    crate::tr!("markdown.link_copy_text").into_owned(),
+                                    Box::new(CopyText(pending.text.to_string())),
+                                )
+                                .system_path_items(&pending.raw_url, base_dir.as_deref()),
                         },
                         Some(PendingContextTarget::CodeBlock(code)) => menu.separator().menu(
                             crate::tr!("markdown.code_copy").into_owned(),
@@ -286,9 +321,9 @@ impl Element for MarkdownView {
                                     crate::tr!("markdown.image_copy_address").into_owned(),
                                     Box::new(CopyText(address)),
                                 ),
-                                LinkTarget::Local(path) => menu
-                                    .separator()
-                                    .path_items(&path.to_string_lossy(), base_dir.as_deref()),
+                                LinkTarget::Local(_) => {
+                                    menu.system_path_items(&url, base_dir.as_deref())
+                                }
                             }
                         }
                     };
