@@ -563,16 +563,12 @@ fn main() {
             // Translucent canvas colors composite over macOS vibrancy and Windows
             // Acrylic. Opaque windows flatten them to the solid base; macOS
             // fullscreen applies the same fallback in material::opaque_canvas.
-            let theme_json: Cow<'static, str> = if translucent_canvas_enabled() {
-                Cow::Borrowed(tcode_ui::THEME_JSON)
-            } else {
-                Cow::Owned(tcode_ui::flattened_theme_json())
-            };
+            let opaque_canvas = !translucent_canvas_enabled();
 
             let shell_options = ShellOptions {
                 title: tcode_ui::tr!("app.name").into(),
                 fonts: application_fonts,
-                theme_json,
+                opaque_canvas,
                 activate: true,
                 system_locale: None,
                 // A desktop window is never suspended by the OS.

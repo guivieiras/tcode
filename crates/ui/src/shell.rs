@@ -401,6 +401,16 @@ impl AppShell {
             state.set_compact(compact, cx);
         });
         let subscriptions = vec![
+            cx.observe_window_appearance(window, |this, window, cx| {
+                let mode = this
+                    .attachment
+                    .as_ref()
+                    .map(|attachment| attachment.link.store.read(cx).settings().theme_mode)
+                    .unwrap_or_default();
+                if mode == tcode_core::settings::ThemeMode::System {
+                    crate::theme::sync_system_appearance(Some(window), cx);
+                }
+            }),
             // The one place navigation reaches the stack: whoever moved the
             // history — a nav bar, the sidebar, the palette, Android Back —
             // gets the same push or pop out of it.

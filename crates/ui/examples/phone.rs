@@ -12,7 +12,6 @@
 //! TCODE_DATA_DIR=$(mktemp -d) cargo run -p tcode-ui --example phone -- --local
 //! ```
 
-use std::borrow::Cow;
 use std::rc::Rc;
 
 use gpui::{Bounds, WindowBackgroundAppearance, WindowBounds, WindowOptions, point, px, size};
@@ -75,7 +74,7 @@ fn main() {
                         ..Default::default()
                     },
                     title: "Tcode phone".into(),
-                    theme_json: Cow::Owned(tcode_ui::flattened_theme_json()),
+                    opaque_canvas: true,
                     activate: true,
                     setup: ShellSetup {
                         initial: if local {

@@ -132,7 +132,7 @@ impl PullRequestView {
 
     /// Renders the files the host answered with, once per head, page and option change.
     fn ensure_list(&mut self, cx: &mut Context<Self>) {
-        let dark = cx.theme().mode.is_dark();
+        let theme_revision = cx.theme().revision;
         let (ignore_ws, show_invisibles) = (self.ignore_ws, self.show_invisibles);
         let layouts = self.layouts();
         let Some(page) = self.page_mut() else { return };
@@ -142,7 +142,7 @@ impl PullRequestView {
         let key = (
             files.head.clone(),
             files.files.len(),
-            dark,
+            theme_revision,
             ignore_ws,
             show_invisibles,
         );

@@ -223,11 +223,7 @@ impl Panel {
         let (command_model, command_rows) = self.command_model.as_ref().expect("command model");
         self.command_rows = *command_rows;
 
-        let palette = TerminalPalette {
-            foreground: cx.theme().foreground,
-            background: cx.theme().background,
-            selection: cx.theme().primary.opacity(0.28),
-        };
+        let palette = cx.theme().terminal;
         let command = grid_element(command_model, *command_rows, cols, palette);
         let budget = self.output_budget();
         let output = match self.frames.get(&cols) {
@@ -464,6 +460,8 @@ mod tests {
             foreground: rgb(0xffffff).into(),
             background: rgb(0x000000).into(),
             selection: rgb(0x333333).into(),
+            cursor: rgb(0xffffff).into(),
+            ansi: [rgb(0x808080).into(); 16],
         }
     }
 

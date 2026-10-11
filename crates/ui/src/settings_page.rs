@@ -64,6 +64,7 @@ const CONTENT_MAX_WIDTH: f32 = 768.;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Section {
     General,
+    Appearance,
     ThreadBehavior,
     ProjectThreadRules,
     Providers,
@@ -84,8 +85,9 @@ enum Section {
 /// headless listener in a browser. Choosing a machine, and the invitation other
 /// devices pair with, live in `crate::remote`.
 #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
-const SECTIONS: [Section; 11] = [
+const SECTIONS: [Section; 12] = [
     Section::General,
+    Section::Appearance,
     Section::Remote,
     Section::ThreadBehavior,
     Section::Providers,
@@ -98,8 +100,9 @@ const SECTIONS: [Section; 11] = [
     Section::Archived,
 ];
 #[cfg(not(any(feature = "remote-hosting", target_family = "wasm")))]
-const SECTIONS: [Section; 10] = [
+const SECTIONS: [Section; 11] = [
     Section::General,
+    Section::Appearance,
     Section::ThreadBehavior,
     Section::Providers,
     Section::SourceControl,
@@ -160,7 +163,7 @@ impl SettingsCapabilities {
 impl Section {
     fn group(self) -> SectionGroup {
         match self {
-            Self::General => SectionGroup::Device,
+            Self::General | Self::Appearance => SectionGroup::Device,
             #[cfg(any(feature = "remote-hosting", target_family = "wasm"))]
             Self::Remote => {
                 if cfg!(target_family = "wasm") {
@@ -199,6 +202,7 @@ impl Section {
             Self::ThreadBehavior
             | Self::ProjectThreadRules
             | Self::General
+            | Self::Appearance
             | Self::SourceControl
             | Self::Providers
             | Self::Usage
@@ -212,6 +216,7 @@ impl Section {
     fn id(self) -> &'static str {
         match self {
             Self::General => "settings-nav-general",
+            Self::Appearance => "settings-nav-appearance",
             Self::ThreadBehavior => "settings-nav-thread-behavior",
             Self::ProjectThreadRules => "settings-nav-project-rules",
             Self::SourceControl => "settings-nav-source-control",
@@ -230,6 +235,7 @@ impl Section {
     fn icon(self) -> IconName {
         match self {
             Self::General => IconName::Settings,
+            Self::Appearance => IconName::Palette,
             Self::ThreadBehavior | Self::ProjectThreadRules => IconName::Inbox,
             Self::SourceControl => IconName::Github,
             Self::Providers => IconName::Bot,
@@ -247,6 +253,7 @@ impl Section {
     fn label(self) -> SharedString {
         match self {
             Self::General => crate::tr!("settings.general"),
+            Self::Appearance => crate::tr!("settings.appearance"),
             Self::ThreadBehavior | Self::ProjectThreadRules => {
                 crate::tr!("settings.thread_behavior")
             }
@@ -397,7 +404,10 @@ impl SettingsPage {
         (section != &Section::ThreadBehavior || self.window_state.read(cx).compact)
             && section.applies(&self.capabilities)
             && (self.store.read(cx).scope().is_full()
-                || matches!(section, Section::General | Section::Archived))
+                || matches!(
+                    section,
+                    Section::General | Section::Appearance | Section::Archived
+                ))
     }
     fn take_requested_section(
         window_state: &Entity<WindowState>,
@@ -406,6 +416,7 @@ impl SettingsPage {
         window_state
             .update(cx, |state, _| state.pending_settings_section.take())
             .map(|section| match section.as_str() {
+                "appearance" => Section::Appearance,
                 "providers" => Section::Providers,
                 "usage" => Section::Usage,
                 "source_control" => Section::SourceControl,
@@ -528,13 +539,19 @@ impl SettingsPage {
             .filter(|section| {
                 section.applies(&capabilities)
                     && (store.read(cx).scope().is_full()
-                        || matches!(section, Section::General | Section::Archived))
+                        || matches!(
+                            section,
+                            Section::General | Section::Appearance | Section::Archived
+                        ))
             })
             .unwrap_or(Section::General);
         if requested_section.is_some_and(|section| {
             !section.applies(&capabilities)
                 || (!store.read(cx).scope().is_full()
-                    && !matches!(section, Section::General | Section::Archived))
+                    && !matches!(
+                        section,
+                        Section::General | Section::Appearance | Section::Archived
+                    ))
         }) {
             Self::return_to_settings_root(&window_state, cx);
         }
@@ -1258,9 +1275,14 @@ impl SettingsPage {
                         .show_cancel(true),
                 )
                 .on_ok(move |_, window, cx| {
+                    // Resetting forgets the chosen variants, not the imported
+                    // themes themselves.
+                    theme::reset_selection(cx);
+                    let themes = theme::preferences(cx);
                     store.update(cx, |store, _cx| {
                         store.reset_settings();
                         store.reset_client_preferences();
+                        store.save_theme_preferences(themes);
                     });
                     // Provider profiles and installed agents survive the reset,
                     // so their cards need no rebuild — only the panels and
@@ -1321,6 +1343,7 @@ impl SettingsPage {
         }
         let column = match self.section {
             Section::General => self.render_general(cx),
+            Section::Appearance => self.render_appearance(cx),
             Section::ThreadBehavior => self.render_thread_behavior(cx),
             Section::ProjectThreadRules => v_flex().children(self.project_rules_editor.clone()),
             Section::SourceControl => self.render_source_control(cx),
@@ -1359,13 +1382,10 @@ impl SettingsPage {
         .into_any_element()
     }
 
-    fn render_general(&mut self, cx: &mut Context<Self>) -> gpui::Div {
+    fn render_appearance(&mut self, cx: &mut Context<Self>) -> gpui::Div {
         let store = self.store.read(cx);
         let settings = store.settings();
-        let language_overridden = store.client_language_override().is_some();
         let theme_overridden = store.client_theme_override().is_some();
-        let device_name_overridden = store.client_device_name_override().is_some();
-        let attachment_limit_overridden = store.client_remote_attachment_limit_override().is_some();
         let provider_marks_reset = self.reset_action(
             "reset-sidebar-provider-marks",
             settings.sidebar_provider_marks,
@@ -1375,8 +1395,10 @@ impl SettingsPage {
             },
         );
         let appearance = vec![
-            self.language_row(settings.language.as_deref(), language_overridden, cx),
             self.theme_row(settings.theme_mode, theme_overridden, cx),
+            self.named_theme_row(UiThemeMode::Light, cx),
+            self.named_theme_row(UiThemeMode::Dark, cx),
+            self.theme_import_row(cx),
             self.toggle_row(
                 "sidebar-provider-marks",
                 crate::tr!("settings.sidebar_provider_marks.title"),
@@ -1386,14 +1408,26 @@ impl SettingsPage {
                 cx,
                 WorkspaceStore::set_sidebar_provider_marks,
             ),
+        ];
+        v_flex().child(self.grouped_plain(appearance, cx))
+    }
+
+    fn render_general(&mut self, cx: &mut Context<Self>) -> gpui::Div {
+        let store = self.store.read(cx);
+        let settings = store.settings();
+        let language_overridden = store.client_language_override().is_some();
+        let device_name_overridden = store.client_device_name_override().is_some();
+        let attachment_limit_overridden = store.client_remote_attachment_limit_override().is_some();
+        let general = vec![
+            self.language_row(settings.language.as_deref(), language_overridden, cx),
             self.device_name_row(device_name_overridden, cx),
             self.remote_attachment_limit_row(attachment_limit_overridden, cx),
         ];
         if !self.store.read(cx).scope().is_full() {
             return v_flex().gap(px(24.)).child(
                 v_flex()
-                    .child(self.section_label(crate::tr!("settings.appearance_section"), cx))
-                    .child(self.grouped_plain(appearance, cx)),
+                    .child(self.section_label(crate::tr!("settings.general_section"), cx))
+                    .child(self.grouped_plain(general, cx)),
             );
         }
         let delete_confirm_reset = self.reset_action(
@@ -1560,8 +1594,8 @@ impl SettingsPage {
             .gap(px(24.))
             .child(
                 v_flex()
-                    .child(self.section_label(crate::tr!("settings.appearance_section"), cx))
-                    .child(self.grouped_plain(appearance, cx)),
+                    .child(self.section_label(crate::tr!("settings.general_section"), cx))
+                    .child(self.grouped_plain(general, cx)),
             )
             .child(
                 v_flex()
@@ -2847,7 +2881,8 @@ impl SettingsPage {
                 .justify_between()
                 .gap_2()
                 .text_size(px(13.))
-                .child(label.into())
+                // A theme's name is the user's to choose; a long one truncates.
+                .child(div().flex_1().min_w_0().truncate().child(label.into()))
                 .child(
                     Icon::new(IconName::ChevronDown)
                         .xsmall()
@@ -2987,6 +3022,110 @@ impl SettingsPage {
             },
             cx,
         )
+    }
+
+    /// The variant one appearance renders with: the built-in one or any
+    /// imported theme of that appearance.
+    fn named_theme_row(&self, mode: UiThemeMode, cx: &mut Context<Self>) -> AnyElement {
+        let selected = theme::selected_name(mode, cx);
+        let options = theme::choices(mode, cx)
+            .into_iter()
+            .enumerate()
+            .map(|(index, name)| SelectRowOption {
+                selected: name == selected,
+                value: name.to_string(),
+                id: format!("theme-choice-{}-{index}", mode.name()).into(),
+                label: name,
+                description: None,
+            })
+            .collect();
+        let (trigger, popover, menu, title) = if mode.is_dark() {
+            (
+                "dark-theme-dropdown",
+                "dark-theme-popover",
+                "dark-theme-menu",
+                crate::tr!("settings.theme.dark_theme"),
+            )
+        } else {
+            (
+                "light-theme-dropdown",
+                "light-theme-popover",
+                "light-theme-menu",
+                crate::tr!("settings.theme.light_theme"),
+            )
+        };
+        self.select_row(
+            trigger,
+            popover,
+            menu,
+            240.,
+            title.into_owned().into(),
+            crate::tr!("settings.theme.variant_description")
+                .into_owned()
+                .into(),
+            selected,
+            options,
+            None,
+            move |name, page, window, cx| {
+                theme::select(mode, name, cx);
+                page.update(cx, |page, cx| page.theme_library_changed(window, cx));
+            },
+            cx,
+        )
+    }
+
+    /// Persist the theme library after `crate::theme` changed it, and show
+    /// the result in this window.
+    fn theme_library_changed(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let preferences = theme::preferences(cx);
+        self.store.update(cx, |store, cx| {
+            store.save_theme_preferences(preferences);
+            cx.notify();
+        });
+        let mode = self.store.read(cx).settings().theme_mode;
+        apply_theme(mode, window, cx);
+    }
+
+    fn theme_import_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let import_store = self.store.clone();
+        let edit_store = self.store.clone();
+        let actions = gpui_base::h_flex()
+            .flex_wrap()
+            .gap_2()
+            .child(
+                Button::new("theme-import")
+                    .label(crate::tr!("settings.theme.import"))
+                    .on_click(move |_, window, cx| {
+                        theme::editor::open(import_store.clone(), false, window, cx)
+                    }),
+            )
+            .child(
+                Button::new("theme-edit")
+                    .label(crate::tr!("settings.theme.edit"))
+                    .on_click(move |_, window, cx| {
+                        theme::editor::open(edit_store.clone(), true, window, cx)
+                    }),
+            )
+            .when(theme::is_custom(cx), |actions| {
+                actions.child(
+                    Button::new("theme-remove")
+                        .label(crate::tr!("settings.theme.remove"))
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            theme::remove_selected(cx);
+                            this.theme_library_changed(window, cx);
+                        })),
+                )
+            });
+        self.row_frame(cx)
+            .flex_wrap()
+            .child(self.row_labels(
+                crate::tr!("settings.theme.customize"),
+                crate::tr!("settings.theme.customize_description"),
+                None,
+                cx,
+            ))
+            .child(actions)
+            .into_any_element()
     }
 
     fn language_row(

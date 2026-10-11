@@ -1141,6 +1141,7 @@ fn render_code_block(
             .min_h(px(18.))
             .whitespace_normal()
             .font_family(mono_font_family.clone())
+            .text_color(cx.theme().editor_foreground)
             .text_size(INLINE_CODE_FONT_SIZE)
             .child(Inline::new(
                 ix,
