@@ -505,9 +505,13 @@ impl AppState {
 
     pub(super) fn worktree_sharing(&self) -> WorktreeSharing<'_> {
         WorktreeSharing::new(
-            self.sessions
-                .iter()
-                .chain(self.residents.live.values().map(|session| &session.meta)),
+            self.sessions.iter().chain(
+                self.residents
+                    .live
+                    .values()
+                    .chain(self.residents.parked.values())
+                    .map(|session| &session.meta),
+            ),
         )
     }
 
@@ -887,6 +891,7 @@ impl AppState {
             provider_commands: session.provider_commands.clone(),
             git_branch: session.git_branch.clone(),
             branches: session.branches.clone(),
+            worktrees: session.worktrees.clone(),
             draft: session.draft,
             draft_workspace: session.draft_workspace.clone(),
             worktree: meta.worktree.clone(),

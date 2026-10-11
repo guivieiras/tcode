@@ -9,3 +9,4 @@ mod trigger_menu;
 mod user_input;
 #[cfg(feature = "voice")]
 pub(super) mod voice;
+mod worktree_dialog;
