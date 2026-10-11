@@ -75,6 +75,7 @@ mod window_caption;
 pub(crate) mod window_seam;
 mod window_state;
 mod workspace_walk;
+mod zoom;
 
 pub use i18n::{
     LANGUAGE_ENGLISH, LANGUAGE_SIMPLIFIED_CHINESE, apply_locale, resolve_locale, set_locale,

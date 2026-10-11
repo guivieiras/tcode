@@ -5,7 +5,7 @@
 //! host did not offer is never drawn. A provider whose management is switched
 //! off shows only its switch.
 
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -122,6 +122,7 @@ impl PluginsSettingsPanel {
             ),
             cx.observe(&window_state, |_, _, cx| cx.notify()),
             cx.observe(&search, |_, _, cx| cx.notify()),
+            crate::zoom::observe(cx, |this: &mut Self| this.list.remeasure()),
         ];
         Self {
             store,
@@ -279,7 +280,7 @@ impl PluginsSettingsPanel {
                 });
             alert
                 .bg(cx.theme().popover)
-                .width(px(560.))
+                .width(design(560.))
                 .title(SharedString::from(title.into_owned()))
                 .description(challenge_body(&challenge, cx))
                 .on_cancel(move |_, _, cx| {
@@ -1001,12 +1002,12 @@ impl PluginsSettingsPanel {
             .child(
                 material::group(cx)
                     .h(crate::sizing::fit_viewport(
-                        456.,
+                        design_px(456., window),
                         window.viewport_size().height * 0.55,
                     ))
                     .relative()
                     .child(body)
-                    .child(crate::scroll::list_height_hint(&self.list, px(100.)))
+                    .child(crate::scroll::list_height_hint(&self.list, design(100.)))
                     .child(
                         ScrollableMask::new(Axis::Vertical, &self.list)
                             .id("plugins-available-mask"),
@@ -1358,7 +1359,7 @@ impl Render for PluginsSettingsPanel {
         let compact = self.window_state.read(cx).compact;
         v_flex()
             .w_full()
-            .gap(if compact { px(16.) } else { px(24.) })
+            .gap(design(if compact { 16. } else { 24. }))
             .child(
                 div()
                     .pl_3()

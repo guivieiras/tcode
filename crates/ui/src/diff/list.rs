@@ -2,7 +2,7 @@
 //! the line selection. A view supplies its files and the parts that differ through
 //! [`DiffListHost`]; the rows themselves are drawn here only.
 
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
@@ -668,7 +668,7 @@ fn measure_content_width(
                 .text_system()
                 .shape_line(
                     text.clone().into(),
-                    px(13.),
+                    design_px(13., window),
                     &[gpui::TextRun {
                         len: text.len(),
                         font: font.clone(),
@@ -683,9 +683,9 @@ fn measure_content_width(
         })
         .fold(px(0.), gpui::Pixels::max);
     if split {
-        (width + px(58.)) * 2. + px(1.)
+        (width + design_px(58., window)) * 2. + px(1.)
     } else {
-        width + px(106.)
+        width + design_px(106., window)
     }
 }
 

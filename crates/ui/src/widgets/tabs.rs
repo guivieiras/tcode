@@ -361,7 +361,7 @@ fn render_item(
         _ => (theme.muted_foreground, theme.muted_foreground),
     };
     let trailing = trailing.filter(|_| !icon_only);
-    let gap = px(if compact { 8. } else { 6. });
+    let gap = design(if compact { 8. } else { 6. });
     // The item id doubles as its debug selector, so a test finds a tab by the
     // id its call site gave it.
     let selector = id.to_string();

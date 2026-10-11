@@ -86,6 +86,8 @@ pub(super) fn render(
     let mut data = selection.0.lock().unwrap();
     data.active = true;
     let color = crate::theme::ActiveTheme::theme(cx).foreground;
+    // The layout is in ems; one em is the zoomed base font size.
+    let unit = 16. * crate::zoom::factor(cx);
     emit(
         tree,
         0.,
@@ -95,13 +97,14 @@ pub(super) fn render(
         &mut glyphs,
         &mut elements,
         view,
+        unit,
     );
     data.glyphs = glyphs;
     div()
         .relative()
         .flex_none()
-        .w(px(em(&tree.width) * 16.))
-        .h(px(em(&(&tree.height + &tree.depth)) * 16.))
+        .w(px(em(&tree.width) * unit))
+        .h(px(em(&(&tree.height + &tree.depth)) * unit))
         .children(elements)
         .into_any_element()
 }
@@ -116,15 +119,16 @@ fn emit(
     glyphs: &mut Vec<Arc<Mutex<InlineState>>>,
     elements: &mut Vec<AnyElement>,
     view: &Entity<MarkdownState>,
+    unit: f32,
 ) {
     let baseline = parent_baseline - em(&bx.shift);
-    let width = em(&bx.width) * 16.;
-    let height = em(&(&bx.height + &bx.depth)) * 16.;
-    let top = (baseline - em(&bx.height)) * 16.;
+    let width = em(&bx.width) * unit;
+    let height = em(&(&bx.height + &bx.depth)) * unit;
+    let top = (baseline - em(&bx.height)) * unit;
     let rect = |color: Hsla| {
         div()
             .absolute()
-            .left(px(x * 16.))
+            .left(px(x * unit))
             .top(px(top))
             .w(px(width))
             .h(px(height))
@@ -145,7 +149,7 @@ fn emit(
                 .filter(|state| state.lock().unwrap().text.as_ref() == text)
                 .cloned()
                 .unwrap_or_else(|| InlineState::shared(text.into()));
-            let font_size = px(em(scale) * 16.);
+            let font_size = px(em(scale) * unit);
             let glyph = Inline::new(
                 ix,
                 view.clone(),
@@ -154,10 +158,10 @@ fn emit(
                 Vec::new(),
                 Vec::new(),
             )
-            .math_glyph(GlyphId(*glyph_id as u32), px(em(&bx.height) * 16.));
+            .math_glyph(GlyphId(*glyph_id as u32), px(em(&bx.height) * unit));
             let element = div()
                 .absolute()
-                .left(px(x * 16.))
+                .left(px(x * unit))
                 .top(px(top))
                 .w(px(width))
                 .h(px(height))
@@ -175,13 +179,17 @@ fn emit(
         BoxContent::HList(children) => {
             let mut x = x;
             for child in children {
-                emit(child, x, baseline, color, previous, glyphs, elements, view);
+                emit(
+                    child, x, baseline, color, previous, glyphs, elements, view, unit,
+                );
                 x += em(&child.width);
             }
         }
         BoxContent::VList(children) => {
             if let Some(first) = children.first() {
-                emit(first, x, baseline, color, previous, glyphs, elements, view);
+                emit(
+                    first, x, baseline, color, previous, glyphs, elements, view, unit,
+                );
                 let mut below = em(&first.depth);
                 for child in &children[1..] {
                     emit(
@@ -193,6 +201,7 @@ fn emit(
                         glyphs,
                         elements,
                         view,
+                        unit,
                     );
                     below += em(&(&child.height + &child.depth));
                 }
@@ -200,7 +209,9 @@ fn emit(
         }
         BoxContent::Overlap(children) => {
             for child in children {
-                emit(child, x, baseline, color, previous, glyphs, elements, view);
+                emit(
+                    child, x, baseline, color, previous, glyphs, elements, view, unit,
+                );
             }
         }
         BoxContent::Color(c, child) => emit(
@@ -212,10 +223,13 @@ fn emit(
             glyphs,
             elements,
             view,
+            unit,
         ),
         BoxContent::BackColor(c, child) => {
             elements.push(rect(to_color(*c)).into_any_element());
-            emit(child, x, baseline, color, previous, glyphs, elements, view);
+            emit(
+                child, x, baseline, color, previous, glyphs, elements, view, unit,
+            );
         }
         BoxContent::Frame {
             thickness,
@@ -225,15 +239,17 @@ fn emit(
             elements.push(
                 div()
                     .absolute()
-                    .left(px(x * 16.))
+                    .left(px(x * unit))
                     .top(px(top))
                     .w(px(width))
                     .h(px(height))
-                    .border(px(em(thickness) * 16.))
+                    .border(px(em(thickness) * unit))
                     .border_color(stroke.map(to_color).unwrap_or(color))
                     .into_any_element(),
             );
-            emit(inner, x, baseline, color, previous, glyphs, elements, view);
+            emit(
+                inner, x, baseline, color, previous, glyphs, elements, view, unit,
+            );
         }
         BoxContent::Line {
             x1,
@@ -243,9 +259,9 @@ fn emit(
             thickness,
         } => {
             let (from, to, t) = (
-                gpui::point(px((x + em(x1)) * 16.), px((baseline - em(y1)) * 16.)),
-                gpui::point(px((x + em(x2)) * 16.), px((baseline - em(y2)) * 16.)),
-                px(em(thickness) * 16.),
+                gpui::point(px((x + em(x1)) * unit), px((baseline - em(y1)) * unit)),
+                gpui::point(px((x + em(x2)) * unit), px((baseline - em(y2)) * unit)),
+                px(em(thickness) * unit),
             );
             elements.push(
                 gpui::canvas(

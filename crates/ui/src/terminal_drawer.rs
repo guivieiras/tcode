@@ -1,4 +1,4 @@
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 #[cfg(not(target_family = "wasm"))]
 use std::time::Instant;
 use std::{
@@ -913,7 +913,7 @@ impl TerminalDrawer {
                         };
                         let shaped = window.text_system().shape_line(
                             marked_text.clone().into(),
-                            px(TERMINAL_FONT_SIZE),
+                            design_px(TERMINAL_FONT_SIZE, window),
                             &[ime_run],
                             None,
                         );
@@ -1439,7 +1439,7 @@ impl Render for TerminalDrawer {
         // vertical metrics of the same resolved face used by StyledText.
         let shaped_cell = window.text_system().shape_line(
             "MMMMMMMMMM".into(),
-            px(TERMINAL_FONT_SIZE),
+            design_px(TERMINAL_FONT_SIZE, window),
             &[TextRun {
                 len: 10,
                 font: terminal_font(),
@@ -1453,7 +1453,7 @@ impl Render for TerminalDrawer {
         self.cell_width = f32::from(shaped_cell.width) / 10.;
         self.cell_height = f32::from(shaped_cell.ascent + shaped_cell.descent)
             .ceil()
-            .max(TERMINAL_FONT_SIZE + 2.);
+            .max(f32::from(design_px(TERMINAL_FONT_SIZE + 2., window)));
         let (tabs, active_id, active_split) = self
             .workspace_store
             .read(cx)
@@ -1490,7 +1490,7 @@ impl Render for TerminalDrawer {
             .underline()
             .hairline(false)
             .compact(compact)
-            .label_max_w(px(160.))
+            .label_max_w(design_px(160., window))
             .aria_label(crate::tr!("terminal.tabs"))
             .flex_1()
             .min_w_0()
@@ -2006,7 +2006,7 @@ pub(crate) fn paint_terminal_grid(
         };
         let shaped = window.text_system().shape_line(
             run.text.clone().into(),
-            px(TERMINAL_FONT_SIZE),
+            design_px(TERMINAL_FONT_SIZE, window),
             &[text_run],
             Some(px(cell_width)),
         );

@@ -178,7 +178,7 @@ pub struct PullRequestView {
     /// The phone header's chip row, which scrolls sideways.
     chips_scroll: ScrollHandle,
     wake: Option<(u64, Task<()>)>,
-    _subscriptions: [Subscription; 2],
+    _subscriptions: [Subscription; 3],
 }
 
 /// The busy mark of a lifecycle write in flight.
@@ -233,6 +233,14 @@ impl PullRequestView {
                 cx,
             ),
             cx.observe(&window_state, |_, _, cx| cx.notify()),
+            crate::zoom::observe(cx, |this: &mut Self| {
+                for page in this.pages.values() {
+                    page.conversation_view.list.remeasure();
+                    if let Some(files) = &page.files_view.list {
+                        files.remeasure();
+                    }
+                }
+            }),
         ];
         Self {
             store,

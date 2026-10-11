@@ -373,10 +373,8 @@ impl RenderOnce for Dialog {
         // off-screen, because `x` is derived from the same width. The height cap
         // below keeps the footer actions reachable; `DialogContent` is already
         // `flex_1 min_h_0`, so a scrolling body shrinks into it.
-        let width = crate::sizing::fit_viewport(
-            f32::from(self.width.to_pixels(window.rem_size())),
-            viewport.width,
-        );
+        let width =
+            crate::sizing::fit_viewport(self.width.to_pixels(window.rem_size()), viewport.width);
         let x = viewport.width / 2. - width / 2.;
         let margin = design_px(16., window);
         let y = viewport.height / 10. + margin * self.layer as f32;

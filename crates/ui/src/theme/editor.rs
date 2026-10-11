@@ -132,7 +132,10 @@ impl ThemeEditor {
 impl Render for ThemeEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // The dialog's title, help text and actions take about 300px.
-        let height = crate::sizing::fit_viewport(300., window.viewport_size().height - px(300.));
+        let height = crate::sizing::fit_viewport(
+            crate::sizing::design_px(300., window),
+            window.viewport_size().height - px(300.),
+        );
         let mut body = v_flex()
             .gap_3()
             .child(

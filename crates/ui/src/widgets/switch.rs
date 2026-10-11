@@ -1,3 +1,4 @@
+use crate::sizing::design_px;
 use crate::{
     sizing::{Sizable, Size},
     theme::ActiveTheme as _,
@@ -83,13 +84,14 @@ impl Styled for Switch {
 }
 
 impl RenderOnce for Switch {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let checked = self.checked;
         let (width, height, thumb) = match self.size {
-            Size::XSmall | Size::Small => (px(28.), px(16.), px(12.)),
-            _ => (px(36.), px(20.), px(16.)),
+            Size::XSmall | Size::Small => (28., 16., 12.),
+            _ => (36., 20., 16.),
         };
-        let inset = px(2.);
+        let [width, height, thumb, inset] =
+            [width, height, thumb, 2.].map(|size| design_px(size, window));
         let checked_bg = self.color.unwrap_or(cx.theme().primary);
         let unchecked_bg = cx.theme().muted;
         let thumb_bg = cx.theme().background;
