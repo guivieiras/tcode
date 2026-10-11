@@ -604,6 +604,8 @@ mod tests {
 
     use super::*;
 
+    const MACHINE_ID: &str = "09e5c592f3234ef329634a0baa6bfe06193be6b64801121d84242af1d27dbecf";
+
     #[test]
     fn connection_stamp_preserves_an_address_update_already_in_progress() {
         let dir = TestDir::new();
@@ -611,7 +613,7 @@ mod tests {
         client.remember_host(PairedHost {
             space_id: None,
             space_name: None,
-            host_id: "machine".into(),
+            host_id: MACHINE_ID.into(),
             name: "Machine".into(),
             traverse: Vec::new(),
             relay: None,
@@ -635,7 +637,7 @@ mod tests {
         let stamp = std::thread::spawn(move || {
             let client = NativeClientHost::new(stamp_dir, "phone");
             started.send(()).unwrap();
-            client.stamp_connected("machine", 1234);
+            client.stamp_connected(MACHINE_ID, 1234);
         });
         starting.recv().unwrap();
         release.send(()).unwrap();
