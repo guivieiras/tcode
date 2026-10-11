@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::borrow::Cow;
 use std::time::Duration;
 
@@ -28,8 +29,8 @@ pub(crate) fn shimmer_label(id: SharedString, label: Cow<'static, str>, cx: &App
 
     h_flex()
         .gap(px(0.))
-        .text_size(px(13.))
-        .line_height(px(18.))
+        .text_size(design(13.))
+        .line_height(design(18.))
         .font_medium()
         .children(char_starts.iter().enumerate().map(|(index, &start)| {
             let end = char_starts.get(index + 1).copied().unwrap_or(label.len());
@@ -61,12 +62,12 @@ pub(crate) fn working_indicator(id: SharedString, started_at: Option<u64>, cx: &
     const CYCLE_MS: u64 = 650;
 
     let foreground = cx.theme().foreground;
-    let mut pixels = div().grid().grid_cols(3).gap(px(1.5));
+    let mut pixels = div().grid().grid_cols(3).gap(design(1.5));
     for (cell, delay_ms) in DELAYS_MS.into_iter().enumerate() {
         let animation_id = SharedString::from(format!("{id}-pixel-{cell}"));
         pixels = pixels.child(
             div()
-                .size(px(4.))
+                .size(design(4.))
                 .rounded(px(1.))
                 .bg(foreground)
                 .with_animation(
@@ -84,7 +85,7 @@ pub(crate) fn working_indicator(id: SharedString, started_at: Option<u64>, cx: &
 
     let elapsed_ms = started_at.map_or(0, |start| now_millis().saturating_sub(start));
     h_flex()
-        .gap(px(10.))
+        .gap(design(10.))
         .items_center()
         .text_color(cx.theme().muted_foreground)
         .child(pixels)
@@ -96,14 +97,14 @@ pub(crate) fn working_indicator(id: SharedString, started_at: Option<u64>, cx: &
         .child(
             div()
                 .font_family(cx.theme().mono_font_family.clone())
-                .text_size(px(12.))
-                .line_height(px(18.))
+                .text_size(design(12.))
+                .line_height(design(18.))
                 // Flex has no text baselines (taffy sees opaque boxes), so the
                 // 12px digits render top-aligned beside the 13px label; drop
                 // them onto the label's baseline. Measured against DM Sans at
                 // 2x; both fonts ship with the app.
                 .relative()
-                .top(px(2.))
+                .top(design(2.))
                 .child(format_elapsed_deciseconds(elapsed_ms)),
         )
         .into_any_element()
@@ -121,7 +122,7 @@ pub(crate) fn turn_working_indicator(
     h_flex()
         .gap_2()
         .items_center()
-        .text_size(px(12.5))
+        .text_size(design(12.5))
         .text_color(cx.theme().muted_foreground)
         .child(working_indicator(
             SharedString::from(format!("working-{turn}")),
@@ -137,7 +138,8 @@ pub(crate) fn turn_working_indicator(
                     .items_center()
                     .text_color(cx.theme().warning)
                     .child(
-                        crate::icon::Icon::new(crate::icon::IconName::TriangleAlert).size(px(12.)),
+                        crate::icon::Icon::new(crate::icon::IconName::TriangleAlert)
+                            .size(design(12.)),
                     )
                     .child(served)
                     .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx)),
@@ -161,7 +163,7 @@ pub(crate) fn turn_time_footer(
         .w_full()
         .gap_1p5()
         .items_start()
-        .text_size(px(11.))
+        .text_size(design(11.))
         .font_family(mono)
         .text_color(muted)
         .debug_selector(|| "turn-time-row".into())
@@ -174,8 +176,8 @@ pub(crate) fn turn_time_footer(
                 .min_w_0()
                 .flex_wrap()
                 .justify_start()
-                .gap_x(px(4.))
-                .gap_y(px(2.))
+                .gap_x(design(4.))
+                .gap_y(design(2.))
                 .children(clauses.into_iter().enumerate().map(|(index, clause)| {
                     let selector = clause.selector;
                     div()

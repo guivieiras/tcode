@@ -2,6 +2,7 @@
 //! the line selection. A view supplies its files and the parts that differ through
 //! [`DiffListHost`]; the rows themselves are drawn here only.
 
+use crate::sizing::design;
 use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
@@ -353,8 +354,8 @@ pub(crate) trait DiffListHost: Sized + 'static {
         div()
             .min_w_0()
             .truncate()
-            .text_size(px(13.))
-            .line_height(px(18.))
+            .text_size(design(13.))
+            .line_height(design(18.))
             .font_medium()
             .text_color(cx.theme().foreground)
             .child(path)
@@ -445,12 +446,12 @@ pub(crate) fn render_list<H: DiffListHost>(
     .flex_1()
     .min_h_0()
     .h_full()
-    .text_size(px(13.))
+    .text_size(design(13.))
     .font_family(cx.theme().mono_font_family.clone());
     if wrap {
         rows = rows.w_full();
     } else {
-        rows = rows.min_w(px(content_width));
+        rows = rows.min_w(design(content_width));
     }
     // Do not let this horizontal overflow container translate ordinary
     // vertical wheel input into horizontal movement. The event can then
@@ -613,7 +614,7 @@ fn render_file_header<H: DiffListHost>(
                 header.min_w_full()
             }
         })
-        .h(px(34.))
+        .h(design(34.))
         .px_3()
         .gap_2()
         .items_center()
@@ -625,9 +626,9 @@ fn render_file_header<H: DiffListHost>(
                 div()
                     .absolute()
                     .left(px(0.))
-                    .top(px(6.))
-                    .bottom(px(6.))
-                    .w(px(2.))
+                    .top(design(6.))
+                    .bottom(design(6.))
+                    .w(design(2.))
                     .rounded_full()
                     .bg(color),
             )
@@ -640,8 +641,8 @@ fn render_file_header<H: DiffListHost>(
             this.child(
                 div()
                     .flex_none()
-                    .text_size(px(11.))
-                    .line_height(px(18.))
+                    .text_size(design(11.))
+                    .line_height(design(18.))
                     .text_color(foreground)
                     .child(label),
             )
@@ -652,7 +653,7 @@ fn render_file_header<H: DiffListHost>(
             h_flex()
                 .flex_none()
                 .gap_2()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .child(
                     div()
                         .text_color(cx.theme().success)
@@ -681,11 +682,11 @@ fn render_gap<H: DiffListHost>(
 ) -> AnyElement {
     let row = h_flex()
         .min_w_full()
-        .h(px(24.))
+        .h(design(24.))
         .px_3()
         .items_center()
         .bg(cx.theme().muted)
-        .text_size(px(11.))
+        .text_size(design(11.))
         .text_color(cx.theme().muted_foreground)
         .font_family(cx.theme().font_family.clone());
     let label = crate::tr!("diff.unmodified_lines", count = count);
@@ -758,13 +759,13 @@ fn render_gap<H: DiffListHost>(
 pub(crate) fn render_notice(message: impl Into<gpui::SharedString>, cx: &App) -> gpui::Div {
     h_flex()
         .min_w_full()
-        .px(px(material::CARD_INSET))
+        .px(design(material::CARD_INSET))
         .py_2()
         .gap_1p5()
         .items_start()
         .bg(cx.theme().warning.opacity(0.12))
         .rounded(material::radius_card(cx))
-        .text_size(px(11.))
+        .text_size(design(11.))
         .text_color(cx.theme().warning_foreground)
         .font_family(cx.theme().font_family.clone())
         .child(
@@ -788,7 +789,11 @@ fn render_split_row<H: DiffListHost>(
         .is_some_and(|(left, right)| file.all_rows[left].text == file.all_rows[right].text);
     let cell = |row_index: Option<usize>, side: ReviewSide, cx: &mut Context<H>| {
         let Some(index) = row_index else {
-            return div().flex_1().min_w_0().min_h(px(18.)).into_any_element();
+            return div()
+                .flex_1()
+                .min_w_0()
+                .min_h(design(18.))
+                .into_any_element();
         };
         render_code_row(
             host,
@@ -844,10 +849,10 @@ fn render_code_row<H: DiffListHost>(
         let file_move = file.path.clone();
         div()
             .flex_none()
-            .w(px(if split { 42. } else { 44. }))
+            .w(design(if split { 42. } else { 44. }))
             .px_1()
             .text_right()
-            .text_size(px(11.))
+            .text_size(design(11.))
             .text_color(cx.theme().muted_foreground)
             .child(line.map(|value| value.to_string()).unwrap_or_default())
             .cursor_pointer()
@@ -880,7 +885,7 @@ fn render_code_row<H: DiffListHost>(
         .when(split || wrap, |code| code.min_w_0())
         .when(!wrap, |code| code.whitespace_nowrap());
     let mut cell = h_flex()
-        .min_h(px(18.))
+        .min_h(design(18.))
         .items_start()
         .when_some(bg, |cell, color| cell.bg(color));
     if let Some(side) = split_side {

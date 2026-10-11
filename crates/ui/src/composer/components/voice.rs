@@ -1,6 +1,7 @@
 //! System dictation and replacement of the session's whole transcript.
 
 use super::super::*;
+use crate::sizing::design;
 use gpui::SharedString;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use gpui_component::speech::SystemRecognizer;
@@ -104,7 +105,7 @@ impl Composer {
             Button::new("voice-mic")
                 .ghost()
                 .compact()
-                .h(px(28.))
+                .h(design(28.))
                 .rounded(crate::material::radius_chip(cx))
                 .disabled(!available)
                 .tooltip(tooltip)
@@ -118,7 +119,7 @@ impl Composer {
                     if status == SpeechStatus::Recording {
                         div()
                             .rounded_full()
-                            .p(px(2.))
+                            .p(design(2.))
                             .bg(cx
                                 .theme()
                                 .danger

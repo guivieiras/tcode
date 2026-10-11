@@ -1,6 +1,7 @@
 //! Block renderer adapted from gpui-component's Apache-2.0 `text/node.rs` and
 //! `text/document.rs`, with rushdown IR and syntect highlighting.
 
+use crate::sizing::design;
 use std::{
     cell::RefCell,
     collections::{HashMap, VecDeque},
@@ -569,7 +570,7 @@ fn render_block(
         BlockNode::HorizontalRule => div()
             .id(options.path)
             .pb(gap)
-            .child(div().h(px(2.)).w_full().bg(cx.theme().border))
+            .child(div().h(design(2.)).w_full().bg(cx.theme().border))
             .into_any_element(),
         BlockNode::Unknown => div().into_any_element(),
     }
@@ -1024,7 +1025,7 @@ fn render_list_item(
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .rounded(px(3.))
+                                    .rounded(design(3.))
                                     .border_1()
                                     .border_color(cx.theme().primary)
                                     .when(checked, |this| {
@@ -1138,7 +1139,7 @@ fn render_code_block(
         let runs = sub_runs(span_runs, offset, end);
         let line = div()
             .id(("code-line", ix))
-            .min_h(px(18.))
+            .min_h(design(18.))
             .whitespace_normal()
             .font_family(mono_font_family.clone())
             .text_color(cx.theme().editor_foreground)

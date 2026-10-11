@@ -1,5 +1,6 @@
 use super::super::*;
 use crate::overlay::DialogActions;
+use crate::sizing::design;
 use crate::store::ComposerState;
 
 const OPTION_ID: &str = "contextWindow";
@@ -83,7 +84,7 @@ impl Render for ContextWindowDialog {
         let row = |id: gpui::SharedString, label: String, checked: bool, cx: &App| {
             h_flex()
                 .id(id)
-                .when(compact, |row| row.min_h(px(44.)))
+                .when(compact, |row| row.min_h(design(44.)))
                 .w_full()
                 .px_2()
                 .py_1p5()
@@ -91,7 +92,7 @@ impl Render for ContextWindowDialog {
                 .items_center()
                 .rounded(cx.theme().tokens.radius.sm)
                 .cursor_pointer()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .hover(|style| style.bg(cx.theme().muted))
                 .child(div().flex_1().min_w_0().child(label))
                 .when(checked, |row| {
@@ -151,7 +152,7 @@ impl Render for ContextWindowDialog {
                 .when(self.invalid, |this| {
                     this.child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(cx.theme().danger)
                             .child(crate::tr!("composer.context_window_invalid")),
                     )
@@ -186,7 +187,7 @@ pub(in super::super) fn open(store: Entity<WorkspaceStore>, window: &mut Window,
         let content = dialog.clone();
         let apply = dialog.clone();
         builder
-            .w(px(360.))
+            .w(design(360.))
             .rounded(crate::material::radius_overlay(cx))
             .bg(cx.theme().popover)
             .border_1()

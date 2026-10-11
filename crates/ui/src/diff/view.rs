@@ -1,6 +1,7 @@
 //! The right-side diff panel view: scope controls, virtualized unified/split
 //! lists, expandable gaps, and line-anchored review comments.
 
+use crate::sizing::design;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -689,14 +690,14 @@ impl DiffPanel {
         )
         .flex_1()
         .min_w_0()
-        .h(px(40.))
-        .mb(px(-1.))
+        .h(design(40.))
+        .mb(design(-1.))
         .self_end();
         h_flex()
             .flex_none()
             .border_b_1()
             .border_color(cx.theme().border)
-            .h(px(if hosts_caption {
+            .h(design(if hosts_caption {
                 window_caption::CAPTION_STRIP_HEIGHT
             } else {
                 40.
@@ -713,7 +714,7 @@ impl DiffPanel {
             // children, so without it the drag hitbox collapses to zero height.
             .child(window_caption::drag_region(crate::window_drag_area(
                 "right-panel-tabs-drag",
-                div().flex_none().w(px(8.)).h_full(),
+                div().flex_none().w(design(8.)).h_full(),
                 window,
                 cx,
             )))
@@ -882,7 +883,7 @@ impl DiffPanel {
                 h_flex()
                     .gap_1p5()
                     .items_center()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_medium()
                     .child(label)
                     .child(Icon::new(IconName::ChevronDown).xsmall().text_color(muted)),
@@ -914,7 +915,7 @@ impl DiffPanel {
                         .py_1()
                         .items_center()
                         .rounded(cx.theme().tokens.radius.sm)
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .cursor_pointer()
                         .hover(|row| row.bg(cx.theme().list_hover))
                         .when(selected_scope == Some(scope), |row| {
@@ -970,12 +971,12 @@ impl DiffPanel {
                     .id("diff-turn-list")
                     .role(Role::Menu)
                     .aria_label(crate::tr!("diff.scope_menu"))
-                    .min_w(px(190.))
-                    .max_h(px(320.))
+                    .min_w(design(190.))
+                    .max_h(design(320.))
                     .pt_1()
                     .px_1()
                     // The last turn row carries its gap.
-                    .pb(px(if turn_rows.is_some() { 2. } else { 4. }))
+                    .pb(design(if turn_rows.is_some() { 2. } else { 4. }))
                     .gap_0p5()
                     .child(scope_row(
                         "diff-scope-working",
@@ -995,7 +996,7 @@ impl DiffPanel {
                             .px_2()
                             .pt_2()
                             .pb_1()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("diff.turns")),
                     )
@@ -1007,94 +1008,93 @@ impl DiffPanel {
             .shadow_xl()
             .rounded(material::radius_overlay(cx));
 
-        let base_selector =
-            (selected_scope == Some(DiffScope::Branch)).then(|| {
-                let mut branches: Rc<[String]> = self
-                    .git_preview
+        let base_selector = (selected_scope == Some(DiffScope::Branch)).then(|| {
+            let mut branches: Rc<[String]> = self
+                .git_preview
+                .as_ref()
+                .map(|preview| preview.result.branches.as_slice().into())
+                .unwrap_or_default();
+            if branches.is_empty() {
+                branches = active_state
                     .as_ref()
-                    .map(|preview| preview.result.branches.as_slice().into())
+                    .map(|active| active.branches.as_slice().into())
                     .unwrap_or_default();
-                if branches.is_empty() {
-                    branches = active_state
+            }
+            let current = self
+                .bases
+                .get(&session)
+                .cloned()
+                .or_else(|| {
+                    self.git_preview
                         .as_ref()
-                        .map(|active| active.branches.as_slice().into())
-                        .unwrap_or_default();
-                }
-                let current = self
-                    .bases
-                    .get(&session)
-                    .cloned()
-                    .or_else(|| {
-                        self.git_preview
-                            .as_ref()
-                            .and_then(|p| p.result.default_base.clone())
-                    })
-                    .unwrap_or_else(|| "HEAD".to_string());
-                let panel = cx.entity();
-                let session_base = session.clone();
-                let current_label = current.clone();
-                let current: Rc<str> = current.into();
-                let trigger = Button::new("diff-base-select")
-                    .ghost()
-                    .outline()
-                    .compact()
-                    .label(current_label)
-                    .icon(IconName::ChevronDown);
-                Popover::new("diff-base-popover")
-                    .trigger(trigger)
-                    .content(move |_, _, cx| {
-                        let branches = branches.clone();
-                        let current = current.clone();
-                        let panel = panel.clone();
-                        let session = session_base.clone();
-                        let popover = cx.entity();
-                        let branch_count = branches.len();
-                        let widest = branches
-                            .iter()
-                            .enumerate()
-                            .max_by_key(|(_, branch)| branch.chars().count())
-                            .map_or(0, |(index, _)| index);
-                        div()
-                            .id("diff-base-list")
-                            .role(Role::Menu)
-                            .aria_label(crate::tr!("diff.base_branches"))
-                            .child(
-                                crate::scroll::VirtualList::uniform(
-                                    "diff-base-items",
-                                    branch_count,
-                                    move |range, _, cx| {
-                                        range
-                                            .map(|index| {
-                                                let branch = &branches[index];
-                                                div().pb_0p5().child(base_row(
-                                                    index,
-                                                    branch,
-                                                    *branch == *current,
-                                                    &panel,
-                                                    &session,
-                                                    &popover,
-                                                    cx,
-                                                ))
-                                            })
-                                            .collect()
-                                    },
-                                )
-                                .width_from_row(widest)
-                                .min_w(px(180.))
-                                .max_h(px(280.))
-                                .pt_1()
-                                .px_1()
-                                // The last row carries its gap.
-                                .pb(px(if branch_count == 0 { 4. } else { 2. })),
+                        .and_then(|p| p.result.default_base.clone())
+                })
+                .unwrap_or_else(|| "HEAD".to_string());
+            let panel = cx.entity();
+            let session_base = session.clone();
+            let current_label = current.clone();
+            let current: Rc<str> = current.into();
+            let trigger = Button::new("diff-base-select")
+                .ghost()
+                .outline()
+                .compact()
+                .label(current_label)
+                .icon(IconName::ChevronDown);
+            Popover::new("diff-base-popover")
+                .trigger(trigger)
+                .content(move |_, _, cx| {
+                    let branches = branches.clone();
+                    let current = current.clone();
+                    let panel = panel.clone();
+                    let session = session_base.clone();
+                    let popover = cx.entity();
+                    let branch_count = branches.len();
+                    let widest = branches
+                        .iter()
+                        .enumerate()
+                        .max_by_key(|(_, branch)| branch.chars().count())
+                        .map_or(0, |(index, _)| index);
+                    div()
+                        .id("diff-base-list")
+                        .role(Role::Menu)
+                        .aria_label(crate::tr!("diff.base_branches"))
+                        .child(
+                            crate::scroll::VirtualList::uniform(
+                                "diff-base-items",
+                                branch_count,
+                                move |range, _, cx| {
+                                    range
+                                        .map(|index| {
+                                            let branch = &branches[index];
+                                            div().pb_0p5().child(base_row(
+                                                index,
+                                                branch,
+                                                *branch == *current,
+                                                &panel,
+                                                &session,
+                                                &popover,
+                                                cx,
+                                            ))
+                                        })
+                                        .collect()
+                                },
                             )
-                    })
-                    .bg(cx.theme().popover)
-                    .border_1()
-                    .border_color(cx.theme().border)
-                    .shadow_xl()
-                    .rounded(material::radius_overlay(cx))
-                    .into_any_element()
-            });
+                            .width_from_row(widest)
+                            .min_w(design(180.))
+                            .max_h(design(280.))
+                            .pt_1()
+                            .px_1()
+                            // The last row carries its gap.
+                            .pb(design(if branch_count == 0 { 4. } else { 2. })),
+                        )
+                })
+                .bg(cx.theme().popover)
+                .border_1()
+                .border_color(cx.theme().border)
+                .shadow_xl()
+                .rounded(material::radius_overlay(cx))
+                .into_any_element()
+        });
 
         let wrap_on = self.workspace_store.read(cx).diff_word_wrap();
         let split_on = self.workspace_store.read(cx).diff_split();
@@ -1138,9 +1138,9 @@ impl DiffPanel {
         ];
         let mut toolbar = h_flex()
             .flex_none()
-            .h(px(if compact { material::TOUCH_TARGET } else { 40. }))
+            .h(design(if compact { material::TOUCH_TARGET } else { 40. }))
             .w_full()
-            .px(px(if compact {
+            .px(design(if compact {
                 material::COMPACT_PAGE_INSET
             } else {
                 8.
@@ -1294,7 +1294,7 @@ impl DiffPanel {
             .size_full()
             .min_h_0()
             .when(self.compact(cx), |body| {
-                body.px(px(material::COMPACT_PAGE_INSET))
+                body.px(design(material::COMPACT_PAGE_INSET))
             })
             .child(viewport);
 
@@ -1354,14 +1354,14 @@ impl DiffPanel {
                     .rounded(material::radius_card(cx))
                     .bg(cx.theme().muted)
                     .font_family(cx.theme().font_family.clone())
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .child(
                         div()
                             .absolute()
                             .left(px(0.))
-                            .top(px(6.))
-                            .bottom(px(6.))
-                            .w(px(2.))
+                            .top(design(6.))
+                            .bottom(design(6.))
+                            .w(design(2.))
                             .rounded_full()
                             .bg(cx.theme().primary),
                     )
@@ -1431,7 +1431,7 @@ impl DiffPanel {
             .gap_1()
             .child(
                 div()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("diff.empty")),
             )
@@ -1468,7 +1468,7 @@ fn turn_row(
     .gap_2()
     .items_center()
     .rounded(cx.theme().tokens.radius.sm)
-    .text_size(px(13.))
+    .text_size(design(13.))
     .cursor_pointer()
     .hover(|s| s.bg(cx.theme().list_hover))
     .when(selected, |this| this.bg(cx.theme().list_active))

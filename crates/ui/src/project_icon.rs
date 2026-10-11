@@ -1,4 +1,5 @@
 //! Shared project artwork and an in-app picker over the attached host's files.
+use crate::sizing::design;
 use crate::{
     icon::{Icon, IconName},
     overlay::OverlayExt as _,
@@ -26,11 +27,11 @@ const TILE_GAP: f32 = 8.;
 
 pub(crate) fn artwork(project: &Project, size: f32) -> impl IntoElement + use<> {
     img(images::project_icon(project, size))
-        .size(px(size))
+        .size(design(size))
         .flex_none()
         .with_fallback(move || {
             Icon::new(IconName::Folder)
-                .size(px(size))
+                .size(design(size))
                 .into_any_element()
         })
 }
@@ -191,16 +192,16 @@ impl Picker {
         let is_selected = self.selected.as_ref() == Some(&path);
         let content = if is_dir {
             Icon::new(IconName::Folder)
-                .size(px(32.))
+                .size(design(32.))
                 .text_color(cx.theme().muted_foreground)
                 .into_any_element()
         } else {
             img(images::icon_thumbnail(path.clone()))
-                .size(px(64.))
+                .size(design(64.))
                 .with_fallback(|| {
                     Icon::empty()
                         .path("icons/image.svg")
-                        .size(px(28.))
+                        .size(design(28.))
                         .into_any_element()
                 })
                 .into_any_element()
@@ -217,8 +218,8 @@ impl Picker {
             let name = entry.name.clone();
             move || format!("icon-file-{name}")
         })
-        .w(px(TILE_WIDTH))
-        .h(px(108.))
+        .w(design(TILE_WIDTH))
+        .h(design(108.))
         .p_2()
         .gap_1()
         .items_center()
@@ -239,7 +240,7 @@ impl Picker {
         .cursor_pointer()
         .child(
             div()
-                .h(px(68.))
+                .h(design(68.))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -249,7 +250,7 @@ impl Picker {
             div()
                 .w_full()
                 .truncate()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .child(entry.name.clone()),
         )
         .on_click(cx.listener(move |this, _, window, cx| {
@@ -312,11 +313,14 @@ impl Render for Picker {
                         .map(|row| {
                             let tiles =
                                 &matches[row * columns..matches.len().min((row + 1) * columns)];
-                            h_flex().gap(px(TILE_GAP)).pb(px(TILE_GAP)).children(
-                                tiles
-                                    .iter()
-                                    .map(|&index| this.render_tile(&this.entries[index], cx)),
-                            )
+                            h_flex()
+                                .gap(design(TILE_GAP))
+                                .pb(design(TILE_GAP))
+                                .children(
+                                    tiles
+                                        .iter()
+                                        .map(|&index| this.render_tile(&this.entries[index], cx)),
+                                )
                         })
                         .collect()
                 }),
@@ -349,7 +353,7 @@ impl Render for Picker {
                     .child(
                         v_flex().child(self.project.name.clone()).child(
                             div()
-                                .text_size(px(12.))
+                                .text_size(design(12.))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(host),
                         ),
@@ -423,14 +427,14 @@ impl Render for Picker {
             .when_some(self.error.clone(), |el, error| {
                 el.child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(cx.theme().danger)
                         .child(error),
                 )
             })
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().muted_foreground)
                     .child(
                         self.entries

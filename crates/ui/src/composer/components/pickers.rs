@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 use crate::{
     scroll::ScrollableElement as _,
     widgets::{
@@ -210,12 +211,20 @@ impl Composer {
             .debug_selector(|| "model-picker".into())
             .when(
                 self.compact || composer_state.conversation_read_only,
-                |button| button.w_full().max_w(px(160.)).min_w_0().overflow_hidden(),
+                |button| {
+                    button
+                        .w_full()
+                        .max_w(design(160.))
+                        .min_w_0()
+                        .overflow_hidden()
+                },
             )
             .ghost()
             .compact()
-            .h(px(28.))
-            .when(self.compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+            .h(design(28.))
+            .when(self.compact, |button| {
+                button.min_h(design(44.)).min_w(design(44.))
+            })
             .disabled(!self.interactive(cx))
             .rounded(crate::material::radius_input(cx))
             .child(
@@ -226,7 +235,7 @@ impl Composer {
                     )
                     .gap_1p5()
                     .items_center()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .child(tinted_provider_glyph(provider, store).small())
                     .child(
                         div()
@@ -338,8 +347,10 @@ impl Composer {
                 .debug_selector(|| "traits-chip".into())
                 .ghost()
                 .compact()
-                .h(px(28.))
-                .when(self.compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+                .h(design(28.))
+                .when(self.compact, |button| {
+                    button.min_h(design(44.)).min_w(design(44.))
+                })
                 .disabled(true)
                 .label(label)
                 .into_any_element();
@@ -377,15 +388,17 @@ impl Composer {
             .debug_selector(|| "traits-chip".into())
             .ghost()
             .compact()
-            .h(px(28.))
-            .when(self.compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+            .h(design(28.))
+            .when(self.compact, |button| {
+                button.min_h(design(44.)).min_w(design(44.))
+            })
             .disabled(!self.interactive(cx))
             .rounded(crate::material::radius_chip(cx))
             .child(
                 h_flex()
                     .gap_1p5()
                     .items_center()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(div().whitespace_nowrap().child(label))
                     .child(Icon::new(IconName::ChevronDown).xsmall().text_color(muted)),
@@ -441,15 +454,21 @@ impl Composer {
             .aria_label(crate::tr!("composer.context_window_title").into_owned())
             .ghost()
             .compact()
-            .h(px(28.))
-            .when(self.compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+            .h(design(28.))
+            .when(self.compact, |button| {
+                button.min_h(design(44.)).min_w(design(44.))
+            })
             .disabled(!self.interactive(cx))
             .rounded(crate::material::radius_chip(cx))
-            .child(div().size(px(16.)).child(crate::widgets::ring::ring_canvas(
-                pct.unwrap_or(0.0),
-                ring_color,
-                track,
-            )));
+            .child(
+                div()
+                    .size(design(16.))
+                    .child(crate::widgets::ring::ring_canvas(
+                        pct.unwrap_or(0.0),
+                        ring_color,
+                        track,
+                    )),
+            );
 
         crate::material::overlay_popover("context-popover", cx)
             .anchor(Anchor::BottomLeft)
@@ -486,8 +505,10 @@ impl Composer {
             .aria_label(crate::tr!("permission.chip", value = label.clone()).into_owned())
             .ghost()
             .compact()
-            .h(px(28.))
-            .when(self.compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+            .h(design(28.))
+            .when(self.compact, |button| {
+                button.min_h(design(44.)).min_w(design(44.))
+            })
             .disabled(!self.interactive(cx))
             .rounded(crate::material::radius_input(cx))
             .child(
@@ -496,7 +517,7 @@ impl Composer {
                     .overflow_hidden()
                     .gap_1p5()
                     .items_center()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(
                         Icon::empty()
@@ -509,7 +530,7 @@ impl Composer {
                         row.child(
                             div()
                                 .flex_none()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .child(crate::tr!("permission.pending")),
                         )
                     })
@@ -535,8 +556,8 @@ impl Composer {
         let composer = cx.entity();
         let trigger = Button::new("attach-menu")
             .debug_selector(|| "attach-menu".into())
-            .min_w(px(44.))
-            .min_h(px(44.))
+            .min_w(design(44.))
+            .min_h(design(44.))
             .ghost()
             .compact()
             .aria_label(crate::tr!("attach.add").into_owned())
@@ -558,14 +579,14 @@ impl Composer {
                         h_flex()
                             .id("attach-photo-library")
                             .w_full()
-                            .min_h(px(44.))
+                            .min_h(design(44.))
                             .px_2()
                             .py_1p5()
                             .gap_1p5()
                             .items_center()
                             .rounded(cx.theme().tokens.radius.sm)
                             .cursor_pointer()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(muted)
                             .hover(|style| style.bg(cx.theme().muted))
                             .child(
@@ -603,7 +624,9 @@ impl Composer {
             }
         });
         let trigger = Button::new("overflow-controls")
-            .when(self.compact, |button| button.min_w(px(44.)).min_h(px(44.)))
+            .when(self.compact, |button| {
+                button.min_w(design(44.)).min_h(design(44.))
+            })
             .ghost()
             .compact()
             .tooltip(crate::tr!("composer.more_controls"))
@@ -709,7 +732,7 @@ fn render_model_pane(
     let rail = div()
         .id("model-provider-rail")
         .flex_none()
-        .w(px(if compact { 56. } else { 44. }))
+        .w(design(if compact { 56. } else { 44. }))
         .h_full()
         .border_r_1()
         .border_color(cx.theme().border)
@@ -729,7 +752,7 @@ fn render_model_pane(
                 div()
                     .px_3()
                     .py_4()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(if loading {
                         crate::tr!("composer.loading_models")
@@ -809,7 +832,7 @@ fn render_model_pane(
                 .py_1p5()
                 .border_t_1()
                 .border_color(cx.theme().border)
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(muted)
                 .child(crate::tr!("composer.restart_note")),
         );
@@ -821,9 +844,9 @@ fn render_model_pane(
 
     let pane = h_flex()
         .key_context("ModelPicker")
-        .when(!composer.read(cx).compact, |pane| pane.w(px(360.)))
+        .when(!composer.read(cx).compact, |pane| pane.w(design(360.)))
         .when(composer.read(cx).compact, |pane| pane.w_full())
-        .h(px(360.))
+        .h(design(360.))
         .items_stretch()
         .rounded(crate::material::radius_card(cx))
         .overflow_hidden()
@@ -890,10 +913,10 @@ fn render_compact_model_footer(
 
     let group = |label: gpui::SharedString, track: ChoiceGroup, cx: &mut Context<PopoverState>| {
         v_flex()
-            .gap(px(6.))
+            .gap(design(6.))
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(label),
             )
@@ -903,9 +926,9 @@ fn render_compact_model_footer(
     let mut footer = v_flex()
         .flex_none()
         .w_full()
-        .gap(px(14.))
-        .px(px(16.))
-        .pt(px(12.));
+        .gap(design(14.))
+        .px(design(16.))
+        .pt(design(12.));
     if let Some((label, options, current)) = effort {
         let segments = options
             .iter()
@@ -979,7 +1002,7 @@ fn render_compact_model_footer(
         footer = footer.child(permission_notice(&composer_state, cx));
     }
     footer
-        .child(div().h(px(8.)).flex_none())
+        .child(div().h(design(8.)).flex_none())
         .id("compact-model-footer")
         .occlude()
         .border_t_1()
@@ -1020,7 +1043,7 @@ fn render_model_row(
         .when(is_current, |row| row.aria_active_descendant())
         .flex_none()
         .w_full()
-        .min_h(px(if compact { 52. } else { 28. }))
+        .min_h(design(if compact { 52. } else { 28. }))
         .px_2()
         .py_1()
         .gap_2()
@@ -1049,7 +1072,7 @@ fn render_model_row(
                     h_flex()
                         .gap_1p5()
                         .items_center()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .child(div().font_medium().child(name))
                         .when(is_current, |this| {
                             this.child(
@@ -1078,7 +1101,7 @@ fn render_model_row(
                     h_flex()
                         .gap_1()
                         .items_center()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .child(glyph.xsmall())
                         .child(label)
@@ -1086,7 +1109,7 @@ fn render_model_row(
                 .when(!row.provider.caps().mcp_servers, |this| {
                     this.child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(muted)
                             .child(crate::tr!("providers.mcp_unavailable")),
                     )
@@ -1101,7 +1124,7 @@ fn render_model_row(
                     .rounded(cx.theme().tokens.radius.sm)
                     .border_1()
                     .border_color(cx.theme().border)
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .child(format_secondary_shortcut(&(index + 1).to_string())),
             )
@@ -1119,10 +1142,10 @@ fn render_model_row(
                 cx,
             )
             .flex_none()
-            .p(px(2.))
+            .p(design(2.))
             .when(compact, |el| {
-                el.min_w(px(44.))
-                    .min_h(px(44.))
+                el.min_w(design(44.))
+                    .min_h(design(44.))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -1292,12 +1315,12 @@ fn permission_notice(composer: &crate::store::ComposerState, cx: &App) -> AnyEle
         .id("permission-notice")
         .debug_selector(|| "permission-notice".into())
         .min_w_0()
-        .min_h(px(28.))
+        .min_h(design(28.))
         .px_2()
         .py_1()
         .gap_1p5()
         .items_center()
-        .text_size(px(13.))
+        .text_size(design(13.))
         .text_color(muted)
         .child(
             Icon::empty()
@@ -1318,7 +1341,8 @@ fn render_permission_pane(
 ) -> AnyElement {
     let muted = cx.theme().muted_foreground;
     let primary = cx.theme().primary;
-    let caption = |text: gpui::SharedString| div().text_size(px(11.)).text_color(muted).child(text);
+    let caption =
+        |text: gpui::SharedString| div().text_size(design(11.)).text_color(muted).child(text);
     let mut list = v_flex()
         .id("permission-menu")
         .role(Role::Menu)
@@ -1349,7 +1373,7 @@ fn render_permission_pane(
                 .aria_selected(effective)
                 .when(effective, |row| row.aria_active_descendant())
                 .w_full()
-                .min_h(px(if compact { 48. } else { 28. }))
+                .min_h(design(if compact { 48. } else { 28. }))
                 .px_2()
                 .py_1()
                 .gap_2()
@@ -1377,7 +1401,7 @@ fn render_permission_pane(
                                 .gap_1p5()
                                 .items_center()
                                 .flex_wrap()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .child(div().font_medium().child(option.label.clone()))
                                 .when(option.recommended, |row| {
                                     row.child(caption(crate::tr!("permission.recommended").into()))
@@ -1403,7 +1427,7 @@ fn render_permission_pane(
     let mut pane = v_flex()
         .debug_selector(|| "permission-pane".into())
         .w_full()
-        .when(!compact, |pane| pane.w(px(280.)))
+        .when(!compact, |pane| pane.w(design(280.)))
         .child(list);
     if let Some(hint) = control.apply_hint() {
         pane = pane.child(
@@ -1512,11 +1536,11 @@ fn render_effort_slider(
             .w_full()
             .child(
                 h_flex()
-                    .min_h(px(36.))
+                    .min_h(design(36.))
                     .justify_center()
                     .items_center()
                     .gap_1()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .child(
                         div()
                             .text_color(cx.theme().muted_foreground)
@@ -1531,9 +1555,9 @@ fn render_effort_slider(
             )
             .child(
                 div()
-                    .h(px(32.))
-                    .px(px(6.))
-                    .py(px(2.))
+                    .h(design(32.))
+                    .px(design(6.))
+                    .py(design(2.))
                     .flex()
                     .items_center()
                     .child(crate::widgets::Slider::new(&state).fill(accent)),
@@ -1563,7 +1587,7 @@ fn render_traits_pane(
             .px_2()
             .pt_2()
             .pb_1()
-            .text_size(px(11.))
+            .text_size(design(11.))
             .font_medium()
             .text_color(cx.theme().muted_foreground)
             .child(label.to_string())
@@ -1626,7 +1650,7 @@ fn render_traits_pane(
                     pane = pane.child(
                         h_flex()
                             .id(gpui::SharedString::from(format!("trait-opt-{id}-{index}")))
-                            .when(compact, |row| row.min_h(px(44.)))
+                            .when(compact, |row| row.min_h(design(44.)))
                             .flex_none()
                             .w_full()
                             .px_2()
@@ -1635,7 +1659,7 @@ fn render_traits_pane(
                             .items_center()
                             .rounded(cx.theme().tokens.radius.sm)
                             .cursor_pointer()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .hover(|s| s.bg(cx.theme().muted))
                             .child(div().flex_1().min_w_0().child(text))
                             .when(is_selected, |this| {
@@ -1680,7 +1704,7 @@ fn render_traits_pane(
                     pane = pane.child(
                         h_flex()
                             .id(gpui::SharedString::from(format!("trait-opt-{id}-{index}")))
-                            .when(compact, |row| row.min_h(px(44.)))
+                            .when(compact, |row| row.min_h(design(44.)))
                             .flex_none()
                             .w_full()
                             .px_2()
@@ -1689,7 +1713,7 @@ fn render_traits_pane(
                             .items_center()
                             .rounded(cx.theme().tokens.radius.sm)
                             .cursor_pointer()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .hover(|s| s.bg(cx.theme().muted))
                             .child(div().flex_1().min_w_0().child(text))
                             .when(is_selected, |this| {
@@ -1719,7 +1743,7 @@ fn render_traits_pane(
                 .py_1p5()
                 .border_t_1()
                 .border_color(cx.theme().border)
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(muted)
                 .child(crate::tr!("composer.restart_note")),
         );
@@ -1727,12 +1751,12 @@ fn render_traits_pane(
     div()
         .relative()
         .w_full()
-        .when(!compact, |pane| pane.w(px(280.)))
+        .when(!compact, |pane| pane.w(design(280.)))
         .child(
             div()
                 .id("traits-options-scroll")
                 .w_full()
-                .max_h(px(360.))
+                .max_h(design(360.))
                 .overflow_y_scroll_area()
                 .child(pane),
         )
@@ -1773,7 +1797,7 @@ fn render_fast_mode_bolt(
             .child(
                 div()
                     .id("traits-fast-mode")
-                    .size(px(if compact {
+                    .size(design(if compact {
                         crate::material::TOUCH_TARGET
                     } else {
                         24.
@@ -1789,7 +1813,7 @@ fn render_fast_mode_bolt(
                         })
                     })
                     .child(if compact {
-                        icon.size(px(20.))
+                        icon.size(design(20.))
                     } else {
                         icon.small()
                     }),
@@ -1833,7 +1857,7 @@ fn render_overflow_pane(
             .gap_1p5()
             .items_center()
             .rounded(cx.theme().tokens.radius.sm)
-            .text_size(px(13.))
+            .text_size(design(13.))
             .text_color(muted)
             .child(icon.small().text_color(muted))
             .child(label)
@@ -1843,7 +1867,7 @@ fn render_overflow_pane(
     v_flex()
         .w_full()
         .when(!crate::window_seam::window_is_compact(window, cx), |pane| {
-            pane.w(px(220.))
+            pane.w(design(220.))
         })
         .p_1()
         .gap_0p5()
@@ -1875,7 +1899,7 @@ fn render_context_meter_pane(
     let mut pane = v_flex()
         .debug_selector(|| "context-pane".into())
         .w_full()
-        .when(!compact, |pane| pane.w(px(256.)).p_3())
+        .when(!compact, |pane| pane.w(design(256.)).p_3())
         .gap_2();
 
     let used = usage.as_ref().and_then(context_meter::used_tokens);
@@ -1884,7 +1908,7 @@ fn render_context_meter_pane(
     let stat: AnyElement = match max {
         Some(max) => h_flex()
             .gap_1()
-            .text_size(px(11.))
+            .text_size(design(11.))
             .font_family(cx.theme().mono_font_family.clone())
             .text_color(muted)
             .when_some(pct_label, |row, label| row.child(label).child("·"))
@@ -1895,7 +1919,7 @@ fn render_context_meter_pane(
             ))
             .into_any_element(),
         _ => div()
-            .text_size(px(11.))
+            .text_size(design(11.))
             .font_family(cx.theme().mono_font_family.clone())
             .text_color(muted)
             .child(context_meter::format_tokens(used))
@@ -1913,7 +1937,7 @@ fn render_context_meter_pane(
                     .items_center()
                     .child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .font_medium()
                             .text_color(muted)
                             .child(crate::tr!("composer.context_window_title")),
@@ -1926,7 +1950,9 @@ fn render_context_meter_pane(
                                 .debug_selector(|| "context-window-edit".into())
                                 .ghost()
                                 .xsmall()
-                                .when(compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+                                .when(compact, |button| {
+                                    button.min_h(design(44.)).min_w(design(44.))
+                                })
                                 .aria_label(label.clone())
                                 .tooltip(label)
                                 .icon(Icon::empty().path("icons/pencil.svg"))
@@ -1945,7 +1971,7 @@ fn render_context_meter_pane(
         pane = pane.child(
             div()
                 .w_full()
-                .h(px(6.))
+                .h(design(6.))
                 .rounded_full()
                 .bg(cx.theme().muted)
                 .child(
@@ -1966,7 +1992,7 @@ fn render_context_meter_pane(
     };
     pane = pane.child(
         div()
-            .text_size(px(11.))
+            .text_size(design(11.))
             .text_color(muted)
             .child(crate::tr!(freshness)),
     );
@@ -1980,7 +2006,7 @@ fn render_context_meter_pane(
                 .justify_between()
                 .items_center()
                 .gap_3()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(muted)
                 .child(crate::tr!("composer.total_processed"))
                 .child(context_meter::format_tokens(Some(total))),
@@ -1991,7 +2017,7 @@ fn render_context_meter_pane(
         pane = pane.child(
             div()
                 .pt_1()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(muted)
                 .child(crate::tr!(
                     "composer.compacts_automatically",
@@ -2021,7 +2047,7 @@ fn render_context_meter_pane(
                 .justify_between()
                 .items_center()
                 .gap_3()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .font_medium()
                 .text_color(muted)
                 .child(crate::tr!("usage.title"))
@@ -2032,7 +2058,7 @@ fn render_context_meter_pane(
         if account.error.is_some() {
             pane = pane.child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .child(crate::tr!("usage.unavailable")),
             );
@@ -2043,14 +2069,14 @@ fn render_context_meter_pane(
                 pane = pane.child(
                     v_flex()
                         .w_full()
-                        .gap(px(3.))
+                        .gap(design(3.))
                         .child(
                             h_flex()
                                 .w_full()
                                 .justify_between()
                                 .items_center()
                                 .gap_2()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .child(
                                     div()
                                         .text_color(muted)
@@ -2066,7 +2092,7 @@ fn render_context_meter_pane(
                         .child(
                             div()
                                 .w_full()
-                                .h(px(4.))
+                                .h(design(4.))
                                 .rounded_full()
                                 .bg(cx.theme().muted)
                                 .child(div().h_full().rounded_full().bg(fill).w(gpui::relative(
@@ -2076,7 +2102,9 @@ fn render_context_meter_pane(
                         .when_some(
                             crate::usage::resets_label(window.resets_at, now),
                             |col, label| {
-                                col.child(div().text_size(px(10.5)).text_color(muted).child(label))
+                                col.child(
+                                    div().text_size(design(10.5)).text_color(muted).child(label),
+                                )
                             },
                         ),
                 );

@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
@@ -1429,7 +1430,7 @@ impl ChatView {
     ) -> AnyElement {
         let (row, turn, cwd, own, entries, pinned) = args;
         let index = row.turn;
-        let mut column = v_flex().w_full().gap(px(SEGMENT_GAP));
+        let mut column = v_flex().w_full().gap(design(SEGMENT_GAP));
 
         // A row's entries re-segment to the one segment it was indexed from.
         let segmented = segment_entries(own, turn.running);
@@ -1919,13 +1920,13 @@ impl ChatView {
             v_flex()
                 .w_full()
                 .items_end()
-                .gap(px(2.))
+                .gap(design(2.))
                 .child(
                     div()
                         .max_w_3_4()
-                        .px(px(10.))
+                        .px(design(10.))
                         .truncate()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().muted_foreground)
                         .child(author),
                 )
@@ -2414,7 +2415,7 @@ impl ChatView {
             cx,
         )
         .debug_selector(|| "agents-pill".into())
-        .h(px(28.))
+        .h(design(28.))
         .px_3()
         .gap_1p5()
         .items_center()
@@ -2422,17 +2423,17 @@ impl ChatView {
         .border_1()
         .border_color(cx.theme().border)
         .bg(crate::material::content_surface(cx))
-        .text_size(px(13.))
+        .text_size(design(13.))
         .cursor_pointer()
-        .child(Icon::new(IconName::Bot).size(px(14.)))
+        .child(Icon::new(IconName::Bot).size(design(14.)))
         .child(label)
         .when_some(cue, |pill, color| {
-            pill.child(div().size(px(6.)).rounded_full().bg(color))
+            pill.child(div().size(design(6.)).rounded_full().bg(color))
         });
         Some(
             h_flex()
                 .w_full()
-                .h(px(36.))
+                .h(design(36.))
                 .px_4()
                 .items_center()
                 .child(
@@ -2475,7 +2476,7 @@ impl ChatView {
                 .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .ghost()
                 .xsmall()
-                .icon(Icon::new(IconName::ArrowLeft).size(px(14.)))
+                .icon(Icon::new(IconName::ArrowLeft).size(design(14.)))
                 .when(labelled, |link| link.label(short))
                 .aria_label(name.clone())
                 .tooltip(name)
@@ -2587,8 +2588,8 @@ impl ChatView {
         let panel = self.pull_requests.clone();
         Some(
             h_flex()
-                .h(px(36.))
-                .px(px(crate::material::COMPACT_PAGE_INSET))
+                .h(design(36.))
+                .px(design(crate::material::COMPACT_PAGE_INSET))
                 .gap_2()
                 .items_center()
                 .child(
@@ -2598,8 +2599,8 @@ impl ChatView {
                             Button::new("phone-pr-pill")
                                 .ghost()
                                 .compact()
-                                .h(px(28.))
-                                .min_h(px(44.))
+                                .h(design(28.))
+                                .min_h(design(44.))
                                 .px_2p5()
                                 .aria_label(label)
                                 .rounded(crate::material::radius_chip(cx))
@@ -2652,28 +2653,28 @@ impl ChatView {
         let header_width = self.header_width.clone();
         let base = h_flex()
             .flex_shrink_0()
-            .h(px(52.))
-            .px(px(HEADER_PADDING))
-            .pl(px(HEADER_PADDING
-                + traffic_light_clearance(
-                    collapsed,
-                    window.is_fullscreen(),
-                )))
+            .h(design(52.))
+            .px(design(HEADER_PADDING))
+            .pl(design(
+                HEADER_PADDING + traffic_light_clearance(collapsed, window.is_fullscreen()),
+            ))
             .when(hosts_caption, |this| this.pr_0())
             .gap_2()
             .items_center()
-            .min_w(px(HEADER_COMPACT_MIN_WIDTH
-                + header_extra_width(
-                    self.workspace_store.read(cx),
-                    collapsed,
-                    window.is_fullscreen(),
-                    false,
-                )
-                + if hosts_caption {
-                    window_caption::RIGHT_PANEL_CAPTION_WIDTH
-                } else {
-                    0.
-                }));
+            .min_w(design(
+                HEADER_COMPACT_MIN_WIDTH
+                    + header_extra_width(
+                        self.workspace_store.read(cx),
+                        collapsed,
+                        window.is_fullscreen(),
+                        false,
+                    )
+                    + if hosts_caption {
+                        window_caption::RIGHT_PANEL_CAPTION_WIDTH
+                    } else {
+                        0.
+                    },
+            ));
 
         // The sidebar toggle: the header's first control, immediately left of
         // the title. It lives here rather than in the sidebar because a
@@ -2716,7 +2717,7 @@ impl ChatView {
                 .min_w_0()
                 .overflow_hidden()
                 .text_ellipsis()
-                .text_size(px(15.))
+                .text_size(design(15.))
                 .font_medium()
                 .text_color(cx.theme().muted_foreground)
                 .child(crate::tr!("chat.new_thread"))
@@ -2727,10 +2728,10 @@ impl ChatView {
                     // Keep a few words of the title even when the diff panel and
                     // the git/Open buttons squeeze the header; without a floor it
                     // collapses to a lone "I…".
-                    .min_w(px(120.))
+                    .min_w(design(120.))
                     .overflow_hidden()
                     .text_ellipsis()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .font_medium()
                     .child(title.clone()),
                 None => div()
@@ -2738,7 +2739,7 @@ impl ChatView {
                     .min_w_0()
                     .overflow_hidden()
                     .text_ellipsis()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .font_medium()
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("chat.no_active_thread")),
@@ -2783,7 +2784,7 @@ impl ChatView {
             .child(
                 h_flex()
                     .flex_1()
-                    .min_w(px(168.))
+                    .min_w(design(168.))
                     .gap_2()
                     .items_center()
                     .child(
@@ -2887,9 +2888,9 @@ impl ChatView {
                                             toggle.child(
                                                 div()
                                                     .absolute()
-                                                    .top(px(3.))
-                                                    .right(px(3.))
-                                                    .size(px(6.))
+                                                    .top(design(3.))
+                                                    .right(design(3.))
+                                                    .size(design(6.))
                                                     .rounded_full()
                                                     .bg(color)
                                                     .debug_selector(|| "agents-cue".into()),
@@ -2946,7 +2947,7 @@ impl ChatView {
             .debug_selector(|| "chat-header-scroll".into())
             .flex_none()
             .w_full()
-            .h(px(52.))
+            .h(design(52.))
             .on_prepaint(move |bounds, window, _| {
                 let width = Some(f32::from(bounds.size.width));
                 let previous = header_width.replace(width);
@@ -2995,7 +2996,7 @@ impl ChatView {
             .px_2()
             .gap_1p5()
             .items_center()
-            .text_size(px(13.))
+            .text_size(design(13.))
             .child(main_icon.xsmall().text_color(if quick.disabled {
                 cx.theme().muted_foreground
             } else {
@@ -3036,7 +3037,7 @@ impl ChatView {
                 let muted = cx.theme().muted_foreground;
                 let accent = cx.theme().accent;
                 let popover = cx.entity();
-                let mut menu = v_flex().w(px(210.)).p_1().gap_0p5();
+                let mut menu = v_flex().w(design(210.)).p_1().gap_0p5();
                 for (index, item) in items.clone().into_iter().enumerate() {
                     let label: SharedString = crate::tr!(git_action_label_key(item.action))
                         .into_owned()
@@ -3053,7 +3054,7 @@ impl ChatView {
                         .gap_2()
                         .items_center()
                         .rounded(cx.theme().tokens.radius.sm)
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .child(git_action_icon(action).xsmall().text_color(muted))
                         .child(div().flex_1().child(label));
                     if disabled {
@@ -3083,7 +3084,7 @@ impl ChatView {
         Some(
             h_flex()
                 .flex_none()
-                .h(px(28.))
+                .h(design(28.))
                 .items_center()
                 .rounded(cx.theme().tokens.radius.md)
                 .border_1()
@@ -3092,7 +3093,7 @@ impl ChatView {
                 .child(main)
                 // A control press must not arm the header window drag region.
                 .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(div().w_px().h(px(16.)).bg(border))
+                .child(div().w_px().h(design(16.)).bg(border))
                 .child(chevron)
                 .into_any_element(),
         )
@@ -3129,7 +3130,7 @@ impl ChatView {
             let content = dialog.clone();
             let footer_dialog = dialog.clone();
             dlg.title(crate::tr!("git.commit.title").into_owned())
-                .w(px(600.))
+                .w(design(600.))
                 // Opaque T3 panel over the library's translucent default.
                 .bg(cx.theme().popover)
                 .shadow_xl()
@@ -3179,13 +3180,13 @@ impl ChatView {
                         .items_center()
                         .rounded(cx.theme().tokens.radius.sm)
                         .cursor_pointer()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .hover(move |s| s.bg(accent))
                         .child(Icon::new(icon).xsmall().text_color(muted))
                         .child(label)
                 };
                 v_flex()
-                    .w(px(180.))
+                    .w(design(180.))
                     .p_1()
                     .gap_0p5()
                     .child(
@@ -3230,7 +3231,7 @@ impl ChatView {
 
         h_flex()
             .flex_none()
-            .h(px(28.))
+            .h(design(28.))
             // A control press must not arm the header window drag region.
             .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .items_center()
@@ -3251,7 +3252,7 @@ impl ChatView {
                 .gap_1p5()
                 .items_center()
                 .cursor_pointer()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .hover(|s| s.bg(cx.theme().accent))
                 .child(
                     Icon::new(IconName::ExternalLink)
@@ -3271,7 +3272,7 @@ impl ChatView {
                     open_in_zed(&main_cwd, window, cx);
                 })),
             )
-            .child(div().w_px().h(px(16.)).bg(border))
+            .child(div().w_px().h(design(16.)).bg(border))
             .child(chevron)
             .into_any_element()
     }
@@ -3359,27 +3360,25 @@ impl ChatView {
                 crate::add_project_dialog::open(this.workspace_store.clone(), window, cx);
             }));
 
-        let mut content = v_flex()
-            .w_full()
-            .max_w(px(420.))
-            .px_4()
-            .items_center()
-            .gap_3()
-            .child(
-                div()
-                    .text_size(px(15.))
-                    .font_semibold()
-                    .child(if projects.is_empty() {
+        let mut content =
+            v_flex()
+                .w_full()
+                .max_w(design(420.))
+                .px_4()
+                .items_center()
+                .gap_3()
+                .child(div().text_size(design(15.)).font_semibold().child(
+                    if projects.is_empty() {
                         crate::tr!("chat.no_projects_title")
                     } else {
                         crate::tr!("chat.empty_title")
-                    }),
-            );
+                    },
+                ));
         if projects.is_empty() {
             content = content
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("chat.no_projects_description")),
                 )
@@ -3401,7 +3400,7 @@ impl ChatView {
             let mut launcher = v_flex().w_full().gap_1().child(
                 div()
                     .px_3()
-                    .text_size(px(10.5))
+                    .text_size(design(10.5))
                     .font_medium()
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::material::tracked_uppercase(
@@ -3421,7 +3420,7 @@ impl ChatView {
                         row_label,
                         cx,
                     )
-                    .h(px(40.))
+                    .h(design(40.))
                     .items_center()
                     .gap_2()
                     .px_3()
@@ -3439,7 +3438,7 @@ impl ChatView {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().foreground)
                             .child(project.name),
                     )
@@ -3447,7 +3446,7 @@ impl ChatView {
                         row.child(
                             div()
                                 .flex_none()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(crate::time::humanize_ago(
                                     now_secs().saturating_sub(last_activity),
@@ -3464,7 +3463,7 @@ impl ChatView {
                     .child(add_project)
                     .child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!(
                                 "chat.palette_hint",
@@ -3488,7 +3487,7 @@ impl ChatView {
         // insets; span the region and center with flex instead.
         div()
             .absolute()
-            .bottom(px(12.))
+            .bottom(design(12.))
             .left_0()
             .right_0()
             .flex()
@@ -3790,7 +3789,7 @@ impl Render for ChatView {
                     })
                     .w_full()
                     .items_center()
-                    .px(px(if this.window_state.read(cx).compact {
+                    .px(design(if this.window_state.read(cx).compact {
                         16.
                     } else {
                         CONTENT_MIN_PADDING
@@ -3804,11 +3803,11 @@ impl Render for ChatView {
                         if index + 1 == item_count {
                             item.pb(px(TIMELINE_EDGE_PADDING))
                         } else if row.last_in_turn {
-                            item.pb(px(TURN_GAP))
+                            item.pb(design(TURN_GAP))
                         } else if continued {
                             item.pb_1()
                         } else {
-                            item.pb(px(SEGMENT_GAP))
+                            item.pb(design(SEGMENT_GAP))
                         }
                     })
                     // `min_w_0`: a turn holds nowrap content (diff rows, command
@@ -3832,7 +3831,7 @@ impl Render for ChatView {
                                             space.child(
                                                 div()
                                                     .id("history-activity")
-                                                    .h(px(24.))
+                                                    .h(design(24.))
                                                     .flex_none()
                                                     .flex()
                                                     .items_center()
@@ -3852,7 +3851,7 @@ impl Render for ChatView {
                         div()
                             .w_full()
                             .min_w_0()
-                            .max_w(px(CONTENT_MAX_WIDTH))
+                            .max_w(design(CONTENT_MAX_WIDTH))
                             .child(rendered),
                     )
                     .into_any_element()
@@ -3903,15 +3902,15 @@ impl Render for ChatView {
                     .id(SharedString::from(format!("delivery-{key}")))
                     .debug_selector(|| "pending-delivery-bubble".into())
                     .w_full()
-                    .max_w(px(CONTENT_MAX_WIDTH))
+                    .max_w(design(CONTENT_MAX_WIDTH))
                     .items_end()
                     .gap_1()
                     .child(
                         div()
                             .max_w_3_4()
-                            .px(px(10.))
-                            .py(px(6.))
-                            .text_size(px(15.))
+                            .px(design(10.))
+                            .py(design(6.))
+                            .text_size(design(15.))
                             .rounded(cx.theme().tokens.radius.lg)
                             .bg(cx.theme().foreground.opacity(0.08))
                             .text_color(if acknowledged {
@@ -3923,7 +3922,7 @@ impl Render for ChatView {
                     )
                     .child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(if failure.is_some() {
                                 cx.theme().danger
                             } else {
@@ -4027,7 +4026,7 @@ impl Render for ChatView {
             .child(
                 v_flex()
                     .w_full()
-                    .max_h(px(200.))
+                    .max_h(design(200.))
                     .id("pending-deliveries")
                     .items_center()
                     .overflow_y_scroll()

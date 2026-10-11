@@ -1,9 +1,10 @@
+use crate::sizing::design;
 use std::path::Path;
 
 use agent::ItemContent;
 use gpui::{
     App, IntoElement, ObjectFit, ParentElement as _, Role, SharedString,
-    StatefulInteractiveElement as _, Styled as _, StyledImage as _, img, px,
+    StatefulInteractiveElement as _, Styled as _, StyledImage as _, img,
 };
 use gpui_base::h_flex;
 use tcode_core::session::{EntryContent, TimelineEntry};
@@ -61,8 +62,8 @@ pub(crate) fn image_tiles(
                     let copy_items = super::activity::activity_copy_items(entry);
                     crate::material::accessible_clickable(
                         gpui::div()
-                            .w(px(120.))
-                            .h(px(80.))
+                            .w(design(120.))
+                            .h(design(80.))
                             .flex_shrink_0()
                             .cursor_pointer()
                             .rounded_lg()

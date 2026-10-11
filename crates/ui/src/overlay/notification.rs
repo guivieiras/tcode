@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::{
     any::TypeId,
     collections::HashMap,
@@ -253,10 +254,10 @@ impl Render for Notification {
                 .flex()
                 .items_center()
                 .gap_2()
-                .min_h(px(44.))
+                .min_h(design(44.))
                 .max_w_full()
-                .py(px(12.))
-                .px(px(16.))
+                .py(design(12.))
+                .px(design(16.))
                 .rounded_full()
                 .bg(cx.theme().popover)
                 .shadow_lg()
@@ -266,8 +267,8 @@ impl Render for Notification {
                 .child(
                     div()
                         .min_w_0()
-                        .text_size(px(15.))
-                        .line_height(px(20.))
+                        .text_size(design(15.))
+                        .line_height(design(20.))
                         .line_clamp(2)
                         .child(
                             self.compact_message
@@ -283,7 +284,7 @@ impl Render for Notification {
                     Animation::new(Duration::from_millis(150)),
                     move |el, delta| {
                         let delta = if entering { delta } else { 1. };
-                        el.opacity(delta).relative().top(px(8. * (1. - delta)))
+                        el.opacity(delta).relative().top(design(8. * (1. - delta)))
                     },
                 )
                 .into_any_element();

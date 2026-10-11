@@ -1,5 +1,6 @@
 //! The Conversation view: the description, comments, reviews and review threads, oldest first.
 
+use crate::sizing::design;
 use std::rc::Rc;
 
 use gpui::{
@@ -115,8 +116,8 @@ fn reaction_chip(
     cx: &App,
 ) -> gpui::Stateful<gpui::Div> {
     material::accessible_clickable(h_flex(), id, gpui::Role::Button, label, cx)
-        .h(px(22.))
-        .px(px(6.))
+        .h(design(22.))
+        .px(design(6.))
         .gap_1()
         .items_center()
         .rounded_full()
@@ -131,7 +132,7 @@ fn reaction_chip(
         } else {
             cx.theme().secondary
         })
-        .text_size(px(12.))
+        .text_size(design(12.))
 }
 
 impl PullRequestView {
@@ -482,7 +483,7 @@ impl PullRequestView {
             .map(|initial| initial.to_uppercase().to_string())
             .unwrap_or_default();
         let fallback = Avatar::new()
-            .size(px(size))
+            .size(design(size))
             .rounded_full()
             .bg(cx.theme().muted)
             .fallback(
@@ -491,7 +492,7 @@ impl PullRequestView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .text_size(px(size * 0.5))
+                    .text_size(design(size * 0.5))
                     .font_weight(gpui::FontWeight::MEDIUM)
                     .text_color(cx.theme().muted_foreground)
                     .child(initial),
@@ -515,7 +516,7 @@ impl PullRequestView {
                                 account,
                                 url.to_owned(),
                             ))
-                            .size(px(size))
+                            .size(design(size))
                             .rounded_full(),
                         ),
                 )
@@ -524,7 +525,7 @@ impl PullRequestView {
         div()
             .relative()
             .flex_none()
-            .size(px(size))
+            .size(design(size))
             .child(fallback)
             .children(image)
             .into_any_element()
@@ -605,7 +606,7 @@ impl PullRequestView {
             )))
             .gap_2()
             .items_center()
-            .text_size(px(12.))
+            .text_size(design(12.))
             .child(avatar)
             .child(div().font_weight(gpui::FontWeight::MEDIUM).child(login))
             .children(action)
@@ -628,7 +629,7 @@ impl PullRequestView {
             .when(comment.edited_at.is_some(), |head| {
                 head.child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .child(crate::tr!("pull_requests.conversation.edited")),
                 )
@@ -741,7 +742,7 @@ impl PullRequestView {
             false,
             cx,
         )
-        .child(Icon::new(IconName::Sticker).size(px(14.)))
+        .child(Icon::new(IconName::Sticker).size(design(14.)))
         .cursor_pointer()
         .tooltip(|window, cx| {
             Tooltip::new(crate::tr!("pull_requests.reactions.add")).build(window, cx)
@@ -794,7 +795,7 @@ impl PullRequestView {
                         } else {
                             gpui::Toggled::False
                         })
-                        .size(px(size))
+                        .size(design(size))
                         .flex()
                         .items_center()
                         .justify_center()
@@ -802,7 +803,7 @@ impl PullRequestView {
                         .cursor_pointer()
                         .hover(|button| button.bg(cx.theme().list_hover))
                         .when(reacted, |button| button.bg(cx.theme().primary.opacity(0.1)))
-                        .text_size(px(16.))
+                        .text_size(design(16.))
                         .child(reaction_emoji(content))
                         .on_click(move |_, window, cx| {
                             view.update(cx, |view, cx| {
@@ -887,12 +888,12 @@ impl PullRequestView {
         Some(
             v_flex()
                 .min_w_0()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .child(
                     div()
                         .min_w_0()
                         .when(long && !expanded, |body| {
-                            body.max_h(px(320.)).overflow_hidden()
+                            body.max_h(design(320.)).overflow_hidden()
                         })
                         .child(
                             MarkdownView::new(&state)
@@ -967,7 +968,7 @@ impl PullRequestView {
                 .gap_1()
                 .items_center()
                 .text_color(color)
-                .child(Icon::new(icon).size(px(12.)))
+                .child(Icon::new(icon).size(design(12.)))
                 .child(crate::tr!(label))
                 .into_any_element()
         });
@@ -1014,7 +1015,7 @@ impl PullRequestView {
             .when(empty_description, |card| {
                 card.child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(crate::tr!("pull_requests.conversation.no_description")),
                 )
@@ -1126,29 +1127,33 @@ impl PullRequestView {
                 "pr-thread-head-{}-{inline}",
                 thread.id
             )))
-            .min_h(px(28.))
+            .min_h(design(28.))
             .px_3()
             .gap_2()
             .items_center()
-            .text_size(px(11.))
+            .text_size(design(11.))
             .text_color(muted)
             .font_family(cx.theme().font_family.clone())
             .when(!inline, |head| {
-                head.child(Icon::new(IconName::File).size(px(12.))).child(
-                    div()
-                        .min_w_0()
-                        .truncate()
-                        .font_family(cx.theme().mono_font_family.clone())
-                        .text_size(px(12.))
-                        .text_color(cx.theme().foreground)
-                        .child(match thread.anchor.as_ref() {
-                            Some(anchor) if anchor.start_line != anchor.end_line => {
-                                format!("{}:{}–{}", thread.path, anchor.start_line, anchor.end_line)
-                            }
-                            Some(anchor) => format!("{}:{}", thread.path, anchor.end_line),
-                            None => thread.path.clone(),
-                        }),
-                )
+                head.child(Icon::new(IconName::File).size(design(12.)))
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .font_family(cx.theme().mono_font_family.clone())
+                            .text_size(design(12.))
+                            .text_color(cx.theme().foreground)
+                            .child(match thread.anchor.as_ref() {
+                                Some(anchor) if anchor.start_line != anchor.end_line => {
+                                    format!(
+                                        "{}:{}–{}",
+                                        thread.path, anchor.start_line, anchor.end_line
+                                    )
+                                }
+                                Some(anchor) => format!("{}:{}", thread.path, anchor.end_line),
+                                None => thread.path.clone(),
+                            }),
+                    )
             })
             .when(inline, |head| head.children(lines.clone()))
             .when(thread.outdated, |head| {
@@ -1198,7 +1203,7 @@ impl PullRequestView {
         let mut card = v_flex()
             .min_w_full()
             .my_1()
-            .pb(px(if collapsed { 0. } else { 6. }))
+            .pb(design(if collapsed { 0. } else { 6. }))
             .relative()
             .rounded(material::radius_card(cx))
             .bg(cx.theme().muted)
@@ -1207,9 +1212,9 @@ impl PullRequestView {
                 div()
                     .absolute()
                     .left(px(0.))
-                    .top(px(6.))
-                    .bottom(px(6.))
-                    .w(px(2.))
+                    .top(design(6.))
+                    .bottom(design(6.))
+                    .w(design(2.))
                     .rounded_full()
                     .bg(rail),
             )
@@ -1221,7 +1226,7 @@ impl PullRequestView {
                     h_flex()
                         .px_3()
                         .pb_1()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .justify_end()
                         .child(self.resolve_button(thread, &place, cx)),
                 );
@@ -1233,7 +1238,7 @@ impl PullRequestView {
                 v_flex()
                     .mx_3()
                     .mb_1()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .font_family(cx.theme().mono_font_family.clone())
                     .children(hunk.lines().map(|line| {
                         let bg = match line.chars().next() {
@@ -1322,7 +1327,7 @@ impl PullRequestView {
                 card = card.child(
                     div()
                         .px_3()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().warning)
                         .child(
                             crate::tr!("pull_requests.conversation.replies_failed", reason = error)
@@ -1334,7 +1339,7 @@ impl PullRequestView {
             card = card.child(
                 div()
                     .px_3()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .child(crate::tr!("pull_requests.conversation.replies_capped")),
             );
@@ -1426,7 +1431,7 @@ impl PullRequestView {
                     Some(editor) => editor,
                     None => div()
                         .id(SharedString::from(format!("pr-reply-row-{}", thread.id)))
-                        .h(px(28.))
+                        .h(design(28.))
                         .px_2()
                         .flex()
                         .items_center()
@@ -1434,7 +1439,7 @@ impl PullRequestView {
                         .border_1()
                         .border_color(cx.theme().input)
                         .bg(cx.theme().background)
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .cursor_text()
                         .child(crate::tr!("pull_requests.compose.reply_row"))
@@ -1465,7 +1470,7 @@ impl PullRequestView {
                 .pt_1()
                 .gap_2()
                 .items_center()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .children(reply.map(|reply| div().flex_1().min_w_0().child(reply)))
                 .when(!self.can_reply(thread), |footer| {
                     footer.child(div().flex_1())
@@ -1564,7 +1569,7 @@ impl PullRequestView {
             )
         } else if self.read_only(cx) {
             div()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .text_color(cx.theme().muted_foreground)
                 .child(crate::tr!("pull_requests.compose.read_only"))
                 .into_any_element()
@@ -1650,16 +1655,16 @@ impl PullRequestView {
                     .py_2()
                     .gap_2()
                     .items_center()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().muted_foreground)
-                    .child(Icon::new(icon).size(px(14.)))
+                    .child(Icon::new(icon).size(design(14.)))
                     .child(label)
                     .into_any_element()
             }
         };
         let compact = self.compact(cx);
         div()
-            .px(px(if compact {
+            .px(design(if compact {
                 material::COMPACT_PAGE_INSET
             } else {
                 12.
@@ -1713,7 +1718,7 @@ impl PullRequestView {
                 .overflow_y_scroll()
                 .children(self.meta_block(cx).map(|block| {
                     div()
-                        .px(px(if compact {
+                        .px(design(if compact {
                             material::COMPACT_PAGE_INSET
                         } else {
                             12.
@@ -1731,7 +1736,7 @@ impl PullRequestView {
                 )
                 .child(
                     div()
-                        .px(px(if compact {
+                        .px(design(if compact {
                             material::COMPACT_PAGE_INSET
                         } else {
                             12.
@@ -1812,15 +1817,15 @@ fn media_stand_in(
     let unavailable = |text: String, cx: &App| {
         h_flex()
             .w_full()
-            .h(px(72.))
+            .h(design(72.))
             .px_3()
             .gap_2()
             .items_center()
             .rounded(material::radius_card(cx))
             .bg(cx.theme().muted)
-            .text_size(px(12.))
+            .text_size(design(12.))
             .text_color(muted)
-            .child(Icon::new(IconName::ImageOff).size(px(16.)))
+            .child(Icon::new(IconName::ImageOff).size(design(16.)))
             .child(
                 div()
                     .flex_1()
@@ -1845,14 +1850,18 @@ fn media_stand_in(
         MediaState::Loading => Some(
             div()
                 .w_full()
-                .h(px(180.))
-                .max_h(px(240.))
+                .h(design(180.))
+                .max_h(design(240.))
                 .flex()
                 .items_center()
                 .justify_center()
                 .rounded(material::radius_card(cx))
                 .bg(cx.theme().muted)
-                .child(Icon::new(IconName::Image).size(px(20.)).text_color(muted))
+                .child(
+                    Icon::new(IconName::Image)
+                        .size(design(20.))
+                        .text_color(muted),
+                )
                 .into_any_element(),
         ),
         MediaState::Unavailable => Some(unavailable(
@@ -1889,7 +1898,7 @@ fn media_stand_in(
             Some(
                 h_flex()
                     .w_full()
-                    .h(px(56.))
+                    .h(design(56.))
                     .px_3()
                     .gap_2()
                     .items_center()
@@ -1901,7 +1910,7 @@ fn media_stand_in(
                         } else {
                             IconName::Film
                         })
-                        .size(px(18.))
+                        .size(design(18.))
                         .text_color(muted),
                     )
                     .child(
@@ -1909,7 +1918,7 @@ fn media_stand_in(
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .child(name),
                     )
                     .child(

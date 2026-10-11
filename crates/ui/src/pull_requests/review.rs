@@ -1,6 +1,7 @@
 //! The review: pending comments written on the Files diff, the bar that holds them, and the
 //! sheet that submits them. The draft is the host's; this view only shows and edits it.
 
+use crate::sizing::design;
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription,
@@ -313,7 +314,7 @@ impl PullRequestView {
             let state = self.markdown(&format!("pending-{id}"), &comment.body, cx);
             Some(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .child(MarkdownView::new(&state).compact_headings(true))
                     .into_any_element(),
             )
@@ -343,9 +344,9 @@ impl PullRequestView {
                 div()
                     .absolute()
                     .left(px(0.))
-                    .top(px(6.))
-                    .bottom(px(6.))
-                    .w(px(2.))
+                    .top(design(6.))
+                    .bottom(design(6.))
+                    .w(design(2.))
                     .rounded_full()
                     .bg(cx.theme().info),
             )
@@ -353,7 +354,7 @@ impl PullRequestView {
                 h_flex()
                     .gap_2()
                     .items_center()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .child(material::semantic_chip(
                         crate::tr!("pull_requests.review.pending").into_owned(),
@@ -478,11 +479,11 @@ impl PullRequestView {
                 let removed = comment.clone();
                 h_flex()
                     .id(SharedString::from(format!("pr-off-diff-pending-{id}")))
-                    .min_h(px(28.))
+                    .min_h(design(28.))
                     .px_3()
                     .gap_2()
                     .items_center()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .child(material::semantic_chip(
                         crate::tr!("pull_requests.review.pending").into_owned(),
                         cx.theme().info.opacity(0.1),
@@ -492,7 +493,7 @@ impl PullRequestView {
                     .child(
                         div()
                             .flex_none()
-                            .max_w(px(220.))
+                            .max_w(design(220.))
                             .truncate()
                             .font_family(cx.theme().mono_font_family.clone())
                             .child(format!("{}:{}", comment.path, comment.end_line)),
@@ -508,7 +509,7 @@ impl PullRequestView {
                     .when(!comment.placed, |row| {
                         row.child(
                             div()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(cx.theme().warning)
                                 .child(crate::tr!("pull_requests.review.line_changed")),
                         )
@@ -617,17 +618,17 @@ impl PullRequestView {
                         .into_owned(),
                 )
                 .flex_none()
-                .h(px(if compact { material::TOUCH_TARGET } else { 36. }))
+                .h(design(if compact { material::TOUCH_TARGET } else { 36. }))
                 .px_3()
                 .gap_2()
                 .items_center()
                 .bg(cx.theme().muted)
                 .border_b_1()
                 .border_color(cx.theme().border)
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .child(
                     Icon::new(IconName::MessageSquare)
-                        .size(px(14.))
+                        .size(design(14.))
                         .text_color(cx.theme().muted_foreground),
                 )
                 .child(div().min_w_0().truncate().child(summary))
@@ -638,7 +639,7 @@ impl PullRequestView {
                             .gap_1()
                             .items_center()
                             .text_color(cx.theme().warning)
-                            .child(Icon::new(IconName::TriangleAlert).size(px(12.)))
+                            .child(Icon::new(IconName::TriangleAlert).size(design(12.)))
                             .child(crate::tr!("pull_requests.review.head_changed")),
                     )
                 })
@@ -1084,7 +1085,7 @@ impl PullRequestView {
         let discard_view = view.clone();
         v_flex()
             .id("pr-review-sheet-body")
-            .w(px(if compact { 0. } else { 440. }))
+            .w(design(if compact { 0. } else { 440. }))
             .when(compact, |sheet| sheet.w_full())
             .p_3()
             .gap_3()
@@ -1092,7 +1093,7 @@ impl PullRequestView {
             .when(!compact, |sheet| {
                 sheet.child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .font_weight(gpui::FontWeight::MEDIUM)
                         .child(
                             crate::tr!("pull_requests.review.sheet_title", number = number.clone())
@@ -1107,7 +1108,7 @@ impl PullRequestView {
                     h_flex()
                         .gap_2()
                         .items_center()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(muted)
                         .child(if comments == 1 {
                             crate::tr!("pull_requests.review.pending_count_one").into_owned()
@@ -1146,14 +1147,14 @@ impl PullRequestView {
             )
             .child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .child(crate::tr!(caption, host_name = host_name.clone())),
             )
             .when(unplaced > 0, |sheet| {
                 sheet.child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().warning)
                         .child(if unplaced == 1 {
                             crate::tr!("pull_requests.review.unplaced_one").into_owned()
@@ -1211,9 +1212,9 @@ impl PullRequestView {
                 .py_2()
                 .gap_2()
                 .items_center()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .text_color(cx.theme().muted_foreground)
-                .child(Icon::new(IconName::MessageSquare).size(px(14.)))
+                .child(Icon::new(IconName::MessageSquare).size(design(14.)))
                 .child(
                     crate::tr!(
                         "pull_requests.review.pending_line",

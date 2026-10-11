@@ -12,6 +12,7 @@
 //! or above it. Wide and unattached, the shell is the hosts page and nothing
 //! else until it attaches somewhere.
 
+use crate::sizing::design;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -1539,7 +1540,7 @@ fn nav_bar(
     let leading = h_flex()
         .absolute()
         .inset_0()
-        .px(px(4.))
+        .px(design(4.))
         .when(traffic_lights > Pixels::ZERO, |row| row.pl(traffic_lights))
         .items_center()
         .children(back)
@@ -1554,7 +1555,7 @@ fn nav_bar(
             window_drag_area("compact-nav-drag", div(), window, cx)
                 .relative()
                 .w_full()
-                .h(px(52.))
+                .h(design(52.))
                 .child(
                     // Centered in the room the controls leave it: the back
                     // label and the trailing actions each reserve their own
@@ -1564,7 +1565,7 @@ fn nav_bar(
                         .absolute()
                         .inset_0()
                         .pl(traffic_lights + px(NAV_CONTROL_WIDTH))
-                        .pr(px(NAV_CONTROL_WIDTH))
+                        .pr(design(NAV_CONTROL_WIDTH))
                         .items_center()
                         .justify_center()
                         .child(
@@ -1572,8 +1573,8 @@ fn nav_bar(
                                 .max_w_full()
                                 .min_w_0()
                                 .truncate()
-                                .text_size(px(17.))
-                                .line_height(px(22.))
+                                .text_size(design(17.))
+                                .line_height(design(22.))
                                 .font_semibold()
                                 .child(title),
                         )
@@ -1590,10 +1591,10 @@ fn back_button(id: &'static str, parent: SharedString, cx: &App) -> gpui::Statef
         // A control press must not arm the ancestor window drag region.
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .flex_none()
-        .h(px(44.))
-        .pl(px(4.))
-        .pr(px(10.))
-        .gap(px(2.))
+        .h(design(44.))
+        .pl(design(4.))
+        .pr(design(10.))
+        .gap(design(2.))
         .items_center()
         .rounded(cx.theme().tokens.radius.lg)
         .cursor_pointer()
@@ -1602,15 +1603,15 @@ fn back_button(id: &'static str, parent: SharedString, cx: &App) -> gpui::Statef
         .child(
             Icon::empty()
                 .path("icons/chevron-left.svg")
-                .size(px(20.))
+                .size(design(20.))
                 .flex_none(),
         )
         .child(
             // A fixed label is short by construction: it is never truncated.
             div()
                 .flex_none()
-                .text_size(px(15.))
-                .line_height(px(20.))
+                .text_size(design(15.))
+                .line_height(design(20.))
                 .child(parent),
         )
 }
@@ -1628,7 +1629,7 @@ fn nav_icon_button(
     crate::material::accessible_clickable(div(), id, Role::Button, aria_label.into(), cx)
         // A control press must not arm the ancestor window drag region.
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .size(px(44.))
+        .size(design(44.))
         .flex_none()
         .flex()
         .items_center()
@@ -1641,7 +1642,7 @@ fn nav_icon_button(
             theme.muted_foreground
         })
         .active(|s| s.bg(theme.foreground.opacity(0.08)))
-        .child(Icon::new(icon).size(px(20.)))
+        .child(Icon::new(icon).size(design(20.)))
 }
 
 /// The muted second line under a nav-bar title: how the machine a thread
@@ -1651,8 +1652,8 @@ fn nav_subtitle(text: impl Into<SharedString>, cx: &App) -> AnyElement {
         .max_w_full()
         .min_w_0()
         .truncate()
-        .text_size(px(13.))
-        .line_height(px(18.))
+        .text_size(design(13.))
+        .line_height(design(18.))
         .text_color(cx.theme().muted_foreground)
         .child(text.into())
         .into_any_element()
@@ -2124,7 +2125,13 @@ impl AppShell {
                 window,
                 cx,
             ))
-            .child(div().flex_none().px(px(16.)).py(px(8.)).child(segments))
+            .child(
+                div()
+                    .flex_none()
+                    .px(design(16.))
+                    .py(design(8.))
+                    .child(segments),
+            )
             .child(div().flex_1().min_h_0().child(body))
             .into_any_element()
     }
@@ -2373,8 +2380,8 @@ impl AppShell {
                 ]));
                 element
             })
-            .text_size(px(16.))
-            .line_height(px(22.))
+            .text_size(design(16.))
+            .line_height(design(22.))
             .on_action(cx.listener(Self::on_toggle_palette))
             .on_action(cx.listener(Self::on_open_source_control))
             .key_context("TcodeShell")
@@ -2452,7 +2459,7 @@ impl AppShell {
             "hosts-header-drag",
             h_flex()
                 .flex_none()
-                .h(px(52.))
+                .h(design(52.))
                 .w_full()
                 .px_2()
                 .gap_2()
@@ -2462,7 +2469,11 @@ impl AppShell {
             cx,
         )
         .child(window_caption::drag_region(
-            div().flex_1().text_size(px(15.)).font_medium().child(title),
+            div()
+                .flex_1()
+                .text_size(design(15.))
+                .font_medium()
+                .child(title),
         ))
         .children(hosts_caption.then(|| {
             div()
@@ -2907,7 +2918,7 @@ impl AppShell {
                         .left_0()
                         .top_0()
                         .h_full()
-                        .w(px(SIDEBAR_HOVER_EDGE))
+                        .w(design(SIDEBAR_HOVER_EDGE))
                         .occlude()
                         .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                             this.update_sidebar_overlay(

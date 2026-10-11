@@ -1,3 +1,4 @@
+use crate::sizing::design;
 #[path = "input_configuration.rs"]
 mod input_configuration;
 
@@ -319,7 +320,8 @@ impl RenderOnce for Input {
                 .text_sm()
                 .rounded(material::radius_input(cx))
                 .when(!multi_line, |this| {
-                    this.h(px(material::input_height(compact))).px(px(10.))
+                    this.h(design(material::input_height(compact)))
+                        .px(design(10.))
                 })
                 // Multi-line insets come from the editor paddings above; padding
                 // the container as well doubles them.
@@ -482,8 +484,8 @@ impl RenderOnce for NumberInput {
         let focused = self.state.read(cx).focus_handle(cx).is_focused(window);
         gpui_base::NumberInput::new(&self.state)
             .controls_right()
-            .w(px(material::NUMBER_INPUT_WIDTH))
-            .h(px(material::input_height(compact)))
+            .w(design(material::NUMBER_INPUT_WIDTH))
+            .h(design(material::input_height(compact)))
             .rounded(material::radius_input(cx))
             .bg(cx.theme().background)
             .border_1()

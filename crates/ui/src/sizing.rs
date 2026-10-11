@@ -1,5 +1,17 @@
-use gpui::{Pixels, px};
+use gpui::{Pixels, Rems, Window, px, rems};
 use serde::{Deserialize, Serialize};
+
+/// A design dimension: pixels at a 16px rem, resolved through the window's
+/// rem size. Measured geometry and OS insets stay in `Pixels`.
+pub const fn design(pixels: f32) -> Rems {
+    rems(pixels / 16.)
+}
+
+/// A design dimension in this window's pixels, for arithmetic with measured
+/// geometry and for APIs that take `Pixels`.
+pub fn design_px(pixels: f32, window: &Window) -> Pixels {
+    design(pixels).to_pixels(window.rem_size())
+}
 
 /// Space kept between a fixed-size surface and the window edge.
 const VIEWPORT_INSET: f32 = 32.;

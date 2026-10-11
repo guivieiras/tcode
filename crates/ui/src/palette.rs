@@ -9,6 +9,7 @@
 //!
 //! Title and action search use [`fuzzy_score`]; message search runs through the host.
 
+use crate::sizing::design;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -632,7 +633,7 @@ impl CommandPalette {
                     .px_2()
                     .pt_1()
                     .pb_1()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_medium()
                     .text_color(muted)
                     .child(label.clone())
@@ -663,7 +664,7 @@ impl CommandPalette {
                     .when(is_sel, |row| row.aria_active_descendant())
                     .flex_none()
                     .w_full()
-                    .h(px(if compact { 48. } else { 38. }))
+                    .h(design(if compact { 48. } else { 38. }))
                     .px_2()
                     .gap_2()
                     .items_center()
@@ -701,7 +702,7 @@ impl CommandPalette {
                             .min_w_0()
                             .child(
                                 div()
-                                    .text_size(px(15.))
+                                    .text_size(design(15.))
                                     .overflow_hidden()
                                     .text_ellipsis()
                                     .child(item.label.clone()),
@@ -709,7 +710,7 @@ impl CommandPalette {
                             .when_some(item.subtitle.clone(), |this, sub| {
                                 this.child(
                                     div()
-                                        .text_size(px(11.))
+                                        .text_size(design(11.))
                                         .text_color(muted)
                                         .overflow_hidden()
                                         .text_ellipsis()
@@ -723,7 +724,7 @@ impl CommandPalette {
                                 .flex_none()
                                 .gap_1p5()
                                 .items_center()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(muted)
                                 .when_some(item.updated_at, |this, at| {
                                     let ago = now_secs().saturating_sub(at);
@@ -760,9 +761,9 @@ impl Render for CommandPalette {
             div()
                 .flex_1()
                 .min_h_0()
-                .px(px(if compact { 24. } else { 16. }))
+                .px(design(if compact { 24. } else { 16. }))
                 .py_4()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(muted)
                 .child(crate::tr!("palette.no_matches"))
                 .into_any_element()
@@ -778,7 +779,7 @@ impl Render for CommandPalette {
                     .flex_1()
                     .min_h_0()
                     .relative()
-                    .px(px(if compact { 16. } else { 8. }))
+                    .px(design(if compact { 16. } else { 8. }))
                     .py_2()
                     .child(
                         list(
@@ -817,8 +818,8 @@ impl Render for CommandPalette {
         .child(
             h_flex()
                 .flex_none()
-                .h(px(48.))
-                .px(px(if compact { 16. } else { 12. }))
+                .h(design(48.))
+                .px(design(if compact { 16. } else { 12. }))
                 .gap_2()
                 .items_center()
                 .child(Icon::new(IconName::Search).small().text_color(muted))
@@ -835,11 +836,11 @@ impl Render for CommandPalette {
             card.child(
                 h_flex()
                     .flex_none()
-                    .h(px(34.))
+                    .h(design(34.))
                     .px_3()
                     .gap_3()
                     .items_center()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .child(crate::tr!("palette.navigate"))
                     .child(crate::tr!("palette.select"))

@@ -1,3 +1,4 @@
+use crate::sizing::design;
 #[cfg(not(target_family = "wasm"))]
 use std::time::Instant;
 use std::{
@@ -1304,7 +1305,7 @@ impl TerminalDrawer {
             .size_full()
             .min_h_0()
             .overflow_hidden()
-            .p(px(PANE_PADDING))
+            .p(design(PANE_PADDING))
             .items_center()
             .justify_center()
             .when(link_hovered, |this| this.cursor_pointer())
@@ -1369,8 +1370,8 @@ impl TerminalDrawer {
                     Button::new(("terminal-add-context", terminal_id))
                         .absolute()
                         .block_mouse_except_scroll()
-                        .right(px(PANE_PADDING))
-                        .top(px(PANE_PADDING))
+                        .right(design(PANE_PADDING))
+                        .top(design(PANE_PADDING))
                         .small()
                         .label(crate::tr!("terminal.add_context"))
                         .tooltip(format!("{} · {}", label, crate::tr!("terminal.selection")))
@@ -1493,7 +1494,7 @@ impl Render for TerminalDrawer {
             .aria_label(crate::tr!("terminal.tabs"))
             .flex_1()
             .min_w_0()
-            .mb(px(-1.));
+            .mb(design(-1.));
         for (id, label, _, bell) in &tabs {
             let id = *id;
             let selected = active_id == Some(id);
@@ -1507,11 +1508,11 @@ impl Render for TerminalDrawer {
                     }))
                     .trailing(
                         h_flex()
-                            .gap(px(2.))
+                            .gap(design(2.))
                             .when(*bell, |this| {
                                 this.child(
                                     div()
-                                        .text_size(px(11.))
+                                        .text_size(design(11.))
                                         .text_color(cx.theme().warning)
                                         .child("●"),
                                 )
@@ -1590,8 +1591,8 @@ impl Render for TerminalDrawer {
             .flex_none()
             .border_b_1()
             .border_color(cx.theme().border)
-            .h(px(if compact { material::TOUCH_TARGET } else { 40. }))
-            .px(px(if compact {
+            .h(design(if compact { material::TOUCH_TARGET } else { 40. }))
+            .px(design(if compact {
                 material::COMPACT_PAGE_INSET
             } else {
                 8.
@@ -1739,10 +1740,10 @@ impl Render for TerminalDrawer {
                 match split.direction {
                     TerminalSplitDirection::Horizontal => {
                         let first = resizable_panel()
-                            .pr(px(2.))
+                            .pr(design(2.))
                             .child(self.render_terminal(split.first, cx));
                         let second = resizable_panel()
-                            .pl(px(2.))
+                            .pl(design(2.))
                             .child(self.render_terminal(split.second, cx));
                         h_resizable(("terminal-split-h", split.first))
                             .on_resize(on_resize)
@@ -1752,10 +1753,10 @@ impl Render for TerminalDrawer {
                     }
                     TerminalSplitDirection::Vertical => {
                         let first = resizable_panel()
-                            .pb(px(2.))
+                            .pb(design(2.))
                             .child(self.render_terminal(split.first, cx));
                         let second = resizable_panel()
-                            .pt(px(2.))
+                            .pt(design(2.))
                             .child(self.render_terminal(split.second, cx));
                         v_resizable(("terminal-split-v", split.first))
                             .on_resize(on_resize)
@@ -1776,7 +1777,7 @@ impl Render for TerminalDrawer {
             .size_full()
             .min_h_0()
             .font_family(TERMINAL_FONT_FAMILY)
-            .text_size(px(TERMINAL_FONT_SIZE))
+            .text_size(design(TERMINAL_FONT_SIZE))
             .on_action(cx.listener(Self::on_terminal_copy))
             .on_action(cx.listener(Self::on_terminal_paste))
             .on_action(cx.listener(Self::on_terminal_select_all))

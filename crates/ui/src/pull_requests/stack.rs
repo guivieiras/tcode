@@ -3,6 +3,7 @@
 //! progress and the words every answer gets. The host owns every write and its state; the map
 //! reads only the stored topology and links, and each confirmation reads GitHub fresh.
 
+use crate::sizing::design;
 use std::rc::Rc;
 
 use gpui::{
@@ -350,14 +351,14 @@ pub(super) fn operation_chip(
             .gap_1()
             .items_center()
             .px_2()
-            .py(px(2.))
+            .py(design(2.))
             .rounded(material::radius_chip(cx))
             .bg(color.opacity(0.1))
             .text_color(color)
-            .text_size(px(if compact { 13. } else { 12. }))
+            .text_size(design(if compact { 13. } else { 12. }))
             .child(match operation.kind {
                 StackOperationKind::Rebasing { .. } => Spinner::new().xsmall().into_any_element(),
-                _ => Icon::new(icon).size(px(14.)).into_any_element(),
+                _ => Icon::new(icon).size(design(14.)).into_any_element(),
             })
             .child(label.clone())
     };
@@ -436,10 +437,10 @@ pub(super) fn operation_chip(
             let muted = cx.theme().muted_foreground;
             let mono = cx.theme().mono_font_family.clone();
             v_flex()
-                .when(!compact, |content| content.w(px(340.)))
+                .when(!compact, |content| content.w(design(340.)))
                 .p_3()
                 .gap_2()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .child(div().child(tooltip.clone()))
                 .child(
                     v_flex()
@@ -617,31 +618,32 @@ pub(super) fn map_selector(
     if let Some((_, _, suffix)) = status {
         accessible.push_str(&tr(suffix));
     }
-    let trigger = Button::new("pr-layer-select")
-        .ghost()
-        .outline()
-        .compact()
-        .aria_label(accessible.clone())
-        .tooltip(accessible)
-        .child(
-            h_flex()
-                .gap_1p5()
-                .items_center()
-                .text_size(px(13.))
-                .child(Icon::new(IconName::Layers).size(px(14.)))
-                .child(
-                    crate::tr!(
-                        "pull_requests.layer_position",
-                        index = index.to_string(),
-                        count = count.to_string()
+    let trigger =
+        Button::new("pr-layer-select")
+            .ghost()
+            .outline()
+            .compact()
+            .aria_label(accessible.clone())
+            .tooltip(accessible)
+            .child(
+                h_flex()
+                    .gap_1p5()
+                    .items_center()
+                    .text_size(design(13.))
+                    .child(Icon::new(IconName::Layers).size(design(14.)))
+                    .child(
+                        crate::tr!(
+                            "pull_requests.layer_position",
+                            index = index.to_string(),
+                            count = count.to_string()
+                        )
+                        .into_owned(),
                     )
-                    .into_owned(),
-                )
-                .children(
-                    status.map(|(icon, color, _)| Icon::new(icon).size(px(12.)).text_color(color)),
-                )
-                .child(Icon::new(IconName::ChevronDown).xsmall().text_color(muted)),
-        );
+                    .children(status.map(|(icon, color, _)| {
+                        Icon::new(icon).size(design(12.)).text_color(color)
+                    }))
+                    .child(Icon::new(IconName::ChevronDown).xsmall().text_color(muted)),
+            );
     let popover = Popover::new("pr-layer-popover").trigger(trigger);
     let popover = if compact {
         popover.bottom_sheet(crate::tr!("pull_requests.detail.stack_title").into_owned())
@@ -690,9 +692,9 @@ fn map_content(
         .py_1()
         .gap_1()
         .items_center()
-        .text_size(px(11.))
+        .text_size(design(11.))
         .text_color(muted)
-        .child(Icon::new(IconName::Layers).size(px(12.)))
+        .child(Icon::new(IconName::Layers).size(design(12.)))
         .child(div().flex_1().min_w_0().truncate().child(tr_with(
             "head",
             &[
@@ -725,7 +727,7 @@ fn map_content(
             .pb_1()
             .gap_1()
             .items_start()
-            .text_size(px(11.))
+            .text_size(design(11.))
             .text_color(muted)
             .child(tr("note"))
             .child(
@@ -758,7 +760,9 @@ fn map_content(
         let state = state_lower(row.layer.state, row.draft == Some(true));
         let (trailing, role_label): (AnyElement, String) = match row.role {
             StackLayerRole::Selected => (
-                Icon::new(IconName::Check).size(px(12.)).into_any_element(),
+                Icon::new(IconName::Check)
+                    .size(design(12.))
+                    .into_any_element(),
                 tr("role_label_selected"),
             ),
             StackLayerRole::Above => (
@@ -791,7 +795,7 @@ fn map_content(
                         .gap_1()
                         .items_center()
                         .text_color(color)
-                        .child(Icon::new(IconName::Lock).size(px(12.)))
+                        .child(Icon::new(IconName::Lock).size(design(12.)))
                         .child(label)
                         .into_any_element(),
                     tr_with(
@@ -844,11 +848,11 @@ fn map_content(
         )
         .aria_selected(selected)
         .w_full()
-        .h(px(if compact { 44. } else { 36. }))
+        .h(design(if compact { 44. } else { 36. }))
         .px_2()
         .gap_2()
         .items_center()
-        .text_size(px(11.))
+        .text_size(design(11.))
         .rounded(theme.tokens.radius.sm)
         .cursor_pointer()
         .hover(|row| row.bg(theme.list_hover))
@@ -856,19 +860,19 @@ fn map_content(
         // The merge scope reads as one bar down the rows that land together.
         .child(
             div()
-                .w(px(2.))
+                .w(design(2.))
                 .h_full()
                 .when(rail, |bar| bar.bg(theme.primary.opacity(0.6))),
         )
         .child(
             Icon::new(glyph)
-                .size(px(14.))
+                .size(design(14.))
                 .text_color(if linked { color } else { muted }),
         )
         .child(
             div()
                 .font_family(mono.clone())
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .child(format!("#{number}")),
         )
         .child(
@@ -876,7 +880,7 @@ fn map_content(
                 .flex_1()
                 .min_w_0()
                 .truncate()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .when(title.is_none(), |text| {
                     text.font_family(mono.clone()).text_color(muted)
                 })
@@ -891,22 +895,22 @@ fn map_content(
     });
     let base = h_flex()
         .px_2()
-        .h(px(24.))
+        .h(design(24.))
         .gap_1()
         .items_center()
-        .text_size(px(11.))
+        .text_size(design(11.))
         .text_color(muted)
         .font_family(mono.clone())
-        .child(Icon::new(IconName::CornerDownRight).size(px(12.)))
+        .child(Icon::new(IconName::CornerDownRight).size(design(12.)))
         .child(map.stack.base.clone());
     let summary = v_flex()
         .px_2()
         .py_1()
         .gap_0p5()
-        .child(div().text_size(px(12.)).child(summary(&map)))
+        .child(div().text_size(design(12.)).child(summary(&map)))
         .child(
             div()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(muted)
                 .child(tr("summary_source")),
         );
@@ -940,7 +944,7 @@ fn map_content(
                 }
             });
         Some(if compact {
-            button.w_full().h(px(44.)).into_any_element()
+            button.w_full().h(design(44.)).into_any_element()
         } else {
             button.xsmall().into_any_element()
         })
@@ -980,7 +984,7 @@ fn map_content(
         .id("pr-layer-list")
         .role(gpui::Role::Menu)
         .when(compact, |list| list.w_full())
-        .when(!compact, |list| list.w(px(380.)).max_h(px(480.)))
+        .when(!compact, |list| list.w(design(380.)).max_h(design(480.)))
         .p_1()
         .gap_0p5()
         .overflow_y_scroll()
@@ -1008,7 +1012,7 @@ pub(super) fn caption(
         .px_3()
         .py_1()
         .gap_0p5()
-        .text_size(px(11.))
+        .text_size(design(11.))
         .text_color(muted)
         .child(
             h_flex()
@@ -1500,13 +1504,13 @@ fn fact(label: String, value: impl IntoElement, cx: &App) -> AnyElement {
         .items_start()
         .child(
             div()
-                .w(px(104.))
+                .w(design(104.))
                 .flex_none()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .text_color(cx.theme().muted_foreground)
                 .child(label),
         )
-        .child(div().flex_1().min_w_0().text_size(px(13.)).child(value))
+        .child(div().flex_1().min_w_0().text_size(design(13.)).child(value))
         .into_any_element()
 }
 
@@ -1514,11 +1518,11 @@ fn line(icon: IconName, color: Hsla, text: String) -> AnyElement {
     h_flex()
         .gap_1p5()
         .items_start()
-        .text_size(px(12.))
+        .text_size(design(12.))
         .child(
             div()
-                .pt(px(2.))
-                .child(Icon::new(icon).size(px(12.)).text_color(color)),
+                .pt(design(2.))
+                .child(Icon::new(icon).size(design(12.)).text_color(color)),
         )
         .child(div().flex_1().min_w_0().child(text))
         .into_any_element()
@@ -1530,7 +1534,7 @@ fn warning_wash(cx: &App) -> gpui::Div {
         .p_2()
         .rounded(cx.theme().tokens.radius.md)
         .bg(cx.theme().warning.opacity(0.1))
-        .text_size(px(12.))
+        .text_size(design(12.))
 }
 
 /// One fresh layer of a confirmation, with its tag.
@@ -1558,19 +1562,19 @@ fn layer_row(
             "pr-stack-layer-{}",
             layer.number
         )))
-        .min_h(px(40.))
+        .min_h(design(40.))
         .px_2()
         .gap_2()
         .items_center()
         .when(muted_row, |row| row.text_color(theme.muted_foreground))
         .children(index.map(|index| {
             div()
-                .w(px(14.))
-                .text_size(px(11.))
+                .w(design(14.))
+                .text_size(design(11.))
                 .text_color(theme.muted_foreground)
                 .child((index + 1).to_string())
         }))
-        .child(Icon::new(glyph).size(px(14.)).text_color(if muted_row {
+        .child(Icon::new(glyph).size(design(14.)).text_color(if muted_row {
             theme.muted_foreground
         } else {
             color
@@ -1578,7 +1582,7 @@ fn layer_row(
         .child(
             div()
                 .font_family(theme.mono_font_family.clone())
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .child(format!("#{}", layer.number)),
         )
         .child(
@@ -1588,14 +1592,14 @@ fn layer_row(
                 .child(
                     div()
                         .truncate()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .child(layer.title.clone()),
                 )
                 .when(branch, |text| {
                     text.child(
                         div()
                             .truncate()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .font_family(theme.mono_font_family.clone())
                             .text_color(theme.muted_foreground)
                             .child(layer.head_branch.clone()),
@@ -1610,7 +1614,7 @@ fn layer_row(
                         layer.number
                     )))
                     .font_family(theme.mono_font_family.clone())
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(theme.muted_foreground)
                     .child(head.as_deref().map(short).unwrap_or_else(|| "—".into()))
                     .when_some(head, |cell, head| {
@@ -1618,14 +1622,14 @@ fn layer_row(
                     }),
             )
         })
-        .child(div().flex_none().text_size(px(11.)).child(tag))
+        .child(div().flex_none().text_size(design(11.)).child(tag))
         .into_any_element()
 }
 
 fn scope_box(rows: Vec<AnyElement>, cx: &App) -> AnyElement {
     v_flex()
         .id("pr-stack-scope")
-        .max_h(px(240.))
+        .max_h(design(240.))
         .overflow_y_scroll()
         .rounded(material::radius_card(cx))
         .border_1()
@@ -1898,7 +1902,7 @@ impl Render for MergeStackDialog {
                 .gap_2()
                 .child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(muted)
                         .child(crate::tr!("pull_requests.merge.method").into_owned()),
                 )
@@ -1917,21 +1921,21 @@ impl Render for MergeStackDialog {
                         .enumerate()
                         .map(|(index, row)| {
                             h_flex()
-                                .min_h(px(40.))
+                                .min_h(design(40.))
                                 .px_2()
                                 .gap_2()
                                 .items_center()
                                 .child(
                                     div()
-                                        .w(px(14.))
-                                        .text_size(px(11.))
+                                        .w(design(14.))
+                                        .text_size(design(11.))
                                         .text_color(muted)
                                         .child((index + 1).to_string()),
                                 )
                                 .child(
                                     div()
                                         .font_family(theme.mono_font_family.clone())
-                                        .text_size(px(12.))
+                                        .text_size(design(12.))
                                         .child(format!("#{}", row.layer.number)),
                                 )
                                 .child(
@@ -1939,7 +1943,7 @@ impl Render for MergeStackDialog {
                                         .flex_1()
                                         .min_w_0()
                                         .truncate()
-                                        .text_size(px(13.))
+                                        .text_size(design(13.))
                                         .child(
                                             row.link
                                                 .and_then(|link| link.snapshot.as_ref())
@@ -1958,7 +1962,7 @@ impl Render for MergeStackDialog {
                 body = body.child(
                     v_flex()
                         .gap_1()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(theme.danger)
                         .child(
                             crate::tr!(
@@ -2003,7 +2007,7 @@ impl Render for MergeStackDialog {
                             h_flex()
                                 .gap_1()
                                 .text_color(color)
-                                .child(Icon::new(IconName::Lock).size(px(12.)))
+                                .child(Icon::new(IconName::Lock).size(design(12.)))
                                 .child(tr(if layer.draft {
                                     "blocks_draft"
                                 } else {
@@ -2022,13 +2026,18 @@ impl Render for MergeStackDialog {
                 body = body.child(
                     v_flex()
                         .gap_1()
-                        .child(div().text_size(px(12.)).text_color(muted).child(tr_with(
-                            "scope_label",
-                            &[("count", scope.len().to_string())],
-                        )))
+                        .child(
+                            div()
+                                .text_size(design(12.))
+                                .text_color(muted)
+                                .child(tr_with(
+                                    "scope_label",
+                                    &[("count", scope.len().to_string())],
+                                )),
+                        )
                         .children(merged_below.iter().map(|number| {
                             div()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(muted)
                                 .child(tr_with("already_merged", &[("number", number.to_string())]))
                         }))
@@ -2039,29 +2048,29 @@ impl Render for MergeStackDialog {
                     .filter(|layer| layer.state == PullRequestState::Open)
                     .collect();
                 if !above.is_empty() {
-                    body = body.child(
-                        v_flex()
-                            .gap_1()
-                            .child(div().text_size(px(12.)).text_color(muted).child(tr_with(
-                                "above_label",
-                                &[("count", above.len().to_string())],
-                            )))
-                            .children(above.iter().map(|layer| {
-                                layer_row(
-                                    None,
-                                    layer,
-                                    div()
-                                        .child(tr_with(
-                                            "above_tag",
-                                            &[("base", state.base.clone())],
-                                        ))
-                                        .into_any_element(),
-                                    false,
-                                    true,
-                                    cx,
-                                )
-                            })),
-                    );
+                    body =
+                        body.child(
+                            v_flex()
+                                .gap_1()
+                                .child(div().text_size(design(12.)).text_color(muted).child(
+                                    tr_with("above_label", &[("count", above.len().to_string())]),
+                                ))
+                                .children(above.iter().map(|layer| {
+                                    layer_row(
+                                        None,
+                                        layer,
+                                        div()
+                                            .child(tr_with(
+                                                "above_tag",
+                                                &[("base", state.base.clone())],
+                                            ))
+                                            .into_any_element(),
+                                        false,
+                                        true,
+                                        cx,
+                                    )
+                                })),
+                        );
                 }
                 let mut notes = vec![line(
                     IconName::GitMerge,
@@ -2111,7 +2120,7 @@ impl Render for MergeStackDialog {
                 if failing.len() > 3 {
                     notes.push(
                         div()
-                            .text_size(px(12.))
+                            .text_size(design(12.))
                             .child(tr_with(
                                 "summary_more",
                                 &[("count", (failing.len() - 3).to_string())],
@@ -2459,7 +2468,7 @@ impl RebaseStackDialog {
                 body = body.child(
                     v_flex()
                         .gap_1()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(theme.danger)
                         .child(
                             crate::tr!(
@@ -2489,17 +2498,17 @@ impl RebaseStackDialog {
                             Some(PullRequestStackPushAccess::Write) => h_flex()
                                 .gap_1()
                                 .text_color(muted)
-                                .child(Icon::new(IconName::Check).size(px(12.)))
+                                .child(Icon::new(IconName::Check).size(design(12.)))
                                 .child(tr("access_write")),
                             Some(PullRequestStackPushAccess::MaintainerCanModify) => h_flex()
                                 .gap_1()
                                 .text_color(muted)
-                                .child(Icon::new(IconName::Check).size(px(12.)))
+                                .child(Icon::new(IconName::Check).size(design(12.)))
                                 .child(tr("access_maintainer")),
                             _ => h_flex()
                                 .gap_1()
                                 .text_color(theme.danger)
-                                .child(Icon::new(IconName::Lock).size(px(12.)))
+                                .child(Icon::new(IconName::Lock).size(design(12.)))
                                 .child(tr("access_denied")),
                         };
                         layer_row(Some(index), layer, tag.into_any_element(), true, false, cx)
@@ -2514,13 +2523,18 @@ impl RebaseStackDialog {
                 body = body.child(
                     v_flex()
                         .gap_1()
-                        .child(div().text_size(px(12.)).text_color(muted).child(tr_with(
-                            "rebase_layers_label",
-                            &[("count", count.to_string())],
-                        )))
+                        .child(
+                            div()
+                                .text_size(design(12.))
+                                .text_color(muted)
+                                .child(tr_with(
+                                    "rebase_layers_label",
+                                    &[("count", count.to_string())],
+                                )),
+                        )
                         .children(merged.iter().map(|number| {
                             div()
-                                .text_size(px(11.))
+                                .text_size(design(11.))
                                 .text_color(muted)
                                 .child(tr_with("merged_skipped", &[("number", number.to_string())]))
                         }))
@@ -2539,10 +2553,15 @@ impl RebaseStackDialog {
                             ))
                             .child(line(IconName::GitBranch, muted, tr("rebase_step_local"))),
                     )
-                    .child(div().text_size(px(11.)).text_color(muted).child(tr_with(
-                        "rebase_no_promise",
-                        &[("machine", machine.clone())],
-                    )));
+                    .child(
+                        div()
+                            .text_size(design(11.))
+                            .text_color(muted)
+                            .child(tr_with(
+                                "rebase_no_promise",
+                                &[("machine", machine.clone())],
+                            )),
+                    );
                 let blockers = self.blockers(state, &machine);
                 if !blockers.is_empty() {
                     body =
@@ -2666,7 +2685,7 @@ fn progress_view(
             let (icon, text): (AnyElement, String) = match &layer.step {
                 StackRebaseStep::Waiting => (
                     Icon::new(IconName::CircleDashed)
-                        .size(px(14.))
+                        .size(design(14.))
                         .text_color(muted)
                         .into_any_element(),
                     tr("step_waiting"),
@@ -2684,14 +2703,14 @@ fn progress_view(
                 ),
                 StackRebaseStep::Pushed { from, to } => (
                     Icon::new(IconName::CircleCheck)
-                        .size(px(14.))
+                        .size(design(14.))
                         .text_color(theme.success)
                         .into_any_element(),
                     tr_with("step_pushed", &[("from", short(from)), ("to", short(to))]),
                 ),
                 StackRebaseStep::AlreadyCurrent => (
                     Icon::new(IconName::Check)
-                        .size(px(14.))
+                        .size(design(14.))
                         .text_color(muted)
                         .into_any_element(),
                     tr("step_current"),
@@ -2701,7 +2720,7 @@ fn progress_view(
                         StackRebaseFailure::PushUnconfirmed => IconName::CircleQuestionMark,
                         _ => IconName::CircleX,
                     })
-                    .size(px(14.))
+                    .size(design(14.))
                     .text_color(match reason {
                         StackRebaseFailure::PushUnconfirmed => theme.warning,
                         _ => theme.danger,
@@ -2718,7 +2737,7 @@ fn progress_view(
                 ),
                 StackRebaseStep::NotStarted => (
                     Icon::new(IconName::Minus)
-                        .size(px(14.))
+                        .size(design(14.))
                         .text_color(muted)
                         .into_any_element(),
                     tr("step_not_started"),
@@ -2729,15 +2748,15 @@ fn progress_view(
                     "pr-stack-progress-{}",
                     layer.number
                 )))
-                .h(px(36.))
+                .h(design(36.))
                 .px_2()
                 .gap_2()
                 .items_center()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .child(
                     div()
-                        .w(px(14.))
-                        .text_size(px(11.))
+                        .w(design(14.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .child((index + 1).to_string()),
                 )
@@ -2756,16 +2775,21 @@ fn progress_view(
                         .text_color(muted)
                         .child(layer.branch.clone()),
                 )
-                .child(div().flex_none().text_size(px(11.)).child(text))
+                .child(div().flex_none().text_size(design(11.)).child(text))
                 .into_any_element()
         })
         .collect();
     let mut body = v_flex().gap_2().child(scope_box(rows, cx));
     if let Some(started) = started_at {
-        body = body.child(div().text_size(px(11.)).text_color(muted).child(tr_with(
-            "progress_started",
-            &[("ago", super::detail::ago(started)), ("machine", machine)],
-        )));
+        body = body.child(
+            div()
+                .text_size(design(11.))
+                .text_color(muted)
+                .child(tr_with(
+                    "progress_started",
+                    &[("ago", super::detail::ago(started)), ("machine", machine)],
+                )),
+        );
     }
     let stopped = last.iter().find_map(|layer| match &layer.step {
         StackRebaseStep::Failed { reason } => Some((layer.number, reason)),

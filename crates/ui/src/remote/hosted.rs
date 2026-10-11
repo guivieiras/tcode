@@ -1,4 +1,5 @@
 //! Controls for the headless listener, carried on the authenticated host pipe.
+use crate::sizing::design;
 use crate::{
     overlay::OverlayExt as _,
     store::WorkspaceStore,
@@ -124,25 +125,24 @@ impl HostedPanel {
             ),
         );
         if state.enabled {
-            let mut invitation =
-                v_flex()
-                    .gap_2()
-                    .flex_1()
-                    .min_w_0()
-                    .child(crate::tr!("remote.invite.title"))
-                    .child(div().text_size(px(15.)).line_height(px(20.)).child(
-                        match &state.invite {
-                            Some(_) => crate::tr!(
-                                "remote.invite.expires",
-                                time = format!(
-                                    "{}:{:02}",
-                                    state.expires_in_secs / 60,
-                                    state.expires_in_secs % 60
-                                )
-                            ),
-                            None => crate::tr!("remote.invite.expired"),
-                        },
-                    ));
+            let mut invitation = v_flex()
+                .gap_2()
+                .flex_1()
+                .min_w_0()
+                .child(crate::tr!("remote.invite.title"))
+                .child(div().text_size(design(15.)).line_height(design(20.)).child(
+                    match &state.invite {
+                        Some(_) => crate::tr!(
+                            "remote.invite.expires",
+                            time = format!(
+                                "{}:{:02}",
+                                state.expires_in_secs / 60,
+                                state.expires_in_secs % 60
+                            )
+                        ),
+                        None => crate::tr!("remote.invite.expired"),
+                    },
+                ));
             let mut actions = h_flex().gap_2();
             if let Some(link) = state.invite.clone() {
                 actions = actions.child(
@@ -183,7 +183,7 @@ impl HostedPanel {
         }
         column = column.child(
             div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .child(crate::tr!("remote.devices.section")),
         );
         let mut devices = crate::material::group(cx);
@@ -222,7 +222,7 @@ impl HostedPanel {
                     .child(
                         div()
                             .flex_none()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(status_color)
                             .child(super::path_label(device.path.as_ref())),
                     )

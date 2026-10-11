@@ -1,12 +1,13 @@
 //! Writing to the pull request: the one editor every body is written in, the write each sends,
 //! and what its answer looks like. The host makes every write once; nothing here retries one.
 
+use crate::sizing::design;
 use std::collections::{HashMap, HashSet};
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, SharedString, Styled as _, Subscription, Task, Window, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 use tcode_core::pull_request::{PullRequestReviewDraft, PullRequestReviewDraftEdit};
@@ -855,7 +856,7 @@ impl PullRequestView {
             v_flex()
                 .w_full()
                 .gap_2()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .font_family(cx.theme().font_family.clone())
                 .on_action(move |_: &gpui_base::actions::Cancel, _, cx| {
                     // Escape cancels only an editor with nothing new in it.
@@ -865,7 +866,7 @@ impl PullRequestView {
                 })
                 .children(spec.context.map(|context| {
                     div()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .truncate()
                         .child(context)
@@ -878,7 +879,7 @@ impl PullRequestView {
                 .when(conflict, |editor| {
                     editor.child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(cx.theme().warning)
                             .child(crate::tr!(
                                 "pull_requests.compose.edit_conflict",
@@ -888,7 +889,7 @@ impl PullRequestView {
                 })
                 .children(notice.map(|notice| {
                     div()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().warning)
                         .child(notice)
                 }))
@@ -979,7 +980,7 @@ impl PullRequestView {
                 Button::new(SharedString::from(format!("pr-editor-row-{slot:?}")))
                     .outline()
                     .w_full()
-                    .h(px(material::TOUCH_TARGET))
+                    .h(design(material::TOUCH_TARGET))
                     .disabled(read_only)
                     .label(if read_only {
                         crate::tr!("pull_requests.compose.read_only").into_owned()

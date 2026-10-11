@@ -1,5 +1,6 @@
 //! Client-local theme import and JSON customization, shared by every platform.
 
+use crate::sizing::design;
 use crate::{
     overlay::{Notification, OverlayExt as _},
     settings::ThemeMode,
@@ -36,7 +37,7 @@ pub(crate) fn open(store: Entity<WorkspaceStore>, edit: bool, window: &mut Windo
     window.open_dialog(cx, move |dialog, _, cx| {
         let editor = editor.clone();
         dialog
-            .w(px(680.))
+            .w(design(680.))
             .bg(cx.theme().popover)
             .title(crate::tr!("settings.theme.editor_title").into_owned())
             .content(move |content, _, _| content.child(editor.clone()))
@@ -136,7 +137,7 @@ impl Render for ThemeEditor {
             .gap_3()
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("settings.theme.import_help")),
             )
@@ -156,7 +157,7 @@ impl Render for ThemeEditor {
             body = body.child(
                 div()
                     .flex_shrink_0()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().danger_foreground)
                     .child(crate::tr!(
                         "settings.theme.invalid",

@@ -1,12 +1,13 @@
 //! Reviewers and labels: the block at the top of the conversation and the one picker both are
 //! changed through. A picker stages its changes and applies them together.
 
+use crate::sizing::design;
 use std::collections::BTreeMap;
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription,
-    Window, div, prelude::FluentBuilder as _, px,
+    Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 use tcode_protocol::{
@@ -71,7 +72,7 @@ fn label_color(hex: Option<&str>, cx: &App) -> gpui::Hsla {
 }
 
 fn dot(color: gpui::Hsla) -> impl IntoElement {
-    div().flex_none().size(px(10.)).rounded_full().bg(color)
+    div().flex_none().size(design(10.)).rounded_full().bg(color)
 }
 
 impl PullRequestView {
@@ -303,7 +304,7 @@ impl PullRequestView {
                         ))
                     })
                     .child(name)
-                    .child(Icon::new(icon).size(px(12.)).text_color(color))
+                    .child(Icon::new(icon).size(design(12.)).text_color(color))
                     .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
                     .into_any_element()
             })
@@ -315,15 +316,15 @@ impl PullRequestView {
                 let description = label.description.clone();
                 h_flex()
                     .id(SharedString::from(format!("pr-label-{}", label.name)))
-                    .h(px(20.))
-                    .px(px(6.))
+                    .h(design(20.))
+                    .px(design(6.))
                     .gap_1()
                     .items_center()
                     .rounded_full()
                     .border_1()
                     .border_color(cx.theme().border)
                     .bg(cx.theme().secondary)
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .child(dot(label_color(label.color.as_deref(), cx)))
                     .child(label.name.clone())
                     .when_some(description, |chip, description| {
@@ -348,11 +349,11 @@ impl PullRequestView {
                 .flex_wrap()
                 .child(
                     h_flex()
-                        .min_w(px(72.))
+                        .min_w(design(72.))
                         .gap_1()
                         .items_center()
                         .text_color(muted)
-                        .child(Icon::new(icon).size(px(12.)))
+                        .child(Icon::new(icon).size(design(12.)))
                         .child(crate::tr!(title)),
                 )
                 .when(chips.is_empty(), |row| {
@@ -370,7 +371,7 @@ impl PullRequestView {
                 .gap_1()
                 .border_b_1()
                 .border_color(cx.theme().border)
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .child(row(
                     "pr-meta-reviewers",
                     IconName::Users,
@@ -456,7 +457,7 @@ impl PullRequestView {
             (_, Some(error)) => div()
                 .px_2()
                 .py_2()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .text_color(cx.theme().warning)
                 .child(
                     crate::tr!("pull_requests.meta.read_failed", reason = reason(error))
@@ -465,10 +466,10 @@ impl PullRequestView {
                 .into_any_element(),
             (None, None) => h_flex()
                 .px_2()
-                .h(px(row_height))
+                .h(design(row_height))
                 .gap_2()
                 .items_center()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .text_color(muted)
                 .child(Spinner::new().small())
                 .child(crate::tr!("pull_requests.meta.loading"))
@@ -476,7 +477,7 @@ impl PullRequestView {
             (Some(rows), None) if rows.is_empty() => div()
                 .px_2()
                 .py_2()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .text_color(muted)
                 .child(crate::tr!(match kind {
                     PickerKind::Labels => "pull_requests.meta.labels_empty",
@@ -500,7 +501,7 @@ impl PullRequestView {
                     div()
                         .px_2()
                         .py_2()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(muted)
                         .child(crate::tr!(match kind {
                             PickerKind::Labels => "pull_requests.meta.labels_no_match",
@@ -510,7 +511,7 @@ impl PullRequestView {
                 } else {
                     v_flex()
                         .id("pr-picker-rows")
-                        .max_h(px(280.))
+                        .max_h(design(280.))
                         .overflow_y_scroll()
                         .children(shown.into_iter().enumerate().map(|(index, row)| {
                             let checked =
@@ -529,18 +530,18 @@ impl PullRequestView {
                                 .aria_label(row.key.clone())
                                 .checked(checked)
                                 .disabled(picker.applying)
-                                .h(px(row_height))
+                                .h(design(row_height))
                                 .px_2()
                                 .gap_2()
                                 .items_center()
                                 .child(lead)
-                                .child(div().text_size(px(13.)).child(row.key.clone()))
+                                .child(div().text_size(design(13.)).child(row.key.clone()))
                                 .children(row.secondary.clone().map(|secondary| {
                                     div()
                                         .flex_1()
                                         .min_w_0()
                                         .truncate()
-                                        .text_size(px(11.))
+                                        .text_size(design(11.))
                                         .text_color(muted)
                                         .child(secondary)
                                 }))
@@ -559,7 +560,7 @@ impl PullRequestView {
         let applying = picker.applying;
         let (cancel_view, apply_view) = (view.clone(), view.clone());
         v_flex()
-            .w(px(if compact { 0. } else { 320. }))
+            .w(design(if compact { 0. } else { 320. }))
             .when(compact, |body| body.w_full())
             .p_1()
             .gap_1()
@@ -570,7 +571,7 @@ impl PullRequestView {
                 body.child(
                     div()
                         .px_2()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .child(crate::tr!(
                             match kind {
