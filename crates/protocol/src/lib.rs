@@ -4,6 +4,8 @@
 //! Unknown data-carrying variants are decode errors; callers should use the
 //! wire helpers, which turn those errors into [`ProtocolError`] values.
 
+mod development;
+pub use development::*;
 mod command;
 mod event;
 mod preview;

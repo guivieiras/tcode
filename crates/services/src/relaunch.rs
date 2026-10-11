@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// consumed exactly once at the next startup.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelaunchMarker {
-    /// Which Settings page to reopen: `"computer_use"` or `"browser"`.
+    /// Which Settings page to reopen: `"computer_use"`, `"browser"`, or `"development"`.
     pub reopen_settings: String,
     /// The session that was active when the marker was written, if any.
     #[serde(default, skip_serializing_if = "Option::is_none")]

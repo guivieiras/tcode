@@ -423,6 +423,7 @@ impl AppState {
     pub fn shutdown_all(&mut self, cx: &mut HostCx) {
         self.stop_diff_pass();
         self.stop_pull_request_workers();
+        self.stop_development();
         for id in self
             .mcp
             .computer_use_registrations
