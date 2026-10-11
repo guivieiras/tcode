@@ -1,3 +1,4 @@
+use crate::sizing::design_px;
 use crate::{
     icon::{Icon, IconName},
     sizing::{Sizable, Size},
@@ -6,7 +7,7 @@ use crate::{
 use gpui::{
     AnyElement, App, ElementId, InteractiveElement, Interactivity, IntoElement, ParentElement,
     RenderOnce, SharedString, StatefulInteractiveElement, StyleRefinement, Styled, Window, div,
-    prelude::FluentBuilder as _, px, relative,
+    prelude::FluentBuilder as _, relative,
 };
 use gpui_base::CheckboxIndicator;
 use gpui_base::StyledExt as _;
@@ -85,15 +86,18 @@ impl InteractiveElement for Checkbox {
 impl StatefulInteractiveElement for Checkbox {}
 
 impl RenderOnce for Checkbox {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let checked = self.checked;
-        let indicator_size = match self.size {
-            Size::XSmall => px(12.),
-            Size::Small => px(14.),
-            Size::Large => px(18.),
-            Size::Size(v) => v,
-            Size::Medium => px(16.),
-        };
+        let indicator_size = design_px(
+            match self.size {
+                Size::XSmall => 12.,
+                Size::Small => 14.,
+                Size::Large => 18.,
+                Size::Size(v) => f32::from(v),
+                Size::Medium => 16.,
+            },
+            window,
+        );
         let label = self.label.clone();
         self.base
             .checked(checked)
@@ -136,7 +140,7 @@ impl RenderOnce for Checkbox {
                     .when(checked, |this| {
                         this.child(
                             Icon::new(IconName::Check)
-                                .with_size(Size::Size(indicator_size))
+                                .size(indicator_size)
                                 .text_color(cx.theme().primary_foreground),
                         )
                     }),

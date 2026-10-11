@@ -191,6 +191,10 @@ impl ClientHost for NativeClientHost {
         ClientPreferences {
             appearance: value("appearance"),
             theme: prefs.get("theme").filter(|v| !v.is_null()).cloned(),
+            zoom_percent: prefs
+                .get("zoom_percent")
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|percent| u16::try_from(percent).ok()),
             language: value("language"),
             device_name: value("device_name"),
             navigation: prefs
@@ -208,6 +212,7 @@ impl ClientHost for NativeClientHost {
         let mut prefs = self.prefs();
         prefs["appearance"] = serde_json::json!(preferences.appearance);
         prefs["theme"] = serde_json::json!(preferences.theme);
+        prefs["zoom_percent"] = serde_json::json!(preferences.zoom_percent);
         prefs["language"] = serde_json::json!(preferences.language);
         prefs["device_name"] = serde_json::json!(preferences.device_name);
         prefs["navigation"] = serde_json::json!(preferences.navigation);
@@ -781,6 +786,7 @@ mod tests {
         assert_eq!(identity["platform"], "Android 15");
         host.save_preferences(&ClientPreferences {
             appearance: Some("light".into()),
+            zoom_percent: Some(125),
             language: None,
             device_name: Some("Renamed".into()),
             navigation: Some(serde_json::json!({"history": ["hosts", "threads"]})),
@@ -794,6 +800,8 @@ mod tests {
         assert_eq!(saved["future_field"]["preserve"], true);
         assert_eq!(saved["appearance"], "light");
         assert_eq!(host.load_preferences().theme.unwrap()["light"], "Paper");
+        assert_eq!(saved["zoom_percent"], 125);
+        assert_eq!(host.load_preferences().zoom_percent, Some(125));
         assert_eq!(
             host.load_preferences().navigation.unwrap()["history"],
             serde_json::json!(["hosts", "threads"])

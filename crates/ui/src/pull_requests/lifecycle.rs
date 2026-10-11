@@ -3,12 +3,12 @@
 //! request fresh before a merge or a branch update and answers every write; nothing here
 //! retries one.
 
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::rc::Rc;
 
 use gpui::{
     Action, AnyElement, App, AppContext as _, Context, Entity, IntoElement, ParentElement as _,
-    Render, SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    Render, SharedString, Styled as _, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 use serde::Deserialize;
@@ -1548,9 +1548,10 @@ fn open_merge_dialog(target: Target, auto: bool, window: &mut Window, cx: &mut A
     window.open_dialog(cx, move |base, window, cx| {
         let sending = dialog.read(cx).sending;
         let width = if compact {
-            (window.viewport_size().width - px(2. * material::COMPACT_PAGE_INSET)).min(px(480.))
+            (window.viewport_size().width - design_px(2. * material::COMPACT_PAGE_INSET, window))
+                .min(design_px(480., window))
         } else {
-            px(480.)
+            design_px(480., window)
         };
         base.title(title.clone())
             .w(width)

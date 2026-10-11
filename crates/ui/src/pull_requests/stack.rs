@@ -3,13 +3,13 @@
 //! progress and the words every answer gets. The host owns every write and its state; the map
 //! reads only the stored topology and links, and each confirmation reads GitHub fresh.
 
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, AppContext as _, ClipboardItem, Context, Entity, Hsla,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 use tcode_core::pull_request::{
@@ -1492,9 +1492,10 @@ fn machine_label(store: Option<&WorkspaceStore>) -> String {
 
 fn dialog_width(target: &Target, window: &Window, cx: &App) -> gpui::Pixels {
     if target.window_state.read(cx).compact {
-        (window.viewport_size().width - px(2. * material::COMPACT_PAGE_INSET)).min(px(480.))
+        (window.viewport_size().width - design_px(2. * material::COMPACT_PAGE_INSET, window))
+            .min(design_px(480., window))
     } else {
-        px(480.)
+        design_px(480., window)
     }
 }
 

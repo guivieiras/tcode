@@ -9,7 +9,7 @@ use agent::{ItemContent, ItemStatus, ProviderKind};
 use gpui::{
     Action, AnyElement, App, Context, Entity, Hsla, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, Role, ScrollHandle, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Subscription, Task, WeakEntity, Window, div, prelude::FluentBuilder as _, px,
+    Styled as _, Subscription, Task, WeakEntity, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{InteractiveElementExt as _, StyledExt as _, h_flex, v_flex};
 use serde::Deserialize;
@@ -856,7 +856,7 @@ impl Render for AgentsPanel {
         if agents.is_empty() {
             return root.child(Self::render_empty(cx));
         }
-        let inset = px(if compact {
+        let inset = design(if compact {
             material::COMPACT_PAGE_INSET
         } else {
             12.

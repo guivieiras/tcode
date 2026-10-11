@@ -7,7 +7,7 @@
 //! and the attachment is local, and never as a substitute for the host's own
 //! judgment about a path.
 
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -21,7 +21,7 @@ use crate::widgets::progress::Progress;
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, Role, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -397,8 +397,11 @@ impl AddProjectDialog {
                 }
                 let visible_rows = recent.len().min(RECENT_LIMIT) as f32;
                 let viewport_height = fit_viewport(
-                    (visible_rows * RECENT_ROW_HEIGHT_ESTIMATE).min(RECENT_VIEWPORT_MAX_HEIGHT),
-                    window.viewport_size().height - px(RECENT_VIEWPORT_CHROME),
+                    design_px(
+                        (visible_rows * RECENT_ROW_HEIGHT_ESTIMATE).min(RECENT_VIEWPORT_MAX_HEIGHT),
+                        window,
+                    ),
+                    window.viewport_size().height - design_px(RECENT_VIEWPORT_CHROME, window),
                 );
                 div()
                     .id("recent-directory-list")

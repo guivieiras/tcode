@@ -310,6 +310,7 @@ impl AcpPanel {
         let subscriptions = vec![
             observe_store_topics(&store, &[TopicKind::Providers], cx),
             cx.observe(&search, |_, _, cx| cx.notify()),
+            crate::zoom::observe(cx, |this: &mut Self| this.market_list.remeasure()),
         ];
         let panel = Self {
             store,

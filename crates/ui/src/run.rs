@@ -110,6 +110,7 @@ pub fn init_client(cx: &mut App, host: &dyn ClientHost, options: &ShellOptions) 
     }
     crate::i18n::set_platform_system_locale(options.system_locale.as_deref());
     let preferences = host.load_preferences();
+    crate::zoom::restore(preferences.zoom_percent, cx);
     crate::i18n::apply_locale(match preferences.language.as_deref() {
         Some("system") | None => None,
         override_locale => override_locale,
@@ -127,6 +128,7 @@ pub fn init_client(cx: &mut App, host: &dyn ClientHost, options: &ShellOptions) 
     // control on Windows/Linux — where a literal `cmd-` binding would mean the
     // Super/Win key, which the OS intercepts.
     cx.bind_keys([KeyBinding::new("secondary-k", TogglePalette, None)]);
+    crate::zoom::bind_keys(cx);
     #[cfg(target_os = "macos")]
     cx.bind_keys([KeyBinding::new("cmd-q", crate::shell::Quit, None)]);
 }
@@ -144,6 +146,9 @@ pub fn open_client_window<V: Render>(
     let window_background = options.window_background;
     let window = cx
         .open_window(options, move |window, cx| {
+            // Views built here already resolve design sizes; the overlay
+            // root only re-applies the zoom from the first frame on.
+            crate::zoom::apply(window, cx);
             window.set_window_title(&title);
             theme::sync_system_appearance(Some(window), cx);
             let view = build(window, cx);

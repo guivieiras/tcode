@@ -11,7 +11,7 @@ use gpui::{
     Animation, AnimationExt as _, AnyElement, App, AppContext as _, Context, DismissEvent,
     ElementId, Entity, EventEmitter, FocusHandle, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Subscription, Window, div, prelude::FluentBuilder as _, px,
+    Subscription, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{
     Toast as BaseToast, ToastManager, ToastMotion, ToastOptions, ToastStack, ToastStackState,
@@ -26,7 +26,7 @@ use crate::{
 };
 use gpui_base::StyledExt as _;
 
-const DEFAULT_WIDTH: gpui::Pixels = px(356.);
+const DEFAULT_WIDTH: gpui::Rems = design(356.);
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Copy, Default)]

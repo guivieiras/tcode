@@ -201,14 +201,17 @@ impl DiffPanel {
         });
         let plan = cx.new(|cx| PlanPanel::new(workspace_store.clone(), cx));
         let agents = cx.new(|cx| AgentsPanel::new(workspace_store.clone(), cx));
-        let subscriptions = vec![cx.observe(&workspace_store, |this, store, cx| {
-            let comments = store.read(cx).review_comments();
-            if this.observed_review_comments != comments {
-                this.observed_review_comments = comments;
-                this.remeasure_lists();
-            }
-            cx.notify();
-        })];
+        let subscriptions = vec![
+            cx.observe(&workspace_store, |this, store, cx| {
+                let comments = store.read(cx).review_comments();
+                if this.observed_review_comments != comments {
+                    this.observed_review_comments = comments;
+                    this.remeasure_lists();
+                }
+                cx.notify();
+            }),
+            crate::zoom::observe(cx, |this: &mut Self| this.remeasure_lists()),
+        ];
         Self {
             workspace_store,
             window_state,

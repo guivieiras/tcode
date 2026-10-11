@@ -4,7 +4,7 @@
 //! to "render this stored item at N columns". Until that answer arrives the
 //! panel shows the raw text, which is always something rather than a gap.
 
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use gpui::{
@@ -246,7 +246,7 @@ impl Panel {
             .when_some(on_cols_change, |panel, on_cols_change| {
                 panel.on_prepaint(move |bounds, window, cx| {
                     let measured = clamp_cols(
-                        (f32::from(bounds.size.width) / TERMINAL_CELL_WIDTH)
+                        (bounds.size.width / design_px(TERMINAL_CELL_WIDTH, window))
                             .floor()
                             .clamp(0., f32::from(u16::MAX)) as u16,
                     );
@@ -308,8 +308,8 @@ fn grid_element(
                     cx,
                     &paint_data,
                     palette,
-                    TERMINAL_CELL_WIDTH,
-                    TERMINAL_CELL_HEIGHT,
+                    f32::from(design_px(TERMINAL_CELL_WIDTH, window)),
+                    f32::from(design_px(TERMINAL_CELL_HEIGHT, window)),
                     false,
                 );
             });

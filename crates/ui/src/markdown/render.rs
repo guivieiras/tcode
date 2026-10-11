@@ -526,7 +526,7 @@ fn render_block(
                 .id(options.path.clone())
                 .pb(rems(0.3))
                 .whitespace_normal()
-                .text_size(size)
+                .text_size(design(f32::from(size)))
                 .font_weight(weight)
                 .child(render_paragraph(children, &options.path, state, cx))
                 .into_any_element()
@@ -888,9 +888,9 @@ fn inline_flow_items(paragraph: &Paragraph, id: &str, cx: &mut App) -> Vec<Inlin
                 font_overrides: code_fonts,
                 code_style: Some(InlineCodeStyle {
                     font_family: cx.theme().mono_font_family.clone(),
-                    font_size: INLINE_CODE_FONT_SIZE,
+                    font_size: INLINE_CODE_FONT_SIZE * crate::zoom::factor(cx),
                     background: cx.theme().tokens.colors.muted,
-                    radius: INLINE_CODE_RADIUS,
+                    radius: INLINE_CODE_RADIUS * crate::zoom::factor(cx),
                 }),
             });
             continue;
@@ -1143,7 +1143,7 @@ fn render_code_block(
             .whitespace_normal()
             .font_family(mono_font_family.clone())
             .text_color(cx.theme().editor_foreground)
-            .text_size(INLINE_CODE_FONT_SIZE)
+            .text_size(design(f32::from(INLINE_CODE_FONT_SIZE)))
             .child(Inline::new(
                 ix,
                 view.clone(),

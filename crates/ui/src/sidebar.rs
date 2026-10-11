@@ -722,6 +722,12 @@ impl SessionsSidebar {
                 }
                 last_destination = destination;
             }),
+            crate::zoom::observe(cx, |this: &mut Self| {
+                this.arrange_list_state.remeasure();
+                this.flat_list_state.remeasure();
+                this.grouped_list_state.remeasure();
+                this.compact_list_state.remeasure();
+            }),
         ];
         Self {
             store,
@@ -2288,7 +2294,7 @@ impl SessionsSidebar {
             agent::ProviderKind::Acp => Icon::empty().path("icons/box.svg"),
             kind => crate::provider_card::provider_glyph(kind),
         };
-        let size = px(row_height - PROVIDER_MARK_INSET);
+        let size = design(row_height - PROVIDER_MARK_INSET);
         let id = meta.id.clone();
         Some(
             div()
@@ -3186,7 +3192,7 @@ fn thread_list_scrollbar(
         .inset_0()
         .child(crate::scroll::list_height_hint(
             state,
-            px(estimated_row_height),
+            design(estimated_row_height),
         ))
         .child(Scrollbar::vertical(state).id(id))
 }
@@ -4272,7 +4278,7 @@ impl Render for SessionsSidebar {
                                 }
                                 FlatListRow::Empty => return this.render_active_empty(cx),
                             };
-                            let target_top = *target_top;
+                            let target_top = *target_top * crate::zoom::factor(cx);
                             let row = div().w_full().px_2().pb(design(2.));
                             let row = if this
                                 .drag

@@ -9,7 +9,7 @@
 //!
 //! Title and action search use [`fuzzy_score`]; message search runs through the host.
 
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -171,6 +171,7 @@ impl CommandPalette {
                     _ => {}
                 },
             ),
+            crate::zoom::observe(cx, |this: &mut Self| this.list_state.remeasure()),
         ];
 
         Self {
@@ -752,9 +753,11 @@ impl Render for CommandPalette {
         let compact = self.window_state.read(cx).compact;
         let viewport = window.viewport_size();
         let insets = crate::window_seam::content_insets(window);
-        let available =
-            (viewport.height - insets.top - insets.bottom - px(if compact { 52. } else { 120. }))
-                .max(px(0.));
+        let available = (viewport.height
+            - insets.top
+            - insets.bottom
+            - design_px(if compact { 52. } else { 120. }, window))
+        .max(px(0.));
         let dismissal = self.outside_dismissal.clone();
 
         let body = if total == 0 {
@@ -792,7 +795,7 @@ impl Render for CommandPalette {
                     )
                     .child(crate::scroll::list_height_hint(
                         &self.list_state,
-                        px(if compact { 52. } else { 42. }),
+                        design(if compact { 52. } else { 42. }),
                     )),
             )
             .into_any_element()
@@ -803,9 +806,9 @@ impl Render for CommandPalette {
                 .w(if compact {
                     viewport.width
                 } else {
-                    px(640.).min(viewport.width - px(32.))
+                    design_px(640., window).min(viewport.width - px(32.))
                 })
-                .h(px(440.).min(available))
+                .h(design_px(440., window).min(available))
                 .when(compact, |card| {
                     card.rounded_t(crate::material::radius_overlay_sheet(cx))
                 })
@@ -883,7 +886,7 @@ impl Render for CommandPalette {
             .items_center()
             .when(compact, |host| host.justify_end().pb(insets.bottom))
             .when(!compact, |host| {
-                host.justify_start().pt(insets.top + px(96.))
+                host.justify_start().pt(insets.top + design_px(96., window))
             })
     }
 }

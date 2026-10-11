@@ -1,4 +1,4 @@
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
@@ -721,27 +721,26 @@ impl ChatView {
             });
         });
 
-        let subscriptions =
-            vec![
-                cx.observe_in(&workspace_store, window, |this, store, window, cx| {
-                    this.timeline_stale = true;
-                    // Desktop can type immediately after opening the terminal.
-                    // On software-keyboard devices this also runs during restore,
-                    // so wait for a tap on the grid before raising the keyboard.
-                    let open = store.read(cx).panel_state().terminal_open;
-                    if open && !this.terminal_was_open {
-                        let drawer = this.terminal_drawer.clone();
-                        window.defer(cx, move |window, cx| {
-                            if !crate::window_seam::is_mobile(cx) {
-                                gpui::Focusable::focus_handle(drawer.read(cx), cx)
-                                    .focus(window, cx);
-                            }
-                        });
-                    }
-                    this.terminal_was_open = open;
-                    cx.notify();
-                }),
-            ];
+        let subscriptions = vec![
+            cx.observe_in(&workspace_store, window, |this, store, window, cx| {
+                this.timeline_stale = true;
+                // Desktop can type immediately after opening the terminal.
+                // On software-keyboard devices this also runs during restore,
+                // so wait for a tap on the grid before raising the keyboard.
+                let open = store.read(cx).panel_state().terminal_open;
+                if open && !this.terminal_was_open {
+                    let drawer = this.terminal_drawer.clone();
+                    window.defer(cx, move |window, cx| {
+                        if !crate::window_seam::is_mobile(cx) {
+                            gpui::Focusable::focus_handle(drawer.read(cx), cx).focus(window, cx);
+                        }
+                    });
+                }
+                this.terminal_was_open = open;
+                cx.notify();
+            }),
+            crate::zoom::observe(cx, |this: &mut Self| this.list_state.remeasure()),
+        ];
         let terminal_drawer = cx.new(|cx| TerminalDrawer::new(workspace_store.clone(), window, cx));
         let pull_requests = cx.new(|cx| {
             crate::pull_requests::PullRequestsPanel::new(
@@ -4067,7 +4066,7 @@ impl Render for ChatView {
                     gpui_base::resizable_panel()
                         .flex_none()
                         .size(px(terminal_height))
-                        .size_range(px(120.)..px(600.))
+                        .size_range(design_px(120., window)..design_px(600., window))
                         .child(self.terminal_drawer.clone()),
                 )
                 .into_any_element()

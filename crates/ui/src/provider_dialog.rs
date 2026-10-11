@@ -7,7 +7,7 @@
 //! exception — favorites are a global, not a `ProviderSettings` field.
 
 use crate::scroll::ScrollableElement as _;
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -853,7 +853,7 @@ impl Render for ProviderDialog {
             .id("provider-dialog-body")
             .w_full()
             .max_h(crate::sizing::fit_viewport(
-                520.,
+                design_px(520., window),
                 window.viewport_size().height,
             ))
             .overflow_y_scroll_area()

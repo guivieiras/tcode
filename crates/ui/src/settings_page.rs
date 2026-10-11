@@ -375,6 +375,7 @@ pub struct SettingsPage {
     /// Editable "Home URL" for the Browser page; committed on change.
     home_url_input: SettingsInput,
     auto_settle_input: SettingsInput,
+    zoom_input: Entity<InputState>,
     project_rules_editor: Option<Entity<thread_behavior::ProjectRulesEditor>>,
     project_rules_subscription: Option<Subscription>,
     remote_attachment_limit_input: SettingsInput,
@@ -596,6 +597,13 @@ impl SettingsPage {
             cx.new(|cx| crate::local_permissions::LocalPermissions::new(store, window, cx))
         });
         let auto_settle_input = cx.new(|cx| InputState::new(window, cx).step(1.).min(1.).max(90.));
+        let zoom_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .step(5.)
+                .min(f64::from(crate::zoom::MIN))
+                .max(f64::from(crate::zoom::MAX))
+                .default_value(crate::zoom::percent(cx).to_string())
+        });
         let source_control_panel = cx.new(|cx| {
             crate::source_control_settings::SourceControlPanel::new(
                 store.clone(),
@@ -629,6 +637,7 @@ impl SettingsPage {
             usage_refresh_sent: false,
             home_url_input: SettingsInput::new(home_url_input.clone()),
             auto_settle_input: SettingsInput::new(auto_settle_input.clone()),
+            zoom_input: zoom_input.clone(),
             project_rules_editor: None,
             project_rules_subscription: None,
             remote_attachment_limit_input: SettingsInput {
@@ -688,6 +697,23 @@ impl SettingsPage {
                 }
             },
         ));
+        page._subscriptions.push(cx.subscribe_in(
+            &zoom_input,
+            window,
+            |this, _, event, window, cx| {
+                if matches!(event, InputEvent::Blur | InputEvent::PressEnter { .. }) {
+                    this.commit_zoom(window, cx);
+                }
+            },
+        ));
+        // The shortcuts change the zoom while this page is open.
+        page._subscriptions
+            .push(
+                cx.observe_global_in::<crate::zoom::Zoom>(window, |this, window, cx| {
+                    this.sync_zoom_input(window, cx);
+                    cx.notify();
+                }),
+            );
         page.build_provider_cards(cx);
         page.sync_acp_cards(window, cx);
         page.hydrate_inputs(window, cx);
@@ -1280,6 +1306,7 @@ impl SettingsPage {
                     // themes themselves.
                     theme::reset_selection(cx);
                     let themes = theme::preferences(cx);
+                    crate::zoom::set(crate::zoom::DEFAULT, window, cx);
                     store.update(cx, |store, _cx| {
                         store.reset_settings();
                         store.reset_client_preferences();
@@ -1400,6 +1427,7 @@ impl SettingsPage {
             self.named_theme_row(UiThemeMode::Light, cx),
             self.named_theme_row(UiThemeMode::Dark, cx),
             self.theme_import_row(cx),
+            self.zoom_row(cx),
             self.toggle_row(
                 "sidebar-provider-marks",
                 crate::tr!("settings.sidebar_provider_marks.title"),
@@ -3134,6 +3162,49 @@ impl SettingsPage {
             .into_any_element()
     }
 
+    fn sync_zoom_input(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let value = crate::zoom::percent(cx).to_string();
+        if self.zoom_input.read(cx).value().as_ref() != value {
+            self.zoom_input
+                .update(cx, |input, cx| input.set_value(value, window, cx));
+        }
+    }
+
+    /// Apply what the field holds, then show what was applied: the zoom
+    /// clamps, and text that is not a number changes nothing.
+    fn commit_zoom(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let typed = self.zoom_input.read(cx).value().trim().parse::<f32>();
+        if let Ok(percent) = typed {
+            crate::zoom::set(percent.round() as u16, window, cx);
+        }
+        self.sync_zoom_input(window, cx);
+    }
+
+    fn zoom_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let reset = self.reset_action(
+            "reset-zoom",
+            crate::zoom::percent(cx) != crate::zoom::DEFAULT,
+            cx,
+            |_, window, cx| crate::zoom::set(crate::zoom::DEFAULT, window, cx),
+        );
+        self.row_frame(cx)
+            .child(self.row_labels(
+                crate::tr!("settings.zoom.title"),
+                crate::tr!("settings.zoom.description"),
+                reset,
+                cx,
+            ))
+            .child(
+                gpui_base::h_flex()
+                    .gap_2()
+                    .items_center()
+                    .debug_selector(|| "settings-zoom-input".into())
+                    .child(crate::widgets::input::NumberInput::new(&self.zoom_input))
+                    .child("%"),
+            )
+            .into_any_element()
+    }
+
     fn language_row(
         &self,
         language: Option<&str>,
@@ -3762,5 +3833,58 @@ mod tests {
                 })
             },
         );
+    }
+
+    #[gpui::test]
+    fn numeric_zoom_commits_on_enter_or_blur_and_tracks_external_changes(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            crate::theme::init(cx);
+            crate::zoom::restore(None, cx);
+        });
+        let (to_host, _outgoing) = async_channel::unbounded();
+        let (incoming, from_host) = async_channel::unbounded();
+        let deferred = std::iter::from_fn(|| from_host.try_recv().ok()).collect();
+        let link = tcode_client::HostLink::new(to_host, from_host);
+        let store = cx.new(|cx| {
+            WorkspaceStore::new_attached(link, WorkspaceAttachment::Local, None, None, false, cx)
+        });
+        crate::store::tests::seed_full_scope(&store, &incoming, deferred, cx);
+        let window_state = cx.new(|_| WindowState::new(false));
+        let (page, cx) =
+            cx.add_window_view(|window, cx| SettingsPage::new(store, window_state, window, cx));
+        let input = page.read_with(cx, |page, _| page.zoom_input.clone());
+        let edit = |value: &str, event: Option<InputEvent>, cx: &mut VisualTestContext| {
+            cx.update(|window, cx| {
+                input.update(cx, |input, cx| {
+                    input.set_value(value, window, cx);
+                    if let Some(event) = event {
+                        cx.emit(event);
+                    }
+                })
+            });
+            cx.run_until_parked();
+        };
+        let zoom = |cx: &mut VisualTestContext| cx.update(|_, cx| crate::zoom::percent(cx));
+
+        edit("107", None, cx);
+        assert_eq!(zoom(cx), 100);
+        let enter = InputEvent::PressEnter {
+            secondary: false,
+            shift: false,
+        };
+        edit("107", Some(enter), cx);
+        assert_eq!(zoom(cx), 107);
+        edit("108", Some(InputEvent::Blur), cx);
+        assert_eq!(zoom(cx), 108);
+        for (typed, applied) in [("201", 200), ("", 200), ("74", 75)] {
+            edit(typed, Some(InputEvent::Blur), cx);
+            assert_eq!(zoom(cx), applied);
+            input.read_with(cx, |input, _| {
+                assert_eq!(input.value(), applied.to_string())
+            });
+        }
+        cx.update(|window, cx| crate::zoom::set(100, window, cx));
+        cx.run_until_parked();
+        input.read_with(cx, |input, _| assert_eq!(input.value(), "100"));
     }
 }

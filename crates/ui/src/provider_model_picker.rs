@@ -5,7 +5,7 @@
 //! live here so Orchestrate and other settings do not grow subtly different
 //! pickers.
 
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::rc::Rc;
 
 use crate::theme::ActiveTheme as _;
@@ -255,7 +255,10 @@ impl Render for ProviderModelPicker {
 
                 // The catalog is a viewport of its own; cap it against the
                 // window so a short one scrolls instead of overflowing it.
-                let catalog = crate::sizing::fit_viewport(300., window.viewport_size().height);
+                let catalog = crate::sizing::fit_viewport(
+                    design_px(300., window),
+                    window.viewport_size().height,
+                );
                 let rows = if available.is_empty() {
                     div()
                         .w_full()
@@ -348,7 +351,7 @@ impl Render for ProviderModelPicker {
 
                 v_flex()
                     .w(crate::sizing::fit_viewport(
-                        390.,
+                        design_px(390., window),
                         window.viewport_size().width,
                     ))
                     .child(tabs)

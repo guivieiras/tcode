@@ -1,5 +1,5 @@
 use crate::scroll::ScrollableElement as _;
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use crate::theme::ActiveTheme as _;
 use gpui::{
     Anchor, AnyElement, App, Context, ElementId, FocusHandle, InteractiveElement as _, IntoElement,
@@ -256,7 +256,7 @@ impl Popover {
             let insets = crate::window_seam::content_insets(window);
             let max_height = (viewport.height - insets.top - px(52.) - insets.bottom).max(px(0.));
             // The grabber, the title row and the hairline above the content.
-            let chrome_height = px(16.) + px(48.) + px(1.);
+            let chrome_height = design_px(16. + 48., window) + px(1.);
             let close = state.clone();
             let focus = state.read(cx).focus_handle(cx);
             let content = self

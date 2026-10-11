@@ -1,4 +1,4 @@
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -237,7 +237,7 @@ pub(crate) fn user_bubble(
             window
                 .text_system()
                 // Must match the bubble's rendered text size below.
-                .layout_line(line, px(15.), &[run], None)
+                .layout_line(line, design_px(15., window), &[run], None)
                 .width,
         )
     });
@@ -329,7 +329,7 @@ pub(crate) fn user_bubble(
             column.child({
                 let pending = steering == Some(SteeringStatus::Pending);
                 div()
-                    .w((text_width + px(20.)).ceil() + px(3.))
+                    .w((text_width + design_px(20., window)).ceil() + design_px(3., window))
                     .flex_none()
                     .max_w_3_4()
                     .px(design(10.))

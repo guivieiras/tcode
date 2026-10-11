@@ -1,5 +1,5 @@
-use crate::sizing::design;
-use gpui::{Bounds, Hsla, IntoElement, PathBuilder, Pixels, Styled as _, canvas, point, px};
+use crate::sizing::{design, design_px};
+use gpui::{Bounds, Hsla, IntoElement, PathBuilder, Pixels, Styled as _, canvas, point};
 
 /// Draw the small progress ring: a muted full-circle track plus a `pct`-swept
 /// arc (starting at 12 o'clock), sampled as a stroked polyline.
@@ -8,8 +8,8 @@ pub(crate) fn ring_canvas(pct: f32, fg: Hsla, track: Hsla) -> impl IntoElement {
         move |_, _, _| {},
         move |bounds: Bounds<Pixels>, _, window, _| {
             let center = bounds.center();
-            let radius = px(6.5);
-            let width = px(2.5);
+            let radius = design_px(6.5, window);
+            let width = design_px(2.5, window);
             if let Some(path) = stroked_arc(center, radius, 0.0, 360.0, width) {
                 window.paint_path(path, track);
             }

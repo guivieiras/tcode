@@ -126,6 +126,9 @@ pub struct ClientPreferences {
     /// Theme library and selections; its format belongs to the shared UI.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<serde_json::Value>,
+    /// UI scale in percent; `None` is 100.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zoom_percent: Option<u16>,
     pub language: Option<String>,
     pub device_name: Option<String>,
     /// Opaque, client-local UI restoration state. The shell owns its schema.

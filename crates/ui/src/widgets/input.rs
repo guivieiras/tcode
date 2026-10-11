@@ -1,4 +1,4 @@
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 #[path = "input_configuration.rs"]
 mod input_configuration;
 
@@ -12,7 +12,7 @@ use gpui::{
     Action, AnyElement, App, DefiniteLength, Edges, Entity, Focusable as _,
     InteractiveElement as _, IntoElement, LongPressEvent, ParentElement as _, RenderOnce,
     SharedString, StyleRefinement, Styled, TextAlign, TouchPhase, Window, div,
-    prelude::FluentBuilder as _, px, rems,
+    prelude::FluentBuilder as _, rems,
 };
 use gpui_base::StyledExt as _;
 use gpui_base::{InputBase, RoleOverride};
@@ -243,10 +243,10 @@ impl RenderOnce for Input {
             });
             state.set_editor_paddings(if multi_line {
                 Edges {
-                    left: px(10.),
-                    right: px(10.),
-                    top: px(8.),
-                    bottom: px(8.),
+                    left: design_px(10., window),
+                    right: design_px(10., window),
+                    top: design_px(8., window),
+                    bottom: design_px(8., window),
                 }
             } else {
                 Edges::default()

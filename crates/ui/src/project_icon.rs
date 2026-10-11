@@ -1,5 +1,5 @@
 //! Shared project artwork and an in-app picker over the attached host's files.
-use crate::sizing::design;
+use crate::sizing::{design, design_px};
 use crate::{
     icon::{Icon, IconName},
     overlay::OverlayExt as _,
@@ -52,7 +52,10 @@ pub(crate) fn open(
             // Enter in a path or filter field must not confirm the dialog.
             .on_ok(|_, _, _| false)
             .title(crate::tr!("project_icon.title"))
-            .w(fit_viewport(680., window.viewport_size().width))
+            .w(fit_viewport(
+                design_px(680., window),
+                window.viewport_size().width,
+            ))
             .content(move |el, _, _| el.child(content.clone()))
     });
 }
@@ -287,11 +290,14 @@ impl Render for Picker {
                 .filter(|&index| self.entries[index].name.to_lowercase().contains(&search))
                 .collect(),
         );
-        let columns = ((f32::from(self.grid_width) + TILE_GAP) / (TILE_WIDTH + TILE_GAP))
+        // Tiles are sized in design units; the measured grid width is in pixels.
+        let zoom = crate::zoom::factor(cx);
+        let columns = ((f32::from(self.grid_width) + TILE_GAP * zoom)
+            / ((TILE_WIDTH + TILE_GAP) * zoom))
             .floor()
             .max(1.) as usize;
-        let viewport_height =
-            (f32::from(window.viewport_size().height) * 0.9 - 360.).clamp(48., 320.);
+        let viewport_height = (f32::from(window.viewport_size().height) * 0.9 - 360. * zoom)
+            .clamp(48. * zoom, 320. * zoom);
         let content = if self.loading {
             div()
                 .p_4()

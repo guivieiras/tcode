@@ -175,7 +175,7 @@ impl Render for Icon {
 
 fn apply_size(icon: Svg, size: Size) -> Svg {
     match size {
-        Size::Size(px) => icon.size(px),
+        Size::Size(size) => icon.size(crate::sizing::design(f32::from(size))),
         Size::XSmall => icon.size_3(),
         Size::Small => icon.size_3p5(),
         Size::Medium => icon.size_4(),
