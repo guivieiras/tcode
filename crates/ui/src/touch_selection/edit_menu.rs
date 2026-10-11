@@ -1,6 +1,7 @@
 //! The edit menu of a touch selection, adapted from gpui-component's
 //! Apache-2.0 `touch_selection/edit_menu.rs`.
 
+use crate::sizing::design;
 use std::rc::Rc;
 
 use gpui::{
@@ -110,7 +111,7 @@ impl RenderOnce for EditMenu {
             // keyboard, and a message keeps answering the menu's actions.
             let button = Button::new(ix)
                 .ghost()
-                .text_size(px(15.))
+                .text_size(design(15.))
                 .rounded_corners(corners)
                 .tab_stop(false)
                 .focusable(false)

@@ -3,6 +3,7 @@
 //! Shared by the composer's pending strip, sent-message thumbnails, Markdown
 //! images and image-link badges.
 
+use crate::sizing::{design, design_px};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -35,7 +36,7 @@ const WHEEL_LINE: Pixels = px(20.);
 const DRAG_SLOP: Pixels = px(4.);
 /// The toolbar is one of the shell's top strips, the height the window's
 /// own controls expect.
-const TOOLBAR_HEIGHT: Pixels = px(crate::window_caption::CAPTION_STRIP_HEIGHT);
+const TOOLBAR_HEIGHT: f32 = crate::window_caption::CAPTION_STRIP_HEIGHT;
 const STAGE_MARGIN: Pixels = px(16.);
 /// How long keys, buttons and double-clicks take to reach their placement.
 const GLIDE: Duration = Duration::from_millis(200);
@@ -352,7 +353,7 @@ impl Render for ImageViewer {
         };
         // The frame is centred on the stage, so the band the toolbar takes
         // above it is mirrored below.
-        let band = insets.top.max(insets.bottom) + TOOLBAR_HEIGHT + STAGE_MARGIN;
+        let band = insets.top.max(insets.bottom) + design_px(TOOLBAR_HEIGHT, window) + STAGE_MARGIN;
         self.frame = size(
             (viewport.width - insets.left - insets.right - STAGE_MARGIN * 2.).max(px(1.)),
             (viewport.height - band * 2.).max(px(1.)),
@@ -435,7 +436,7 @@ impl Render for ImageViewer {
             .top(insets.top)
             .left(insets.left)
             .right(insets.right)
-            .h(TOOLBAR_HEIGHT)
+            .h(design(TOOLBAR_HEIGHT))
             .flex()
             .items_center()
             .gap_1()
@@ -465,7 +466,7 @@ impl Render for ImageViewer {
             )
             .child(
                 div()
-                    .w(px(48.))
+                    .w(design(48.))
                     .text_center()
                     .text_xs()
                     .text_color(muted)

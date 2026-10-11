@@ -2,13 +2,14 @@
 //! subagents of its transcript, in the desktop right panel and the phone sheet.
 //! It shows what the host reports; delivery is never decided here.
 
+use crate::sizing::design;
 use std::time::Duration;
 
 use agent::{ItemContent, ItemStatus, ProviderKind};
 use gpui::{
     Action, AnyElement, App, Context, Entity, Hsla, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, Role, ScrollHandle, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Subscription, Task, WeakEntity, Window, div, prelude::FluentBuilder as _, px,
+    Styled as _, Subscription, Task, WeakEntity, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{InteractiveElementExt as _, StyledExt as _, h_flex, v_flex};
 use serde::Deserialize;
@@ -512,12 +513,12 @@ impl AgentsPanel {
         let muted = cx.theme().muted_foreground;
         h_flex()
             .flex_none()
-            .h(px(18.))
-            .px(px(6.))
+            .h(design(18.))
+            .px(design(6.))
             .gap_1()
             .items_center()
             .rounded(cx.theme().tokens.radius.sm)
-            .text_size(px(11.))
+            .text_size(design(11.))
             .font_medium()
             .map(|badge| match style {
                 BadgeStyle::Plain => badge.text_color(muted),
@@ -542,7 +543,7 @@ impl AgentsPanel {
             ),
             Some(AgentDelivery::Settled) => badges.push(
                 Self::badge(label("agents.delivery_settled"), BadgeStyle::Plain, cx)
-                    .child(Icon::new(IconName::Check).size(px(10.)))
+                    .child(Icon::new(IconName::Check).size(design(10.)))
                     .into_any_element(),
             ),
             Some(AgentDelivery::NotDelivered) => badges.push(
@@ -571,7 +572,7 @@ impl AgentsPanel {
                 .into_any_element(),
             execution => div()
                 .flex_none()
-                .size(px(8.))
+                .size(design(8.))
                 .rounded_full()
                 .bg(execution.map_or(cx.theme().muted_foreground, |execution| {
                     execution_color(execution, cx)
@@ -600,8 +601,8 @@ impl AgentsPanel {
             div()
                 .relative()
                 .flex_none()
-                .h(px(20.))
-                .when(inline_actions, |slot| slot.min_w(px(cluster_width)))
+                .h(design(20.))
+                .when(inline_actions, |slot| slot.min_w(design(cluster_width)))
                 .when_some(elapsed, |slot, elapsed| {
                     slot.child(
                         h_flex()
@@ -609,7 +610,7 @@ impl AgentsPanel {
                             .justify_end()
                             .items_center()
                             .whitespace_nowrap()
-                            .text_size(px(if compact { 13. } else { 11. }))
+                            .text_size(design(if compact { 13. } else { 11. }))
                             .text_color(muted)
                             .when(inline_actions, |time| {
                                 time.group_hover(group.clone(), |time| time.invisible())
@@ -666,7 +667,7 @@ impl AgentsPanel {
                     .flex_1()
                     .min_w_0()
                     .truncate()
-                    .text_size(px(if compact { 15. } else { 13. }))
+                    .text_size(design(if compact { 15. } else { 13. }))
                     .font_medium()
                     .child(title.clone()),
             )
@@ -677,7 +678,7 @@ impl AgentsPanel {
             .min_w_0()
             .gap_1()
             .items_center()
-            .text_size(px(if compact { 13. } else { 11. }))
+            .text_size(design(if compact { 13. } else { 11. }))
             .text_color(muted)
             .when_some(row.provider, |line, provider| {
                 line.child(
@@ -685,7 +686,7 @@ impl AgentsPanel {
                         ProviderKind::Acp => Icon::empty().path("icons/box.svg"),
                         kind => crate::provider_card::provider_glyph(kind),
                     }
-                    .size(px(12.))
+                    .size(design(12.))
                     .flex_none(),
                 )
             })
@@ -701,15 +702,15 @@ impl AgentsPanel {
         let content = v_flex()
             .flex_1()
             .min_w_0()
-            .gap(px(2.))
+            .gap(design(2.))
             .child(line_one)
             .child(line_two)
             .when_some(row.preview.clone(), |content, preview| {
                 content.child(
                     div()
                         .w_full()
-                        .text_size(px(12.))
-                        .line_height(px(17.))
+                        .text_size(design(12.))
+                        .line_height(design(17.))
                         .line_clamp(2)
                         .text_ellipsis()
                         .text_color(if row.execution == Some(AgentExecution::Failed) {
@@ -732,7 +733,7 @@ impl AgentsPanel {
         let base =
             if compact {
                 material::list_row(SharedString::from(format!("agent-{}", row.key)), label, cx)
-                    .min_h(px(64.))
+                    .min_h(design(64.))
                     .child(content)
                     .when(!actions.is_empty(), |row_el| {
                         let actions: Vec<_> =
@@ -752,7 +753,7 @@ impl AgentsPanel {
                             Button::new(SharedString::from(format!("agent-more-{}", row.key)))
                                 .ghost()
                                 .icon(IconName::Ellipsis)
-                                .size(px(44.))
+                                .size(design(44.))
                                 .aria_label(crate::tr!("mobile.more_actions"))
                                 .dropdown_menu(move |menu, _, _| {
                                     actions.iter().fold(menu, |menu, (label, action)| {
@@ -770,7 +771,7 @@ impl AgentsPanel {
                     cx,
                 )
                 .w_full()
-                .min_h(px(52.))
+                .min_h(design(52.))
                 .px_3()
                 .py_2()
                 .rounded(cx.theme().tokens.radius.md)
@@ -801,7 +802,7 @@ impl AgentsPanel {
                 .px_3()
                 .pt_3()
                 .pb_1()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .font_medium()
                 .text_color(cx.theme().muted_foreground)
                 .child(label)
@@ -819,13 +820,13 @@ impl AgentsPanel {
             .gap_1()
             .child(
                 div()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .font_medium()
                     .child(crate::tr!("agents.empty_title")),
             )
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("agents.empty_desc")),
             )
@@ -855,7 +856,7 @@ impl Render for AgentsPanel {
         if agents.is_empty() {
             return root.child(Self::render_empty(cx));
         }
-        let inset = px(if compact {
+        let inset = design(if compact {
             material::COMPACT_PAGE_INSET
         } else {
             12.
@@ -863,7 +864,7 @@ impl Render for AgentsPanel {
         let mut column = v_flex()
             .w_full()
             .min_w_0()
-            .px(px(if compact { 0. } else { 8. }))
+            .px(design(if compact { 0. } else { 8. }))
             .pb_3()
             .gap_0p5();
         if let Some(summary) = agents.summary() {
@@ -871,7 +872,7 @@ impl Render for AgentsPanel {
                 div()
                     .px(inset)
                     .py_2()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().muted_foreground)
                     .debug_selector(|| "agents-summary".into())
                     .child(summary),
@@ -894,7 +895,7 @@ impl Render for AgentsPanel {
                     div()
                         .px(inset)
                         .py_1()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("agents.readonly", provider = provider)),
                 );
@@ -910,7 +911,7 @@ impl Render for AgentsPanel {
                     .accessibility_label(label.clone())
                     .aria_expanded(expanded)
                     .w_full()
-                    .h(px(32.))
+                    .h(design(32.))
                     .px(inset)
                     .flex()
                     .items_center()
@@ -927,7 +928,7 @@ impl Render for AgentsPanel {
                             .w_full()
                             .gap_1p5()
                             .items_center()
-                            .text_size(px(if compact { 13. } else { 11. }))
+                            .text_size(design(if compact { 13. } else { 11. }))
                             .font_medium()
                             .text_color(cx.theme().muted_foreground)
                             .child(
@@ -936,7 +937,7 @@ impl Render for AgentsPanel {
                                 } else {
                                     IconName::ChevronRight
                                 })
-                                .size(px(12.)),
+                                .size(design(12.)),
                             )
                             .child(label),
                     ),

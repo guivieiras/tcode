@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::widgets::button::{Button, ButtonVariants as _};
 use crate::widgets::menu::{ContextMenuExt as _, CopyText};
@@ -7,7 +8,7 @@ use crate::{
 };
 use gpui::{
     AnyElement, App, ClickEvent, IntoElement as _, ParentElement as _, SharedString, Styled as _,
-    Window, div, prelude::FluentBuilder as _, px,
+    Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 
@@ -84,7 +85,7 @@ pub(crate) fn error_card(
             .items_center()
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().danger_foreground)
                     .child(crate::tr!(
                         "chat.limit_resume.resumes_in",
@@ -118,7 +119,7 @@ pub(crate) fn error_card(
                 )
                 .child(
                     div()
-                        .text_size(px(10.5))
+                        .text_size(design(10.5))
                         .font_medium()
                         .text_color(cx.theme().danger_foreground)
                         .child(crate::material::tracked_uppercase(
@@ -131,8 +132,8 @@ pub(crate) fn error_card(
         .child(
             div()
                 .w_full()
-                .text_size(px(13.))
-                .line_height(px(20.))
+                .text_size(design(13.))
+                .line_height(design(20.))
                 .text_color(cx.theme().danger_foreground)
                 .whitespace_normal()
                 .child(message.to_string()),
@@ -149,9 +150,9 @@ pub(crate) fn error_card(
         .child(
             div()
                 .flex_none()
-                .w(px(2.))
-                .ml(px(8.))
-                .my(px(8.))
+                .w(design(2.))
+                .ml(design(8.))
+                .my(design(8.))
                 .rounded_full()
                 .bg(danger),
         )

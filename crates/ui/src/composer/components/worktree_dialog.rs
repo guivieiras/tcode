@@ -16,7 +16,7 @@ pub(super) fn open(store: Entity<WorkspaceStore>, window: &mut Window, cx: &mut 
         dialog
             .title(crate::tr!("composer.new_worktree"))
             .width(crate::sizing::fit_viewport(
-                440.,
+                crate::sizing::design_px(440., window),
                 window.viewport_size().width - px(32.),
             ))
             .content(move |content_el, _, _| content_el.child(content.clone()))
@@ -155,7 +155,7 @@ impl Render for WorktreeDialog {
                 let mut list = v_flex()
                     .id("worktree-base-list")
                     .w(crate::sizing::fit_viewport(
-                        360.,
+                        crate::sizing::design_px(360., window),
                         window.viewport_size().width - px(64.),
                     ))
                     .max_h(px(240.))

@@ -1,4 +1,5 @@
 use crate::scroll::ScrollableElement as _;
+use crate::sizing::design;
 use std::borrow::Cow;
 
 use crate::icon::{Icon, IconName};
@@ -6,7 +7,7 @@ use crate::theme::ActiveTheme as _;
 use gpui::{
     AnyElement, App, ClickEvent, Div, InteractiveElement as _, IntoElement as _,
     ParentElement as _, Role, SharedString, StatefulInteractiveElement as _, Styled as _, Window,
-    div, px,
+    div,
 };
 use gpui_base::{h_flex, v_flex};
 
@@ -47,11 +48,11 @@ pub(crate) fn callback_row(
             cx,
         )
         .flex_none()
-        .h(px(24.))
+        .h(design(24.))
         .px_1p5()
         .items_center()
         .rounded(crate::material::radius_button(cx))
-        .text_size(px(11.))
+        .text_size(design(11.))
         .text_color(cx.theme().primary)
         .cursor_pointer()
         .hover(|link| link.bg(cx.theme().accent))
@@ -96,17 +97,21 @@ fn disclosure_with(
     )
     .aria_expanded(expanded)
     .flex_none()
-    .h(px(24.))
+    .h(design(24.))
     .px_1p5()
     .gap_1p5()
     .items_center()
     .rounded(crate::material::radius_button(cx))
-    .text_size(px(11.))
+    .text_size(design(11.))
     .text_color(muted)
     .cursor_pointer()
     .hover(|row| row.bg(cx.theme().accent))
     .on_click(on_toggle)
-    .child(Icon::new(chevron(expanded)).size(px(12.)).text_color(muted))
+    .child(
+        Icon::new(chevron(expanded))
+            .size(design(12.))
+            .text_color(muted),
+    )
     .child(label);
 
     let row = h_flex()
@@ -140,13 +145,13 @@ pub(crate) fn disclosure_body(key: &str, full_text: &str, cx: &App) -> Div {
             div()
                 .id(SharedString::from(format!("disclosure-body-{key}")))
                 .w_full()
-                .max_h(px(DISCLOSURE_CARD_MAX_HEIGHT))
+                .max_h(design(DISCLOSURE_CARD_MAX_HEIGHT))
                 .overflow_y_scroll_area()
                 .child(
                     div()
                         .w_full()
-                        .text_size(px(13.))
-                        .line_height(px(DISCLOSURE_LINE_HEIGHT))
+                        .text_size(design(13.))
+                        .line_height(design(DISCLOSURE_LINE_HEIGHT))
                         .text_color(muted)
                         .child(full_text.to_string()),
                 ),

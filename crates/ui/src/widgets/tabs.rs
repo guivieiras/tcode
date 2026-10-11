@@ -4,6 +4,7 @@
 //! for page and view navigation, [`TabBar::segmented`] for a view switch
 //! inside a panel, and [`TabBar::rail`] for a vertical navigation list. The
 //! segmented drawing is shared with [`super::choice::ChoiceGroup`].
+use crate::sizing::design;
 use crate::{
     icon::Icon,
     material::{self, TOUCH_TARGET, focus_ring},
@@ -282,7 +283,7 @@ impl RenderOnce for TabBar {
                 let viewport = div()
                     .id((id.clone(), "viewport"))
                     .flex()
-                    .h(px(m.bar))
+                    .h(design(m.bar))
                     .overflow_x_scroll_area()
                     .child(list);
                 div()
@@ -290,8 +291,8 @@ impl RenderOnce for TabBar {
                     .relative()
                     .min_w_0()
                     .max_w_full()
-                    .h(px(m.bar))
-                    .min_h(px(m.bar))
+                    .h(design(m.bar))
+                    .min_h(design(m.bar))
                     .when(hairline, |bar| {
                         bar.child(
                             div()
@@ -316,7 +317,7 @@ impl RenderOnce for TabBar {
                 .flex()
                 .flex_col()
                 .when(icon_only, |this| this.items_center())
-                .gap(px(2.))
+                .gap(design(2.))
                 .refine_style(&style)
                 .into_any_element(),
         }
@@ -360,7 +361,7 @@ fn render_item(
         _ => (theme.muted_foreground, theme.muted_foreground),
     };
     let trailing = trailing.filter(|_| !icon_only);
-    let gap = px(if compact { 8. } else { 6. });
+    let gap = design(if compact { 8. } else { 6. });
     // The item id doubles as its debug selector, so a test finds a tab by the
     // id its call site gave it.
     let selector = id.to_string();
@@ -375,7 +376,7 @@ fn render_item(
         .gap(gap)
         .when_some(icon, |this, icon| {
             let color = icon.explicit_text_color().unwrap_or(icon_fg);
-            this.child(icon.size(px(m.icon)).flex_none().text_color(color))
+            this.child(icon.size(design(m.icon)).flex_none().text_color(color))
         })
         .when(!icon_only, |this| {
             this.child(
@@ -459,32 +460,34 @@ fn surface<E: Styled + InteractiveElement + ParentElement + FluentBuilder>(
         .flex()
         .items_center()
         .flex_none()
-        .text_size(px(m.text))
+        .text_size(design(m.text))
         .rounded(surface_radius(form, cx));
     match form {
         // Only a rail may change weight with selection: its labels do not
         // share a line.
         Form::Rail => material::selectable_row(el, selected, compact, cx)
             .when(selected, |this| this.font_medium())
-            .when(icon_only, |this| this.w(px(m.item)).px_0().justify_center())
+            .when(icon_only, |this| {
+                this.w(design(m.item)).px_0().justify_center()
+            })
             .when(!icon_only, |this| this.w_full().justify_start()),
         // Weight does not change with selection on a horizontal bar: a bolder
         // selected label would widen its tab and shift its neighbours.
         Form::Underline | Form::Segmented => el
             .font_medium()
-            .gap(px(if compact { 8. } else { 6. }))
+            .gap(design(if compact { 8. } else { 6. }))
             .map(|this| {
                 if icon_only {
-                    this.min_w(px(m.item)).justify_center()
+                    this.min_w(design(m.item)).justify_center()
                 } else {
-                    this.pl(px(m.pad)).pr(px(end))
+                    this.pl(design(m.pad)).pr(design(end))
                 }
             })
             .map(|this| {
                 if form == Form::Segmented {
                     return segment(this, selected, true, compact, cx);
                 }
-                this.h(px(m.item))
+                this.h(design(m.item))
                     .when(!selected, |this| {
                         this.hover(move |style| style.bg(theme.muted).text_color(foreground))
                     })
@@ -494,11 +497,11 @@ fn surface<E: Styled + InteractiveElement + ParentElement + FluentBuilder>(
                         this.child(
                             div()
                                 .absolute()
-                                .left(px(start))
-                                .right(px(end))
-                                .bottom(px(-(m.bar - m.item) / 2.))
-                                .h(px(INDICATOR))
-                                .rounded(px(INDICATOR / 2.))
+                                .left(design(start))
+                                .right(design(end))
+                                .bottom(design(-(m.bar - m.item) / 2.))
+                                .h(design(INDICATOR))
+                                .rounded(design(INDICATOR / 2.))
                                 .bg(foreground),
                         )
                     })
@@ -536,8 +539,8 @@ pub(crate) fn segmented_track(
     div()
         .id((id, "viewport"))
         .flex()
-        .h(px(height))
-        .min_h(px(height))
+        .h(design(height))
+        .min_h(design(height))
         .min_w_0()
         .overflow_x_scroll_area()
         .child(
@@ -546,8 +549,8 @@ pub(crate) fn segmented_track(
                 .h_full()
                 .min_w_full()
                 .flex_shrink_0()
-                .gap(px(2.))
-                .p(px(TRACK_INSET))
+                .gap(design(2.))
+                .p(design(TRACK_INSET))
                 .rounded(cx.theme().tokens.radius.md)
                 .bg(cx.theme().secondary),
         )
@@ -572,7 +575,7 @@ pub(crate) fn segment<E: Styled + InteractiveElement + FluentBuilder>(
         theme.popover
     };
     let (muted, foreground) = (theme.muted, theme.foreground);
-    el.h(px(segment_height(compact)))
+    el.h(design(segment_height(compact)))
         .flex_grow(1.)
         .flex_basis(px(0.))
         .flex_shrink_0()

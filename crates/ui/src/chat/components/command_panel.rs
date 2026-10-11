@@ -4,11 +4,12 @@
 //! to "render this stored item at N columns". Until that answer arrives the
 //! panel shows the raw text, which is always something rather than a gap.
 
+use crate::sizing::{design, design_px};
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use gpui::{
     AnyElement, App, ContentMask, Hsla, IntoElement as _, ParentElement as _, Rgba, Styled as _,
-    Task, Window, canvas, div, prelude::FluentBuilder as _, px,
+    Task, Window, canvas, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{ElementExt as _, v_flex};
 use tcode_protocol::{
@@ -245,7 +246,7 @@ impl Panel {
             .when_some(on_cols_change, |panel, on_cols_change| {
                 panel.on_prepaint(move |bounds, window, cx| {
                     let measured = clamp_cols(
-                        (f32::from(bounds.size.width) / TERMINAL_CELL_WIDTH)
+                        (bounds.size.width / design_px(TERMINAL_CELL_WIDTH, window))
                             .floor()
                             .clamp(0., f32::from(u16::MAX)) as u16,
                     );
@@ -280,8 +281,8 @@ fn plain_output(output: &str, budget: usize) -> Option<AnyElement> {
             .w_full()
             .overflow_hidden()
             .font_family(TERMINAL_FONT_FAMILY)
-            .text_size(px(TERMINAL_FONT_SIZE))
-            .line_height(px(TERMINAL_CELL_HEIGHT))
+            .text_size(design(TERMINAL_FONT_SIZE))
+            .line_height(design(TERMINAL_CELL_HEIGHT))
             .children(
                 tail.iter()
                     .map(|line| div().child(line.to_string()).into_any_element()),
@@ -307,15 +308,15 @@ fn grid_element(
                     cx,
                     &paint_data,
                     palette,
-                    TERMINAL_CELL_WIDTH,
-                    TERMINAL_CELL_HEIGHT,
+                    f32::from(design_px(TERMINAL_CELL_WIDTH, window)),
+                    f32::from(design_px(TERMINAL_CELL_HEIGHT, window)),
                     false,
                 );
             });
         },
     )
-    .w(px(f32::from(cols) * TERMINAL_CELL_WIDTH))
-    .h(px(rows as f32 * TERMINAL_CELL_HEIGHT))
+    .w(design(f32::from(cols) * TERMINAL_CELL_WIDTH))
+    .h(design(rows as f32 * TERMINAL_CELL_HEIGHT))
     .into_any_element()
 }
 

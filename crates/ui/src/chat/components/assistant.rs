@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -8,7 +9,7 @@ use crate::widgets::menu::{ContextMenuExt as _, CopyText, PopupMenu};
 use gpui::{
     Animation, AnimationExt as _, AnyElement, App, AppContext as _, ClickEvent, Context, Div,
     Entity, InteractiveElement as _, IntoElement, ParentElement as _, SharedString, Styled as _,
-    Window, div, prelude::FluentBuilder as _, px,
+    Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 
@@ -105,11 +106,11 @@ pub(crate) fn assistant(
                 .into_any_element()
         },
     );
-    let message = v_flex().w_full().items_start().gap(px(2.)).child(
+    let message = v_flex().w_full().items_start().gap(design(2.)).child(
         div()
             .w_full()
-            .text_size(px(15.))
-            .line_height(px(26.))
+            .text_size(design(15.))
+            .line_height(design(26.))
             .child(content),
     );
     let margin_menu = move |menu: PopupMenu, window: &mut Window, cx: &mut Context<PopupMenu>| {
@@ -121,7 +122,7 @@ pub(crate) fn assistant(
     }
 
     let group_key = SharedString::from(format!("assistant-{id}"));
-    let actions = h_flex().gap(px(2.)).items_center().child(copy_button(
+    let actions = h_flex().gap(design(2.)).items_center().child(copy_button(
         &format!("assistant:{id}"),
         copied,
         compact,
@@ -149,7 +150,7 @@ pub(crate) fn reserve_action_row(
     compact: bool,
 ) -> Div {
     div()
-        .h(px(if compact {
+        .h(design(if compact {
             44.
         } else {
             crate::material::CHAT_ACTION_ROW_HEIGHT

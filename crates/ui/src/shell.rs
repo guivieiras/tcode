@@ -21,6 +21,7 @@
 #[path = "thread_notifications.rs"]
 mod thread_notifications;
 
+use crate::sizing::{design, design_px};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -213,6 +214,10 @@ struct ShellAttachment {
     /// and a trip through the compact layout is such a resize, so this is also
     /// what restores the split when the window widens again.
     sidebar_width: Rc<Cell<Pixels>>,
+    /// The zoom `right_width` and `sidebar_width` were last expressed at.
+    /// They are window pixels, so a zoom change rescales them to keep the
+    /// same design width.
+    layout_zoom: u16,
     /// Keep restoring the sidebar width until the panel reports it, then stop
     /// so the restore never fights an in-progress drag.
     sidebar_restore_pending: bool,
@@ -913,7 +918,7 @@ impl AppShell {
             preview,
             sidebar,
             split: cx.new(|_| ResizableState::default()),
-            right_width: Rc::new(Cell::new(px(RIGHT_PANEL_WIDTH))),
+            right_width: Rc::new(Cell::new(design_px(RIGHT_PANEL_WIDTH, window))),
             floating_split: cx.new(|_| ResizableState::default()),
             floating_focus: cx.new(|cx| {
                 let mut focus = gpui_base::PopoverState::new(false, cx);
@@ -927,7 +932,8 @@ impl AppShell {
             }),
             floating_restore_pending: true,
             right_restore_pending: true,
-            sidebar_width: Rc::new(Cell::new(px(SIDEBAR_WIDTH))),
+            sidebar_width: Rc::new(Cell::new(design_px(SIDEBAR_WIDTH, window))),
+            layout_zoom: crate::zoom::percent(cx),
             sidebar_restore_pending: false,
             sidebar_overlay_visible: false,
             observed_session_id,
@@ -1631,7 +1637,7 @@ fn nav_bar(
     let leading = h_flex()
         .absolute()
         .inset_0()
-        .px(px(4.))
+        .px(design(4.))
         .when(traffic_lights > Pixels::ZERO, |row| row.pl(traffic_lights))
         .items_center()
         .children(back)
@@ -1646,7 +1652,7 @@ fn nav_bar(
             window_drag_area("compact-nav-drag", div(), window, cx)
                 .relative()
                 .w_full()
-                .h(px(52.))
+                .h(design(52.))
                 .child(leading)
                 .child(
                     // Centered in the room the controls leave it: the back
@@ -1656,8 +1662,8 @@ fn nav_bar(
                     v_flex()
                         .absolute()
                         .inset_0()
-                        .pl(traffic_lights + px(NAV_CONTROL_WIDTH))
-                        .pr(px(NAV_CONTROL_WIDTH))
+                        .pl(traffic_lights + design_px(NAV_CONTROL_WIDTH, window))
+                        .pr(design(NAV_CONTROL_WIDTH))
                         .items_center()
                         .justify_center()
                         .child(
@@ -1665,8 +1671,8 @@ fn nav_bar(
                                 .max_w_full()
                                 .min_w_0()
                                 .truncate()
-                                .text_size(px(17.))
-                                .line_height(px(22.))
+                                .text_size(design(17.))
+                                .line_height(design(22.))
                                 .font_semibold()
                                 .child(title),
                         )
@@ -1682,10 +1688,10 @@ fn back_button(id: &'static str, parent: SharedString, cx: &App) -> gpui::Statef
         // A control press must not arm the ancestor window drag region.
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .flex_none()
-        .h(px(44.))
-        .pl(px(4.))
-        .pr(px(10.))
-        .gap(px(2.))
+        .h(design(44.))
+        .pl(design(4.))
+        .pr(design(10.))
+        .gap(design(2.))
         .items_center()
         .rounded(cx.theme().tokens.radius.lg)
         .cursor_pointer()
@@ -1694,15 +1700,15 @@ fn back_button(id: &'static str, parent: SharedString, cx: &App) -> gpui::Statef
         .child(
             Icon::empty()
                 .path("icons/chevron-left.svg")
-                .size(px(20.))
+                .size(design(20.))
                 .flex_none(),
         )
         .child(
             // A fixed label is short by construction: it is never truncated.
             div()
                 .flex_none()
-                .text_size(px(15.))
-                .line_height(px(20.))
+                .text_size(design(15.))
+                .line_height(design(20.))
                 .child(parent),
         )
 }
@@ -1720,7 +1726,7 @@ fn nav_icon_button(
     crate::material::accessible_clickable(div(), id, Role::Button, aria_label.into(), cx)
         // A control press must not arm the ancestor window drag region.
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .size(px(44.))
+        .size(design(44.))
         .flex_none()
         .flex()
         .items_center()
@@ -1733,7 +1739,7 @@ fn nav_icon_button(
             theme.muted_foreground
         })
         .active(|s| s.bg(theme.foreground.opacity(0.08)))
-        .child(Icon::new(icon).size(px(20.)))
+        .child(Icon::new(icon).size(design(20.)))
 }
 
 /// The muted second line under a nav-bar title: how the machine a thread
@@ -1743,8 +1749,8 @@ fn nav_subtitle(text: impl Into<SharedString>, cx: &App) -> AnyElement {
         .max_w_full()
         .min_w_0()
         .truncate()
-        .text_size(px(13.))
-        .line_height(px(18.))
+        .text_size(design(13.))
+        .line_height(design(18.))
         .text_color(cx.theme().muted_foreground)
         .child(text.into())
         .into_any_element()
@@ -2215,7 +2221,13 @@ impl AppShell {
                 window,
                 cx,
             ))
-            .child(div().flex_none().px(px(16.)).py(px(8.)).child(segments))
+            .child(
+                div()
+                    .flex_none()
+                    .px(design(16.))
+                    .py(design(8.))
+                    .child(segments),
+            )
             .child(div().flex_1().min_h_0().child(body))
             .into_any_element()
     }
@@ -2464,8 +2476,8 @@ impl AppShell {
                 ]));
                 element
             })
-            .text_size(px(16.))
-            .line_height(px(22.))
+            .text_size(design(16.))
+            .line_height(design(22.))
             .on_action(cx.listener(Self::on_toggle_palette))
             .on_action(cx.listener(Self::on_open_source_control))
             .key_context("TcodeShell")
@@ -2544,7 +2556,7 @@ impl AppShell {
             "hosts-header-drag",
             h_flex()
                 .flex_none()
-                .h(px(52.))
+                .h(design(52.))
                 .w_full()
                 .px_2()
                 .gap_2()
@@ -2554,7 +2566,11 @@ impl AppShell {
             cx,
         )
         .child(window_caption::drag_region(
-            div().flex_1().text_size(px(15.)).font_medium().child(title),
+            div()
+                .flex_1()
+                .text_size(design(15.))
+                .font_medium()
+                .child(title),
         ))
         .children(hosts_caption.then(|| {
             div()
@@ -2595,6 +2611,18 @@ impl AppShell {
         let Some(attachment) = &mut self.attachment else {
             unreachable!("checked above");
         };
+        let zoom = crate::zoom::percent(cx);
+        let zoom_changed = attachment.layout_zoom != zoom;
+        if zoom_changed {
+            let ratio = f32::from(zoom) / f32::from(attachment.layout_zoom);
+            attachment.layout_zoom = zoom;
+            attachment
+                .sidebar_width
+                .set(attachment.sidebar_width.get() * ratio);
+            attachment
+                .right_width
+                .set(attachment.right_width.get() * ratio);
+        }
         let collapsed = self.window_state.read(cx).sidebar_collapsed;
         // The overlay is workspace-only transient state. Clear it synchronously
         // on route/expanded transitions rather than waiting for pointer input.
@@ -2726,7 +2754,8 @@ impl AppShell {
         // Collapsing or expanding the sidebar changes the group's panel count,
         // which rescales it the same way.
         let viewport_width = window.viewport_size().width;
-        let layout_changed = self.last_split_layout != Some((viewport_width, collapsed));
+        let layout_changed =
+            zoom_changed || self.last_split_layout != Some((viewport_width, collapsed));
         if layout_changed {
             self.last_split_layout = Some((viewport_width, collapsed));
             attachment.sidebar_restore_pending = true;
@@ -2756,22 +2785,25 @@ impl AppShell {
         // over the chat's right edge and the chat keeps the whole column
         // underneath, rather than either being squeezed below its minimum.
         let beside_sidebar = viewport_width - sidebar_layout_width;
-        let chat_min = px(CHAT_MIN_WIDTH
-            + crate::chat::header_extra_width(
-                attachment.link.store.read(cx),
-                collapsed,
-                fullscreen,
-                false,
-            ));
-        let right_floats =
-            diff_open && chat_visible && beside_sidebar < chat_min + px(RIGHT_PANEL_MIN_WIDTH);
+        let chat_min = design_px(
+            CHAT_MIN_WIDTH
+                + crate::chat::header_extra_width(
+                    attachment.link.store.read(cx),
+                    collapsed,
+                    fullscreen,
+                    false,
+                ),
+            window,
+        );
+        let right_min = design_px(RIGHT_PANEL_MIN_WIDTH, window);
+        let right_floats = diff_open && chat_visible && beside_sidebar < chat_min + right_min;
         attachment.floating_focus.update(cx, |focus, cx| {
             focus.sync_open(right_floats, window, cx);
         });
         let floating_width = attachment
             .right_width
             .get()
-            .max(px(RIGHT_PANEL_MIN_WIDTH))
+            .max(right_min)
             .min(beside_sidebar);
         if !right_floats || layout_changed {
             attachment.floating_restore_pending = true;
@@ -2813,7 +2845,7 @@ impl AppShell {
                 .right_width
                 .get()
                 .min(beside_sidebar - chat_min)
-                .max(px(RIGHT_PANEL_MIN_WIDTH));
+                .max(right_min);
             let restored =
                 attachment
                     .split
@@ -2860,9 +2892,13 @@ impl AppShell {
         let right = resizable_panel()
             .when(chat_visible, |panel| panel.flex_none())
             .visible(right_docked)
-            .size(px(RIGHT_PANEL_WIDTH))
+            .size(design_px(RIGHT_PANEL_WIDTH, window))
             .size_range(
-                px(RIGHT_PANEL_MIN_WIDTH)..if chat_visible { px(1400.) } else { Pixels::MAX },
+                right_min..if chat_visible {
+                    design_px(1400., window)
+                } else {
+                    Pixels::MAX
+                },
             )
             .child(
                 div()
@@ -2908,9 +2944,7 @@ impl AppShell {
                             resizable_panel()
                                 .flex_none()
                                 .size(floating_width)
-                                .size_range(
-                                    px(RIGHT_PANEL_MIN_WIDTH).min(beside_sidebar)..beside_sidebar,
-                                )
+                                .size_range(right_min.min(beside_sidebar)..beside_sidebar)
                                 .child(
                                     div()
                                         .id("right-panel-overlay")
@@ -3001,7 +3035,7 @@ impl AppShell {
                         .left_0()
                         .top_0()
                         .h_full()
-                        .w(px(SIDEBAR_HOVER_EDGE))
+                        .w(design(SIDEBAR_HOVER_EDGE))
                         .occlude()
                         .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                             this.update_sidebar_overlay(
@@ -3048,8 +3082,8 @@ impl AppShell {
                         .child(
                             resizable_panel()
                                 .flex_none()
-                                .size(px(SIDEBAR_WIDTH))
-                                .size_range(px(220.)..px(380.))
+                                .size(design_px(SIDEBAR_WIDTH, window))
+                                .size_range(design_px(220., window)..design_px(380., window))
                                 .child(sidebar),
                         )
                         .child(chat_panel)
@@ -7055,6 +7089,44 @@ mod tests {
         assert!(
             !store.read_with(cx, |store, _| store.panel_state().right_panel_open),
             "nothing covers the close button"
+        );
+    }
+
+    /// The split remembers its widths in window pixels. A zoom change keeps
+    /// each panel at the design width it had, in the panel actually laid out
+    /// and in what the next restore returns to.
+    #[gpui::test]
+    fn zoom_keeps_the_split_at_the_same_design_widths(cx: &mut TestAppContext) {
+        let _locale_guard = crate::settings::TestLocaleGuard::acquire();
+        let (shell, host, cx) = mount_crowded_thread(cx);
+        let store = store_of(&shell, cx);
+        resize(cx, 2400.);
+        store.update(cx, |store, cx| store.toggle_diff_panel(cx));
+        draw_until(&shell, cx, &host, "diff-body", None);
+        draw(cx);
+        let widths = |cx: &mut VisualTestContext| {
+            let sidebar = shell.read_with(cx, |shell, _| {
+                shell.attachment.as_ref().unwrap().sidebar_width.get()
+            });
+            let panel = cx.debug_bounds("right-panel").expect("the docked panel");
+            (sidebar, panel.size.width, panel.right())
+        };
+        assert_eq!(
+            widths(cx),
+            (px(SIDEBAR_WIDTH), px(RIGHT_PANEL_WIDTH), px(2400.))
+        );
+
+        cx.update(|window, cx| crate::zoom::set(150, window, cx));
+        for _ in 0..3 {
+            draw(cx);
+        }
+        assert_eq!(
+            widths(cx),
+            (
+                px(SIDEBAR_WIDTH * 1.5),
+                px(RIGHT_PANEL_WIDTH * 1.5),
+                px(2400.)
+            )
         );
     }
 

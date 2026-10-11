@@ -1,5 +1,6 @@
 use super::super::*;
 use crate::scroll::ScrollableElement as _;
+use crate::sizing::design;
 use tcode_core::session::PendingUserInput;
 
 impl Composer {
@@ -69,7 +70,7 @@ impl Composer {
                         .debug_selector(|| "ui-reveal".into())
                         .ghost()
                         .xsmall()
-                        .when(self.compact, |button| button.min_h(px(touch)))
+                        .when(self.compact, |button| button.min_h(design(touch)))
                         .icon(IconName::Info)
                         .label(crate::tr!("userinput.async_header"))
                         .tooltip(crate::tr!("userinput.answer"))
@@ -97,7 +98,7 @@ impl Composer {
             .ghost()
             .xsmall()
             .when(self.compact, |button| {
-                button.min_w(px(touch)).min_h(px(touch))
+                button.min_w(design(touch)).min_h(design(touch))
             })
             .icon(if expanded {
                 IconName::ChevronDown
@@ -131,7 +132,7 @@ impl Composer {
                     .flex_none()
                     .max_w_1_2()
                     .truncate()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_medium()
                     .child(title),
             )
@@ -141,7 +142,7 @@ impl Composer {
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(question.question.clone()),
                 )
@@ -157,7 +158,7 @@ impl Composer {
                             .ghost()
                             .xsmall()
                             .when(self.compact, |button| {
-                                button.min_w(px(touch)).min_h(px(touch))
+                                button.min_w(design(touch)).min_h(design(touch))
                             })
                             .icon(IconName::ChevronLeft)
                             .disabled(index == 0)
@@ -171,7 +172,7 @@ impl Composer {
                     .child(
                         div()
                             .flex_none()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(muted)
                             .child(crate::tr!(
                                 "userinput.question_count",
@@ -185,7 +186,7 @@ impl Composer {
                             .ghost()
                             .xsmall()
                             .when(self.compact, |button| {
-                                button.min_w(px(touch)).min_h(px(touch))
+                                button.min_w(design(touch)).min_h(design(touch))
                             })
                             .icon(IconName::ChevronRight)
                             .disabled(index + 1 >= total)
@@ -206,7 +207,7 @@ impl Composer {
                     .ghost()
                     .xsmall()
                     .when(self.compact, |button| {
-                        button.min_w(px(touch)).min_h(px(touch))
+                        button.min_w(design(touch)).min_h(design(touch))
                     })
                     .icon(IconName::Close)
                     .tooltip(crate::tr!("userinput.dismiss"))
@@ -250,7 +251,7 @@ impl Composer {
             let questions_for_click = questions.clone();
             let request_for_click = request_id.clone();
             let mark = div()
-                .size(px(16.))
+                .size(design(16.))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -263,14 +264,14 @@ impl Composer {
                 .border_color(if is_selected { primary } else { muted })
                 .when(is_selected, |mark| {
                     mark.bg(primary)
-                        .child(div().size(px(6.)).rounded_full().bg(gpui::white()))
+                        .child(div().size(design(6.)).rounded_full().bg(gpui::white()))
                 });
             options = options.child(
                 h_flex()
                     .id(("ui-opt", opt_index))
                     .flex_none()
                     .w_full()
-                    .min_h(px(if self.compact { 48. } else { 28. }))
+                    .min_h(design(if self.compact { 48. } else { 28. }))
                     .px_2()
                     .py_1()
                     .gap_2()
@@ -279,7 +280,7 @@ impl Composer {
                     .cursor_pointer()
                     .when(is_selected, |s| s.bg(cx.theme().list_active))
                     .hover(|s| s.bg(cx.theme().muted))
-                    .child(div().flex_none().pt(px(2.)).child(mark))
+                    .child(div().flex_none().pt(design(2.)).child(mark))
                     .child(
                         v_flex()
                             .flex_1()
@@ -289,7 +290,7 @@ impl Composer {
                                 h_flex()
                                     .gap_1p5()
                                     .items_center()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     // Digits select only while the agent is
                                     // blocked; the composer keeps them otherwise.
                                     .when(blocking, |row| {
@@ -305,7 +306,7 @@ impl Composer {
                             .when(!option.description.is_empty(), |this| {
                                 this.child(
                                     div()
-                                        .text_size(px(13.))
+                                        .text_size(design(13.))
                                         .text_color(muted)
                                         .child(option.description.clone()),
                                 )
@@ -338,7 +339,11 @@ impl Composer {
                 v_flex()
                     .w_full()
                     .gap_2()
-                    .child(div().text_size(px(13.)).child(question.question.clone()))
+                    .child(
+                        div()
+                            .text_size(design(13.))
+                            .child(question.question.clone()),
+                    )
                     .when(!question.options.is_empty(), |this| this.child(options)),
             );
 
@@ -365,7 +370,7 @@ impl Composer {
                     .ghost()
                     .xsmall()
                     .when(self.compact, |button| {
-                        button.min_w(px(touch)).min_h(px(touch))
+                        button.min_w(design(touch)).min_h(design(touch))
                     })
                     .icon(IconName::ArrowUp)
                     .disabled(!custom_has_text)
@@ -395,7 +400,7 @@ impl Composer {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .children(hint),
             )
@@ -404,8 +409,10 @@ impl Composer {
                     Button::new("ui-done")
                         .primary()
                         .small()
-                        .h(px(28.))
-                        .when(self.compact, |button| button.min_h(px(44.)).min_w(px(44.)))
+                        .h(design(28.))
+                        .when(self.compact, |button| {
+                            button.min_h(design(44.)).min_w(design(44.))
+                        })
                         .rounded(crate::material::radius_input(cx))
                         .label(crate::tr!("userinput.done"))
                         .on_click(cx.listener(move |this, _, window, cx| {

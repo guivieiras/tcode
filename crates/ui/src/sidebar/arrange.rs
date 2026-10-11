@@ -8,6 +8,7 @@
 //! `on_drop`, and GPUI does not cancel a drag on Escape by itself.
 
 use super::*;
+use crate::sizing::design;
 use gpui::{DragMoveEvent, KeystrokeEvent, MouseButton, Pixels, WeakEntity, deferred};
 use tcode_core::thread_sort::{order_key_between, plan_reorder, thread_section};
 
@@ -144,16 +145,16 @@ impl Render for ThreadDragView {
         if self.compact {
             return v_flex()
                 .w(width)
-                .min_h(px(crate::material::LIST_ROW_MIN_HEIGHT))
+                .min_h(design(crate::material::LIST_ROW_MIN_HEIGHT))
                 .justify_center()
-                .px(px(crate::material::COMPACT_PAGE_INSET))
-                .py(px(8.))
+                .px(design(crate::material::COMPACT_PAGE_INSET))
+                .py(design(8.))
                 .rounded(cx.theme().tokens.radius.lg)
                 .bg(cx.theme().list_active)
                 .shadow_lg()
                 .child(
                     div()
-                        .text_size(px(15.))
+                        .text_size(design(15.))
                         .line_clamp(2)
                         .text_color(cx.theme().foreground)
                         .child(self.title.clone()),
@@ -161,7 +162,7 @@ impl Render for ThreadDragView {
                 .when_some(action, |card, action| {
                     card.child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().primary)
                             .child(action.label()),
                     )
@@ -170,8 +171,8 @@ impl Render for ThreadDragView {
         }
         h_flex()
             .w(width)
-            .h(px(FLAT_ROW_INNER_HEIGHT))
-            .px(px(THREAD_ROW_PADDING_X))
+            .h(design(FLAT_ROW_INNER_HEIGHT))
+            .px(design(THREAD_ROW_PADDING_X))
             .gap_2()
             .items_center()
             .rounded(cx.theme().tokens.radius.md)
@@ -180,7 +181,7 @@ impl Render for ThreadDragView {
             .text_color(cx.theme().sidebar_foreground)
             .child(
                 truncated_sidebar_label()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .child(self.title.clone()),
             )
             .when_some(action, |row, action| {
@@ -190,18 +191,18 @@ impl Render for ThreadDragView {
                         .role(Role::Status)
                         .aria_label(action.label())
                         .flex_none()
-                        .h(px(20.))
-                        .px(px(6.))
+                        .h(design(20.))
+                        .px(design(6.))
                         .gap_1()
                         .items_center()
                         .rounded(cx.theme().tokens.radius.sm)
                         .border_1()
                         .border_color(cx.theme().primary.opacity(0.4))
                         .bg(cx.theme().primary.opacity(0.1))
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .font_medium()
                         .text_color(cx.theme().primary)
-                        .child(Icon::new(action.icon()).size(px(12.)))
+                        .child(Icon::new(action.icon()).size(design(12.)))
                         .child(action.label()),
                 )
             })
@@ -771,14 +772,14 @@ impl SessionsSidebar {
         if empty {
             let target = div().w_full().py_1().child(
                 h_flex()
-                    .h(px(EMPTY_TARGET_HEIGHT - 8.))
+                    .h(design(EMPTY_TARGET_HEIGHT - 8.))
                     .px_2()
                     .items_center()
                     .rounded(cx.theme().tokens.radius.sm)
                     .border_1()
                     .border_dashed()
                     .border_color(cx.theme().primary)
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .font_medium()
                     .text_color(color)
                     .child(label),
@@ -803,10 +804,10 @@ impl SessionsSidebar {
             .child(deferred(
                 h_flex()
                     .absolute()
-                    .top(px(-BOUNDARY_LABEL_HEIGHT / 2.))
+                    .top(design(-BOUNDARY_LABEL_HEIGHT / 2.))
                     .left_0()
                     .right_0()
-                    .h(px(BOUNDARY_LABEL_HEIGHT))
+                    .h(design(BOUNDARY_LABEL_HEIGHT))
                     .gap_1()
                     .items_center()
                     .child(div().flex_none().w_2().h(px(1.)).bg(rule))
@@ -816,8 +817,8 @@ impl SessionsSidebar {
                             .px_1p5()
                             .rounded_full()
                             .bg(cx.theme().muted)
-                            .text_size(px(11.))
-                            .line_height(px(BOUNDARY_LABEL_HEIGHT))
+                            .text_size(design(11.))
+                            .line_height(design(BOUNDARY_LABEL_HEIGHT))
                             .text_color(if targeted {
                                 cx.theme().primary
                             } else {
@@ -846,7 +847,7 @@ impl SessionsSidebar {
 
     /// The slot a dragged row leaves while it follows the pointer.
     pub(super) fn render_drag_gap(height: f32) -> gpui::AnyElement {
-        div().w_full().h(px(height)).into_any_element()
+        div().w_full().h(design(height)).into_any_element()
     }
 
     pub(crate) fn render_arrange(
@@ -923,18 +924,18 @@ impl SessionsSidebar {
                 div()
                     .debug_selector(|| "arrange-title".into())
                     .flex_none()
-                    .px(px(COMPACT_PAGE_PADDING))
-                    .pt(px(8.))
-                    .text_size(px(22.))
+                    .px(design(COMPACT_PAGE_PADDING))
+                    .pt(design(8.))
+                    .text_size(design(22.))
                     .font_semibold()
                     .child(crate::tr!("sidebar.arrange_title")),
             )
             .child(
                 div()
                     .flex_none()
-                    .px(px(COMPACT_PAGE_PADDING))
-                    .py(px(8.))
-                    .text_size(px(13.))
+                    .px(design(COMPACT_PAGE_PADDING))
+                    .py(design(8.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("sidebar.arrange_hint")),
             )
@@ -997,9 +998,9 @@ impl SessionsSidebar {
                 .drop_zone(
                     div()
                         .w_full()
-                        .px(px(crate::material::COMPACT_PAGE_INSET))
-                        .py(px(12.))
-                        .text_size(px(13.))
+                        .px(design(crate::material::COMPACT_PAGE_INSET))
+                        .py(design(12.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("sidebar.arrange_pinned_empty")),
                     DropZone::Start(ThreadSection::Pinned),
@@ -1020,11 +1021,11 @@ impl SessionsSidebar {
                 .aria_expanded(expanded)
                 .debug_selector(|| "arrange-settled".into())
                 .w_full()
-                .h(px(44.))
+                .h(design(44.))
                 .gap_2()
-                .px(px(crate::material::COMPACT_PAGE_INSET))
+                .px(design(crate::material::COMPACT_PAGE_INSET))
                 .items_center()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .font_medium()
                 .text_color(caption_color(ThreadSection::Settled))
                 .cursor_pointer()
@@ -1099,7 +1100,7 @@ impl SessionsSidebar {
             move || format!("arrange-handle-{id}")
         })
         .flex_none()
-        .size(px(ARRANGE_HANDLE_SIZE))
+        .size(design(ARRANGE_HANDLE_SIZE))
         .flex()
         .items_center()
         .justify_center()
@@ -1108,7 +1109,7 @@ impl SessionsSidebar {
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .child(
             Icon::new(IconName::GripVertical)
-                .size(px(20.))
+                .size(design(20.))
                 .text_color(cx.theme().muted_foreground),
         );
         let handle = match self.dragged_thread(meta, &state, cx) {
@@ -1124,16 +1125,16 @@ impl SessionsSidebar {
             let id = meta.id.clone();
             move || format!("arrange-row-{id}")
         })
-        .pr(px(4.))
+        .pr(design(4.))
         .child(
             v_flex()
                 .flex_1()
                 .min_w_0()
-                .gap(px(2.))
+                .gap(design(2.))
                 .child(
                     div()
-                        .text_size(px(15.))
-                        .line_height(px(20.))
+                        .text_size(design(15.))
+                        .line_height(design(20.))
                         .line_clamp(2)
                         .text_color(if meta.is_settled() {
                             cx.theme().muted_foreground
@@ -1145,7 +1146,7 @@ impl SessionsSidebar {
                 .when_some(project, |column, project| {
                     column.child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .truncate()
                             .text_color(cx.theme().muted_foreground)
                             .child(project),

@@ -1,4 +1,5 @@
 use crate::scroll::ScrollableElement as _;
+use crate::sizing::{design, design_px};
 use crate::theme::ActiveTheme as _;
 use gpui::{
     Anchor, AnyElement, App, Context, ElementId, FocusHandle, InteractiveElement as _, IntoElement,
@@ -255,7 +256,7 @@ impl Popover {
             let insets = crate::window_seam::content_insets(window);
             let max_height = (viewport.height - insets.top - px(52.) - insets.bottom).max(px(0.));
             // The grabber, the title row and the hairline above the content.
-            let chrome_height = px(16.) + px(48.) + px(1.);
+            let chrome_height = design_px(16. + 48., window) + px(1.);
             let close = state.clone();
             let focus = state.read(cx).focus_handle(cx);
             let content = self
@@ -283,16 +284,16 @@ impl Popover {
                 .child(crate::material::sheet_grabber(cx))
                 .child(
                     gpui_base::h_flex()
-                        .h(px(48.))
+                        .h(design(48.))
                         .flex_none()
-                        .px(px(crate::material::COMPACT_PAGE_INSET))
+                        .px(design(crate::material::COMPACT_PAGE_INSET))
                         .items_center()
                         .child(
                             div()
                                 .flex_1()
                                 .min_w_0()
                                 .truncate()
-                                .text_size(px(17.))
+                                .text_size(design(17.))
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .children(self.sheet_title),
                         )
@@ -301,13 +302,13 @@ impl Popover {
                                 .id("touch-picker-close")
                                 .role(Role::Button)
                                 .aria_label(crate::tr!("mobile.cancel"))
-                                .min_w(px(44.))
-                                .h(px(44.))
+                                .min_w(design(44.))
+                                .h(design(44.))
                                 .flex()
                                 .items_center()
                                 .justify_end()
                                 .cursor_pointer()
-                                .text_size(px(15.))
+                                .text_size(design(15.))
                                 .text_color(cx.theme().foreground)
                                 .child(crate::tr!("mobile.cancel"))
                                 .on_click(move |_, window, cx| {
@@ -327,7 +328,7 @@ impl Popover {
                         // axis, and an edge hands the gesture on.
                         .max_h((max_height - chrome_height).max(px(0.)))
                         .overflow_y_scroll_area()
-                        .p(px(crate::material::COMPACT_PAGE_INSET))
+                        .p(design(crate::material::COMPACT_PAGE_INSET))
                         .children(content)
                         .children(self.children),
                 );

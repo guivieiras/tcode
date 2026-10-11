@@ -1,3 +1,4 @@
+use crate::sizing::{design, design_px};
 #[path = "input_configuration.rs"]
 pub(crate) mod input_configuration;
 
@@ -11,7 +12,7 @@ use gpui::{
     Action, AnyElement, App, DefiniteLength, Edges, Entity, Focusable as _,
     InteractiveElement as _, IntoElement, LongPressEvent, ParentElement as _, RenderOnce,
     SharedString, StyleRefinement, Styled, TextAlign, TouchPhase, Window, div,
-    prelude::FluentBuilder as _, px, rems,
+    prelude::FluentBuilder as _, rems,
 };
 use gpui_base::StyledExt as _;
 use gpui_base::{InputBase, RoleOverride};
@@ -242,10 +243,10 @@ impl RenderOnce for Input {
             });
             state.set_editor_paddings(if multi_line {
                 Edges {
-                    left: px(10.),
-                    right: px(10.),
-                    top: px(8.),
-                    bottom: px(8.),
+                    left: design_px(10., window),
+                    right: design_px(10., window),
+                    top: design_px(8., window),
+                    bottom: design_px(8., window),
                 }
             } else {
                 Edges::default()
@@ -319,7 +320,8 @@ impl RenderOnce for Input {
                 .text_sm()
                 .rounded(material::radius_input(cx))
                 .when(!multi_line, |this| {
-                    this.h(px(material::input_height(compact))).px(px(10.))
+                    this.h(design(material::input_height(compact)))
+                        .px(design(10.))
                 })
                 // Multi-line insets come from the editor paddings above; padding
                 // the container as well doubles them.
@@ -482,8 +484,8 @@ impl RenderOnce for NumberInput {
         let focused = self.state.read(cx).focus_handle(cx).is_focused(window);
         gpui_base::NumberInput::new(&self.state)
             .controls_right()
-            .w(px(material::NUMBER_INPUT_WIDTH))
-            .h(px(material::input_height(compact)))
+            .w(design(material::NUMBER_INPUT_WIDTH))
+            .h(design(material::input_height(compact)))
             .rounded(material::radius_input(cx))
             .bg(cx.theme().background)
             .border_1()

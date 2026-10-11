@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::{cell::RefCell, sync::Arc};
 
 use super::{
@@ -14,7 +15,7 @@ use crate::{
 };
 use gpui::{
     AnyElement, App, Entity, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
-    SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    SharedString, Styled as _, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::h_flex;
 use latex_rust::{MathBox, MathFont, MathStyle, layout, parse};
@@ -99,7 +100,9 @@ pub(super) fn block(
         #[cfg(test)]
         let selector = format!("markdown-math-toggle-{path}");
         let button = action_button(format!("math-toggle-{path}"), icon, label.into_owned(), cx)
-            .when(compact, |button| button.min_w(px(44.)).min_h(px(44.)))
+            .when(compact, |button| {
+                button.min_w(design(44.)).min_h(design(44.))
+            })
             .on_click(move |_, window, cx| {
                 crate::widgets::stop_click_propagation(window, cx);
                 gpui_base::TextSelection::clear(window, cx);

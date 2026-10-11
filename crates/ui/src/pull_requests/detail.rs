@@ -2,6 +2,7 @@
 //! the reads behind them. The desktop draws it inside the Pull requests tab; the phone draws it
 //! as a page.
 
+use crate::sizing::design;
 use std::collections::{HashMap, HashSet};
 
 use gpui::{
@@ -177,7 +178,7 @@ pub struct PullRequestView {
     /// The phone header's chip row, which scrolls sideways.
     chips_scroll: ScrollHandle,
     wake: Option<(u64, Task<()>)>,
-    _subscriptions: [Subscription; 2],
+    _subscriptions: [Subscription; 3],
 }
 
 /// The busy mark of a lifecycle write in flight.
@@ -232,6 +233,14 @@ impl PullRequestView {
                 cx,
             ),
             cx.observe(&window_state, |_, _, cx| cx.notify()),
+            crate::zoom::observe(cx, |this: &mut Self| {
+                for page in this.pages.values() {
+                    page.conversation_view.list.remeasure();
+                    if let Some(files) = &page.files_view.list {
+                        files.remeasure();
+                    }
+                }
+            }),
         ];
         Self {
             store,
@@ -824,10 +833,10 @@ impl PullRequestView {
         let text = if compact { 13. } else { 12. };
         let mut line_two = h_flex()
             .flex_wrap()
-            .gap_x(px(6.))
-            .gap_y(px(2.))
+            .gap_x(design(6.))
+            .gap_y(design(2.))
             .items_center()
-            .text_size(px(text))
+            .text_size(design(text))
             .text_color(muted)
             .child(
                 div()
@@ -875,7 +884,7 @@ impl PullRequestView {
                     div()
                         .id("pr-detail-branches")
                         .min_w_0()
-                        .max_w(px(320.))
+                        .max_w(design(320.))
                         .truncate()
                         .font_family(cx.theme().mono_font_family.clone())
                         // gpui-base has no middle truncation; the tooltip holds the full pair.
@@ -917,7 +926,10 @@ impl PullRequestView {
                     .into_owned()
                 }));
         }
-        let mut chips = h_flex().gap(px(6.)).items_center().text_size(px(text));
+        let mut chips = h_flex()
+            .gap(design(6.))
+            .items_center()
+            .text_size(design(text));
         let mut has_chip = false;
         if let Some(snapshot) = snapshot
             .as_ref()
@@ -928,7 +940,7 @@ impl PullRequestView {
                     .flex_none()
                     .gap_1()
                     .items_center()
-                    .child(Icon::new(icon).size(px(14.)).text_color(color))
+                    .child(Icon::new(icon).size(design(14.)).text_color(color))
                     .child(label)
             };
             if let Some(checks) = snapshot.checks_state {
@@ -1015,7 +1027,7 @@ impl PullRequestView {
             chips = chips.child(
                 div()
                     .id("pr-detail-watch")
-                    .child(Icon::new(IconName::Eye).size(px(14.)).text_color(muted))
+                    .child(Icon::new(IconName::Eye).size(design(14.)).text_color(muted))
                     .tooltip(|window, cx| {
                         Tooltip::new(crate::tr!("pull_requests.watching_tooltip").into_owned())
                             .build(window, cx)
@@ -1030,22 +1042,22 @@ impl PullRequestView {
         let _ = (&session, window);
         v_flex()
             .flex_none()
-            .px(px(if compact {
+            .px(design(if compact {
                 material::COMPACT_PAGE_INSET
             } else {
                 12.
             }))
             .pt_2()
             .pb_2()
-            .gap(px(6.))
+            .gap(design(6.))
             .child(
                 h_flex()
                     .items_start()
                     .gap_2()
                     .child(
                         div()
-                            .pt(px(2.))
-                            .child(Icon::new(glyph).size(px(16.)).text_color(color)),
+                            .pt(design(2.))
+                            .child(Icon::new(glyph).size(design(16.)).text_color(color)),
                     )
                     .child(self.title_line(title, snapshot.is_some(), cx)),
             )
@@ -1110,9 +1122,9 @@ impl PullRequestView {
                 h_flex()
                     .gap_1()
                     .items_center()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
-                    .child(Icon::new(IconName::Unlink).size(px(12.)))
+                    .child(Icon::new(IconName::Unlink).size(design(12.)))
                     .child(crate::tr!(condition))
             }))
             .into_any_element()
@@ -1230,7 +1242,7 @@ impl PullRequestView {
                     div()
                         .flex_1()
                         .min_w_0()
-                        .text_size(px(size))
+                        .text_size(design(size))
                         .child(Input::new(input).disabled(saving)),
                 )
                 .child(
@@ -1255,7 +1267,7 @@ impl PullRequestView {
         let text = div()
             .flex_1()
             .min_w_0()
-            .text_size(px(size))
+            .text_size(design(size))
             .font_weight(gpui::FontWeight::MEDIUM)
             .line_clamp(2)
             .when(!known, |title| {
@@ -1452,7 +1464,7 @@ impl PullRequestView {
         let session = self.current.as_ref().map(|(session, _)| session.clone());
         h_flex()
             .flex_none()
-            .h(px(40.))
+            .h(design(40.))
             .px_2()
             .gap_1()
             .items_center()
@@ -1554,7 +1566,7 @@ impl PullRequestView {
         if refreshing {
             return div()
                 .flex_none()
-                .size(px(if compact { material::TOUCH_TARGET } else { 24. }))
+                .size(design(if compact { material::TOUCH_TARGET } else { 24. }))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -1690,7 +1702,7 @@ impl PullRequestView {
                 h_flex()
                     .flex_none()
                     .gap_1()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_family(cx.theme().mono_font_family.clone())
                     .child(
                         div()
@@ -1705,9 +1717,9 @@ impl PullRequestView {
             });
         h_flex()
             .flex_none()
-            .when(compact, |row| row.py(px(8.)))
-            .when(!compact, |row| row.h(px(40.)))
-            .px(px(if compact {
+            .when(compact, |row| row.py(design(8.)))
+            .when(!compact, |row| row.h(design(40.)))
+            .px(design(if compact {
                 material::COMPACT_PAGE_INSET
             } else {
                 12.
@@ -1743,14 +1755,14 @@ impl PullRequestView {
         let errors = errors.unwrap_or_default();
         let notice = |text: String, action: Option<AnyElement>, cx: &App| {
             h_flex()
-                .mx(px(12.))
+                .mx(design(12.))
                 .px_3()
                 .py_2()
                 .gap_2()
                 .items_center()
                 .rounded_md()
                 .bg(cx.theme().muted)
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .child(div().flex_1().min_w_0().child(text))
                 .children(action)
                 .into_any_element()
@@ -1936,12 +1948,12 @@ impl PullRequestView {
                 .bg(cx.theme().danger.opacity(0.08))
                 .border_1()
                 .border_color(cx.theme().danger.opacity(0.3))
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .child(div().font_weight(gpui::FontWeight::MEDIUM).child(title))
                 .child(
                     div()
                         .id("pr-failure-reason")
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(cx.theme().muted_foreground)
                         .child(reason(error))
                         .tooltip({
@@ -2006,7 +2018,7 @@ impl Render for PullRequestView {
                 view.children(self.primary(true, cx).map(|primary| {
                     div()
                         .flex_none()
-                        .px(px(material::COMPACT_PAGE_INSET))
+                        .px(design(material::COMPACT_PAGE_INSET))
                         .pb_2()
                         .child(primary)
                 }))

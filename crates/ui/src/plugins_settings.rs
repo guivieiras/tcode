@@ -5,6 +5,7 @@
 //! host did not offer is never drawn. A provider whose management is switched
 //! off shows only its switch.
 
+use crate::sizing::{design, design_px};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -121,6 +122,7 @@ impl PluginsSettingsPanel {
             ),
             cx.observe(&window_state, |_, _, cx| cx.notify()),
             cx.observe(&search, |_, _, cx| cx.notify()),
+            crate::zoom::observe(cx, |this: &mut Self| this.list.remeasure()),
         ];
         Self {
             store,
@@ -278,7 +280,7 @@ impl PluginsSettingsPanel {
                 });
             alert
                 .bg(cx.theme().popover)
-                .width(px(560.))
+                .width(design(560.))
                 .title(SharedString::from(title.into_owned()))
                 .description(challenge_body(&challenge, cx))
                 .on_cancel(move |_, _, cx| {
@@ -326,7 +328,7 @@ impl PluginsSettingsPanel {
             let profile_id = profile_id.clone();
             let cwd = cwd.clone();
             dialog
-                .w(px(520.))
+                .w(design(520.))
                 .bg(cx.theme().popover)
                 .shadow_xl()
                 .title(crate::tr!("providers.plugins.add_marketplace_title").into_owned())
@@ -337,14 +339,14 @@ impl PluginsSettingsPanel {
                             .gap_1p5()
                             .child(
                                 div()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .font_medium()
                                     .child(crate::tr!("providers.plugins.marketplace_source")),
                             )
                             .child(Input::new(&field))
                             .child(
                                 div()
-                                    .text_size(px(12.))
+                                    .text_size(design(12.))
                                     .text_color(cx.theme().muted_foreground)
                                     .child(crate::tr!("providers.plugins.marketplace_source_help")),
                             ),
@@ -466,7 +468,7 @@ impl PluginsSettingsPanel {
         let refresh_id = format!("plugins-refresh-{profile_id}");
         let header = h_flex()
             .w_full()
-            .min_h(px(56.))
+            .min_h(design(56.))
             .px_3()
             .py_2()
             .gap_3()
@@ -478,13 +480,13 @@ impl PluginsSettingsPanel {
                     .gap_0p5()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .font_medium()
                             .child(crate::tr!("providers.plugins.provider_switch", name = name)),
                     )
                     .child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(muted)
                             .child(subtitle.into_owned()),
                     ),
@@ -498,7 +500,7 @@ impl PluginsSettingsPanel {
                         .debug_selector(move || refresh_id.clone())
                         .ghost()
                         .small()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .icon(Icon::empty().path("icons/rotate-ccw.svg"))
                         .tooltip(crate::tr!("providers.plugins.refresh", name = name))
                         .on_click(cx.listener({
@@ -586,7 +588,7 @@ impl PluginsSettingsPanel {
                     let track_id = track_id.clone();
                     move || track_id.clone()
                 })
-                .w(px(440.))
+                .w(design(440.))
                 .max_w_full()
                 .child(
                     TabBar::new(SharedString::from(track_id))
@@ -661,7 +663,7 @@ impl PluginsSettingsPanel {
                 self.row(cx)
                     .debug_selector(|| "plugins-list-error".into())
                     .gap_1()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(danger)
                     .child(crate::tr!("providers.plugins.list_failed").into_owned())
                     .child(verbatim(message.clone(), cx))
@@ -671,7 +673,7 @@ impl PluginsSettingsPanel {
         for error in &catalog.errors {
             rows.push(
                 self.row(cx)
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(warning)
                     .child(verbatim(error.clone(), cx))
                     .into_any_element(),
@@ -731,7 +733,7 @@ impl PluginsSettingsPanel {
                     .gap_2()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .font_medium()
                             .child(entry.name.clone()),
                     )
@@ -739,7 +741,7 @@ impl PluginsSettingsPanel {
                         row.child(
                             div()
                                 .font_family(cx.theme().mono_font_family.clone())
-                                .text_size(px(12.))
+                                .text_size(design(12.))
                                 .text_color(muted)
                                 .child(version),
                         )
@@ -760,7 +762,7 @@ impl PluginsSettingsPanel {
                         .debug_selector(move || toggle_id.clone())
                         .ghost()
                         .small()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .icon(if expanded {
                             IconName::ChevronUp
                         } else {
@@ -825,16 +827,16 @@ impl PluginsSettingsPanel {
                     .collect();
                 h_flex()
                     .w_full()
-                    .min_h(px(28.))
+                    .min_h(design(28.))
                     .flex_wrap()
                     .items_center()
                     .gap_x_3()
                     .gap_y_1()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .child(
                         div()
                             .flex_none()
-                            .w(px(72.))
+                            .w(design(72.))
                             .font_medium()
                             .child(scope_label(scope)),
                     )
@@ -866,7 +868,7 @@ impl PluginsSettingsPanel {
             .when_some(entry.description.clone(), |col, description| {
                 col.child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(muted)
                         .child(description),
                 )
@@ -885,7 +887,7 @@ impl PluginsSettingsPanel {
             })
             .children(entry.errors.iter().map(|error| {
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().danger)
                     .child(verbatim(error.clone(), cx))
             }))
@@ -1000,12 +1002,12 @@ impl PluginsSettingsPanel {
             .child(
                 material::group(cx)
                     .h(crate::sizing::fit_viewport(
-                        456.,
+                        design_px(456., window),
                         window.viewport_size().height * 0.55,
                     ))
                     .relative()
                     .child(body)
-                    .child(crate::scroll::list_height_hint(&self.list, px(100.)))
+                    .child(crate::scroll::list_height_hint(&self.list, design(100.)))
                     .child(
                         ScrollableMask::new(Axis::Vertical, &self.list)
                             .id("plugins-available-mask"),
@@ -1055,7 +1057,7 @@ impl PluginsSettingsPanel {
                     .gap_1()
                     .child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(design(12.))
                             .text_color(muted)
                             .child(crate::tr!("providers.plugins.install_to")),
                     )
@@ -1087,7 +1089,7 @@ impl PluginsSettingsPanel {
                             .gap_2()
                             .child(
                                 div()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .font_medium()
                                     .child(entry.name.clone()),
                             )
@@ -1095,7 +1097,7 @@ impl PluginsSettingsPanel {
                                 row.child(
                                     div()
                                         .font_family(cx.theme().mono_font_family.clone())
-                                        .text_size(px(12.))
+                                        .text_size(design(12.))
                                         .text_color(muted)
                                         .child(version),
                                 )
@@ -1107,7 +1109,7 @@ impl PluginsSettingsPanel {
                     .when_some(entry.description.clone(), |col, description| {
                         col.child(
                             div()
-                                .text_size(px(12.))
+                                .text_size(design(12.))
                                 .text_color(muted)
                                 .child(description),
                         )
@@ -1116,7 +1118,7 @@ impl PluginsSettingsPanel {
                     .when(entry.source.kind == PluginSourceKind::Command, |col| {
                         col.child(
                             div()
-                                .text_size(px(12.))
+                                .text_size(design(12.))
                                 .text_color(cx.theme().warning)
                                 .child(crate::tr!("providers.plugins.command_source")),
                         )
@@ -1126,12 +1128,12 @@ impl PluginsSettingsPanel {
                     })
                     .children(entry.errors.iter().map(|error| {
                         div()
-                            .text_size(px(12.))
+                            .text_size(design(12.))
                             .text_color(cx.theme().danger)
                             .child(verbatim(error.clone(), cx))
                     })),
             )
-            .children(install.map(|install| div().flex_none().max_w(px(240.)).child(install)))
+            .children(install.map(|install| div().flex_none().max_w(design(240.)).child(install)))
             .into_any_element()
     }
 
@@ -1174,7 +1176,7 @@ impl PluginsSettingsPanel {
                                     .gap_2()
                                     .child(
                                         div()
-                                            .text_size(px(13.))
+                                            .text_size(design(13.))
                                             .font_medium()
                                             .child(marketplace.name.clone()),
                                     )
@@ -1191,7 +1193,7 @@ impl PluginsSettingsPanel {
                             .child(
                                 div()
                                     .font_family(cx.theme().mono_font_family.clone())
-                                    .text_size(px(11.))
+                                    .text_size(design(11.))
                                     .text_color(muted)
                                     .child(marketplace.source.clone()),
                             )
@@ -1199,7 +1201,7 @@ impl PluginsSettingsPanel {
                                 col.child(
                                     div()
                                         .font_family(cx.theme().mono_font_family.clone())
-                                        .text_size(px(11.))
+                                        .text_size(design(11.))
                                         .text_color(muted)
                                         .child(location),
                                 )
@@ -1216,7 +1218,7 @@ impl PluginsSettingsPanel {
                                 .outline()
                                 .danger()
                                 .small()
-                                .text_size(px(12.))
+                                .text_size(design(12.))
                                 .disabled(busy)
                                 .label(crate::tr!("providers.plugins.remove").into_owned())
                                 .on_click(move |_, _, cx| {
@@ -1250,7 +1252,7 @@ impl PluginsSettingsPanel {
                             .debug_selector(move || add_id.clone())
                             .outline()
                             .small()
-                            .text_size(px(12.))
+                            .text_size(design(12.))
                             .icon(IconName::Plus)
                             .disabled(busy)
                             .label(crate::tr!("providers.plugins.add_marketplace").into_owned())
@@ -1279,7 +1281,7 @@ impl PluginsSettingsPanel {
             .child(
                 h_flex()
                     .w_full()
-                    .min_h(px(56.))
+                    .min_h(design(56.))
                     .px_3()
                     .py_2()
                     .gap_3()
@@ -1288,7 +1290,7 @@ impl PluginsSettingsPanel {
                         div()
                             .flex_1()
                             .min_w_0()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .font_medium()
                             .child(crate::tr!("providers.plugins.management")),
                     )
@@ -1314,7 +1316,7 @@ impl PluginsSettingsPanel {
     fn row(&self, _cx: &Context<Self>) -> gpui::Div {
         v_flex()
             .w_full()
-            .min_h(px(44.))
+            .min_h(design(44.))
             .px_3()
             .py_2p5()
             .justify_center()
@@ -1322,7 +1324,7 @@ impl PluginsSettingsPanel {
 
     fn note_row(&self, text: String, color: Hsla, cx: &Context<Self>) -> AnyElement {
         self.row(cx)
-            .text_size(px(12.))
+            .text_size(design(12.))
             .text_color(color)
             .child(text)
             .into_any_element()
@@ -1357,11 +1359,11 @@ impl Render for PluginsSettingsPanel {
         let compact = self.window_state.read(cx).compact;
         v_flex()
             .w_full()
-            .gap(if compact { px(16.) } else { px(24.) })
+            .gap(design(if compact { 16. } else { 24. }))
             .child(
                 div()
                     .pl_3()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_medium()
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("settings.plugins_section")),
@@ -1426,7 +1428,7 @@ fn action_button(
         .debug_selector(move || id.clone())
         .outline()
         .small()
-        .text_size(px(12.))
+        .text_size(design(12.))
         .disabled(busy)
         .label(label.into_owned())
         .on_click(move |_, _, cx| {
@@ -1449,7 +1451,7 @@ fn source_line(entry: &ProviderPluginEntry, cx: &App) -> AnyElement {
         .flex_wrap()
         .items_center()
         .gap_2()
-        .text_size(px(11.))
+        .text_size(design(11.))
         .text_color(muted)
         .when_some(entry.source.marketplace.as_ref(), |row, marketplace| {
             row.child(
@@ -1484,7 +1486,7 @@ fn details(entry: &ProviderPluginEntry, cx: &App) -> AnyElement {
                     .w_full()
                     .items_start()
                     .gap_2()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .child(
                         div()
@@ -1510,7 +1512,7 @@ fn details(entry: &ProviderPluginEntry, cx: &App) -> AnyElement {
                 .gap_0p5()
                 .child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .font_medium()
                         .text_color(muted)
                         .child(diagnostic_label(key)),
@@ -1521,7 +1523,7 @@ fn details(entry: &ProviderPluginEntry, cx: &App) -> AnyElement {
                         .p_2()
                         .rounded(material::radius_input(cx))
                         .bg(cx.theme().muted)
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .child(verbatim(text.clone(), cx)),
                 )
         }))
@@ -1558,7 +1560,7 @@ fn declared_chips(declared: &DeclaredComponents, cx: &App) -> AnyElement {
                     .flex_wrap()
                     .items_center()
                     .gap_1()
-                    .child(div().text_size(px(12.)).font_medium().child(format!(
+                    .child(div().text_size(design(12.)).font_medium().child(format!(
                         "{} · {}",
                         crate::tr!(format!("providers.plugins.declared.{key}")),
                         names.len()
@@ -1566,7 +1568,7 @@ fn declared_chips(declared: &DeclaredComponents, cx: &App) -> AnyElement {
                     .when(names.is_empty(), |row| {
                         row.child(
                             div()
-                                .text_size(px(12.))
+                                .text_size(design(12.))
                                 .text_color(muted)
                                 .child(crate::tr!("providers.plugins.none_declared")),
                         )
@@ -1589,12 +1591,17 @@ fn challenge_body(challenge: &PluginChallenge, cx: &App) -> AnyElement {
             .gap_0p5()
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .font_medium()
                     .text_color(muted)
                     .child(label),
             )
-            .child(div().w_full().text_size(px(12.)).child(verbatim(value, cx)))
+            .child(
+                div()
+                    .w_full()
+                    .text_size(design(12.))
+                    .child(verbatim(value, cx)),
+            )
     };
     let body = match &challenge.kind {
         PluginChallengeKind::AcceptCommand {
@@ -1611,7 +1618,7 @@ fn challenge_body(challenge: &PluginChallenge, cx: &App) -> AnyElement {
                         .p_2()
                         .rounded(material::radius_input(cx))
                         .bg(cx.theme().muted)
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .child(verbatim(text, cx)),
                 )
             })
@@ -1638,7 +1645,7 @@ fn challenge_body(challenge: &PluginChallenge, cx: &App) -> AnyElement {
         PluginChallengeKind::ConfirmDestructive { uninstalls } => v_flex()
             .w_full()
             .gap_2()
-            .text_size(px(13.))
+            .text_size(design(13.))
             .child(if uninstalls.is_empty() {
                 crate::tr!("providers.plugins.challenge.destructive_none")
             } else {
@@ -1658,7 +1665,7 @@ fn challenge_body(challenge: &PluginChallenge, cx: &App) -> AnyElement {
     div()
         .id("plugin-challenge-body")
         .w_full()
-        .max_h(px(360.))
+        .max_h(design(360.))
         .overflow_y_scroll_area()
         .child(body)
         .into_any_element()

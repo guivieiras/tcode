@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::sizing::design;
 
 impl Composer {
     /// Whether the trigger menu is shown and owns Enter/arrows. A `/` or `$`
@@ -252,7 +253,7 @@ impl Composer {
                     div()
                         .px_3()
                         .py_2p5()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(if loading {
                             crate::tr!("composer.searching").into_owned()
@@ -291,7 +292,7 @@ impl Composer {
                                         .px_2()
                                         .pt_1p5()
                                         .pb_0p5()
-                                        .text_size(px(11.))
+                                        .text_size(design(11.))
                                         .font_medium()
                                         .text_color(muted)
                                         .child(crate::tr!(group).into_owned()),
@@ -304,7 +305,7 @@ impl Composer {
             .reveal(Some(highlight))
             .w_full()
             // The menu's border sits outside this cap.
-            .max_h(px(286.))
+            .max_h(design(286.))
             .p_1()
             .into_any_element()
         };
@@ -359,7 +360,7 @@ fn render_menu_row(
         .when(is_active, |row| row.aria_active_descendant())
         .flex_none()
         .w_full()
-        .h(px(28.))
+        .h(design(28.))
         .px_2()
         .gap_2()
         .items_center()
@@ -371,7 +372,7 @@ fn render_menu_row(
         .child(
             div()
                 .flex_none()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .font_medium()
                 .child(row.primary.clone()),
         )
@@ -382,7 +383,7 @@ fn render_menu_row(
                     .min_w_0()
                     .overflow_hidden()
                     .text_ellipsis()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(row.secondary.clone()),
             )

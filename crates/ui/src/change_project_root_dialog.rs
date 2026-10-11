@@ -3,6 +3,7 @@
 //! Tcode. The host validates the path and carries the threads along; the only
 //! native step is the directory picker, offered on a local attachment only.
 
+use crate::sizing::design;
 use std::path::PathBuf;
 
 use crate::overlay::{DialogActions, OverlayExt as _};
@@ -12,7 +13,7 @@ use crate::widgets::checkbox::Checkbox;
 use crate::widgets::input::{Input, InputState};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, IntoElement, ParentElement as _, Render,
-    Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    Styled as _, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 
@@ -53,7 +54,7 @@ pub(super) fn open(
     window.open_dialog(cx, move |builder, window, cx| {
         let dialog_content = content.clone();
         builder
-            .w(px(560.))
+            .w(design(560.))
             .rounded(crate::material::radius_overlay(cx))
             .bg(cx.theme().popover)
             .border_1()
@@ -90,7 +91,7 @@ pub(super) fn open_missing_directory(
         let remove_store = store.clone();
         let remove_id = project_id.clone();
         builder
-            .w(px(480.))
+            .w(design(480.))
             .rounded(crate::material::radius_overlay(cx))
             .bg(cx.theme().popover)
             .border_1()
@@ -103,7 +104,7 @@ pub(super) fn open_missing_directory(
                 move |content_el, _, cx| {
                     content_el.child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(
                                 crate::tr!(
@@ -271,7 +272,7 @@ impl Render for ChangeProjectRootDialog {
             .gap_4()
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(crate::tr!("sidebar.change_project_root_description")),
             )
@@ -279,7 +280,7 @@ impl Render for ChangeProjectRootDialog {
                 v_flex()
                     .gap_1()
                     .child(
-                        div().text_size(px(11.)).text_color(muted).child(
+                        div().text_size(design(11.)).text_color(muted).child(
                             crate::tr!(
                                 "sidebar.change_project_root_current",
                                 path = self.current_root.to_string_lossy().into_owned()
@@ -304,7 +305,7 @@ impl Render for ChangeProjectRootDialog {
                             }),
                     )
                     .when_some(path_hint, |column, hint| {
-                        column.child(div().text_size(px(11.)).text_color(muted).child(hint))
+                        column.child(div().text_size(design(11.)).text_color(muted).child(hint))
                     }),
             )
             .child(
@@ -322,7 +323,7 @@ impl Render for ChangeProjectRootDialog {
                     )
                     .child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .text_color(muted)
                             .child(crate::tr!("sidebar.change_project_root_move_help")),
                     ),
@@ -330,7 +331,7 @@ impl Render for ChangeProjectRootDialog {
             .when(self.busy, |column| {
                 column.child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(muted)
                         .child(crate::tr!("sidebar.change_project_root_working")),
                 )
@@ -338,7 +339,7 @@ impl Render for ChangeProjectRootDialog {
             .when_some(self.error.clone(), |column, error| {
                 column.child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().danger)
                         .child(error),
                 )

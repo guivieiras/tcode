@@ -2413,9 +2413,12 @@ impl WorkspaceStore {
     fn save_client_preferences(&self) {
         if let Some(host) = &self.client_host {
             let mut preferences = self.client_preferences.clone();
-            // Navigation is written by the shell while this store is alive.
-            // Appearance edits must not replace it with our startup snapshot.
-            preferences.navigation = host.load_preferences().navigation;
+            // Navigation and zoom are written by the window while this store
+            // is alive. Appearance edits must not replace them with our
+            // startup snapshot.
+            let current = host.load_preferences();
+            preferences.navigation = current.navigation;
+            preferences.zoom_percent = current.zoom_percent;
             host.save_preferences(&preferences);
         }
     }

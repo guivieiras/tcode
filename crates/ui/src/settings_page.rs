@@ -1,5 +1,6 @@
 //! Full-page settings route with section navigation and editable settings.
 
+use crate::sizing::design;
 pub(crate) mod thread_behavior;
 
 use std::collections::HashMap;
@@ -18,7 +19,7 @@ use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, FocusHandle, InteractiveElement as _,
     IntoElement, ParentElement as _, Render, Role, ScrollHandle, SharedString,
     StatefulInteractiveElement as _, Styled as _, Subscription, Toggled, Window, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _,
 };
 use gpui_base::{InteractiveElementExt as _, StyledExt as _, v_flex};
 
@@ -383,6 +384,7 @@ pub struct SettingsPage {
     /// Editable "Home URL" for the Browser page; committed on change.
     home_url_input: SettingsInput,
     auto_settle_input: SettingsInput,
+    zoom_input: Entity<InputState>,
     project_rules_editor: Option<Entity<thread_behavior::ProjectRulesEditor>>,
     project_rules_subscription: Option<Subscription>,
     remote_attachment_limit_input: SettingsInput,
@@ -605,6 +607,13 @@ impl SettingsPage {
             cx.new(|cx| crate::local_permissions::LocalPermissions::new(store, window, cx))
         });
         let auto_settle_input = cx.new(|cx| InputState::new(window, cx).step(1.).min(1.).max(90.));
+        let zoom_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .step(5.)
+                .min(f64::from(crate::zoom::MIN))
+                .max(f64::from(crate::zoom::MAX))
+                .default_value(crate::zoom::percent(cx).to_string())
+        });
         let source_control_panel = cx.new(|cx| {
             crate::source_control_settings::SourceControlPanel::new(
                 store.clone(),
@@ -640,6 +649,7 @@ impl SettingsPage {
             usage_refresh_sent: false,
             home_url_input: SettingsInput::new(home_url_input.clone()),
             auto_settle_input: SettingsInput::new(auto_settle_input.clone()),
+            zoom_input: zoom_input.clone(),
             project_rules_editor: None,
             project_rules_subscription: None,
             remote_attachment_limit_input: SettingsInput {
@@ -699,6 +709,23 @@ impl SettingsPage {
                 }
             },
         ));
+        page._subscriptions.push(cx.subscribe_in(
+            &zoom_input,
+            window,
+            |this, _, event, window, cx| {
+                if matches!(event, InputEvent::Blur | InputEvent::PressEnter { .. }) {
+                    this.commit_zoom(window, cx);
+                }
+            },
+        ));
+        // The shortcuts change the zoom while this page is open.
+        page._subscriptions
+            .push(
+                cx.observe_global_in::<crate::zoom::Zoom>(window, |this, window, cx| {
+                    this.sync_zoom_input(window, cx);
+                    cx.notify();
+                }),
+            );
         page.build_provider_cards(cx);
         page.sync_acp_cards(window, cx);
         page.hydrate_inputs(window, cx);
@@ -833,12 +860,12 @@ impl SettingsPage {
         window.open_dialog(cx, move |dialog, _, cx| {
             let panel = panel.clone();
             dialog
-                .w(px(620.))
+                .w(design(620.))
                 .bg(cx.theme().popover)
                 .shadow_xl()
                 .title(crate::tr!("providers.acp.add_agent").into_owned())
                 .content(move |content, _, _| {
-                    content.h(px(456.)).child(
+                    content.h(design(456.)).child(
                         div()
                             .debug_selector(|| "add-agent-body".into())
                             .size_full()
@@ -960,8 +987,8 @@ impl SettingsPage {
         div()
             .debug_selector(move || selector.into())
             .pl_3()
-            .pb(px(6.))
-            .text_size(px(11.))
+            .pb(design(6.))
+            .text_size(design(11.))
             .font_medium()
             .text_color(cx.theme().muted_foreground)
             .child(label)
@@ -989,11 +1016,11 @@ impl SettingsPage {
         .debug_selector(|| "settings-advanced-toggle".into())
         .pl_3()
         .pt_2()
-        .pb(px(6.))
+        .pb(design(6.))
         .gap_1()
         .items_center()
         .cursor_pointer()
-        .text_size(px(11.))
+        .text_size(design(11.))
         .font_medium()
         .text_color(cx.theme().muted_foreground)
         .child(
@@ -1002,7 +1029,7 @@ impl SettingsPage {
             } else {
                 IconName::ChevronRight
             })
-            .size(px(12.)),
+            .size(design(12.)),
         )
         .child(crate::tr!("settings.advanced"))
         .on_click(cx.listener(|this, _, _, cx| {
@@ -1022,13 +1049,13 @@ impl SettingsPage {
             crate::tr!("settings.back"),
             cx,
         )
-        .h(px(40.))
+        .h(design(40.))
         .items_center()
         .gap_2()
         .px_3()
         .cursor_pointer()
         .hover(|s| s.bg(cx.theme().sidebar_accent))
-        .text_size(px(13.))
+        .text_size(design(13.))
         .text_color(cx.theme().sidebar_foreground)
         .child(
             Icon::new(IconName::ArrowLeft)
@@ -1044,7 +1071,7 @@ impl SettingsPage {
     }
 
     fn render_nav(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let mut tabs = v_flex().flex_1().min_h_0().px_2().gap(px(2.));
+        let mut tabs = v_flex().flex_1().min_h_0().px_2().gap(design(2.));
         for (index, group) in [SectionGroup::Device, SectionGroup::Machine]
             .into_iter()
             .enumerate()
@@ -1097,7 +1124,7 @@ impl SettingsPage {
         }
         v_flex()
             .flex_none()
-            .w(px(NAV_WIDTH))
+            .w(design(NAV_WIDTH))
             .h_full()
             .bg(cx.theme().sidebar)
             // Settings replaces the whole window, so this rail is the window's
@@ -1107,11 +1134,11 @@ impl SettingsPage {
                 window_drag_area(
                     "settings-nav-drag",
                     gpui_base::h_flex()
-                        .h(px(52.))
+                        .h(design(52.))
                         .flex_none()
                         .items_center()
                         .gap_2()
-                        .pl(px(TRAFFIC_LIGHT_INSET))
+                        .pl(design(TRAFFIC_LIGHT_INSET))
                         .pr_2(),
                     window,
                     cx,
@@ -1189,7 +1216,7 @@ impl SettingsPage {
         )
         .debug_selector(move || section.id().into())
         .w_full()
-        .min_h(px(48.))
+        .min_h(design(48.))
         .px_3()
         .gap_3()
         .items_center()
@@ -1200,7 +1227,7 @@ impl SettingsPage {
                 .size_4()
                 .text_color(cx.theme().muted_foreground),
         )
-        .child(div().flex_1().text_size(px(15.)).child(label))
+        .child(div().flex_1().text_size(design(15.)).child(label))
         .child(
             Icon::new(IconName::ChevronRight)
                 .xsmall()
@@ -1229,7 +1256,7 @@ impl SettingsPage {
             "settings-header-drag",
             gpui_base::h_flex()
                 .flex_none()
-                .h(px(52.))
+                .h(design(52.))
                 .w_full()
                 .px_6()
                 .justify_center()
@@ -1240,10 +1267,10 @@ impl SettingsPage {
         )
         .child(
             gpui_base::h_flex()
-                .w(px(CONTENT_MAX_WIDTH))
+                .w(design(CONTENT_MAX_WIDTH))
                 .max_w_full()
                 .when(hosts_caption, |column| {
-                    column.pr(px(window_caption::CAPTION_CLUSTER_WIDTH))
+                    column.pr(design(window_caption::CAPTION_CLUSTER_WIDTH))
                 })
                 .items_center()
                 .gap_3()
@@ -1253,7 +1280,7 @@ impl SettingsPage {
                 .child(window_caption::drag_region(
                     div()
                         .flex_1()
-                        .text_size(px(15.))
+                        .text_size(design(15.))
                         .font_medium()
                         .child(crate::tr!("settings.title")),
                 )),
@@ -1292,6 +1319,7 @@ impl SettingsPage {
                     // themes themselves.
                     theme::reset_selection(cx);
                     let themes = theme::preferences(cx);
+                    crate::zoom::set(crate::zoom::DEFAULT, window, cx);
                     store.update(cx, |store, _cx| {
                         store.reset_settings();
                         store.reset_client_preferences();
@@ -1390,7 +1418,7 @@ impl SettingsPage {
                         // Keep this width definite before capping it. Reversing
                         // these constraints makes nested multiline inputs resolve
                         // their percentage width to zero when the cap applies.
-                        .child(column.w(px(CONTENT_MAX_WIDTH)).max_w_full()),
+                        .child(column.w(design(CONTENT_MAX_WIDTH)).max_w_full()),
                 ),
         )
         .into_any_element()
@@ -1413,6 +1441,7 @@ impl SettingsPage {
             self.named_theme_row(UiThemeMode::Light, cx),
             self.named_theme_row(UiThemeMode::Dark, cx),
             self.theme_import_row(cx),
+            self.zoom_row(cx),
             self.toggle_row(
                 "sidebar-provider-marks",
                 crate::tr!("settings.sidebar_provider_marks.title"),
@@ -1476,7 +1505,7 @@ impl SettingsPage {
             general
         };
         if !self.store.read(cx).scope().is_full() {
-            return v_flex().gap(px(24.)).child(
+            return v_flex().gap(design(24.)).child(
                 v_flex()
                     .child(self.section_label(crate::tr!("settings.general_section"), cx))
                     .child(self.grouped_plain(general, cx)),
@@ -1643,7 +1672,7 @@ impl SettingsPage {
             ),
         ];
         v_flex()
-            .gap(px(24.))
+            .gap(design(24.))
             .child(
                 v_flex()
                     .child(self.section_label(crate::tr!("settings.general_section"), cx))
@@ -1769,7 +1798,7 @@ impl SettingsPage {
             .child(
                 div()
                     .when(compact, |field| field.w_full())
-                    .when(!compact, |field| field.w(px(240.)))
+                    .when(!compact, |field| field.w(design(240.)))
                     .child(
                         Input::new(&self.device_name_input.state)
                             .placeholder(crate::tr!("settings.device_name.placeholder")),
@@ -1828,17 +1857,17 @@ impl SettingsPage {
                 let muted = cx.theme().muted_foreground;
                 let release_url = release_url.clone();
                 v_flex()
-                    .w(px(320.))
+                    .w(design(320.))
                     .gap_2()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .font_semibold()
                             .child(crate::tr!("providers.tcode_update_title")),
                     )
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(muted)
                             .child(crate::tr!("providers.tcode_update_message")),
                     )
@@ -1890,7 +1919,7 @@ impl SettingsPage {
                 div()
                     .flex_1()
                     .pl_3()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_medium()
                     .text_color(muted)
                     .child(crate::tr!("settings.providers_section")),
@@ -1899,7 +1928,7 @@ impl SettingsPage {
             let ago = humanize_ago(now_secs().saturating_sub(checked_at));
             header = header.child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .child(crate::tr!("providers.checked", when = ago).into_owned()),
             );
@@ -1959,7 +1988,7 @@ impl SettingsPage {
                     .gap_2()
                     .px_3()
                     .child(
-                        div().text_size(px(12.)).text_color(muted).child(
+                        div().text_size(design(12.)).text_color(muted).child(
                             crate::tr!(
                                 "providers.update_progress",
                                 provider = run
@@ -2017,7 +2046,7 @@ impl SettingsPage {
             div()
                 .flex_1()
                 .pl_3()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .font_medium()
                 .text_color(muted)
                 .child(crate::tr!("usage.section")),
@@ -2026,7 +2055,7 @@ impl SettingsPage {
             let ago = humanize_ago(now_secs().saturating_sub(updated_at));
             header = header.child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(muted)
                     .child(crate::tr!("usage.updated", when = ago).into_owned()),
             );
@@ -2107,13 +2136,13 @@ impl SettingsPage {
             .child(
                 div()
                     .flex_none()
-                    .size(px(16.))
+                    .size(design(16.))
                     .child(crate::provider_card::provider_glyph(kind).small()),
             )
             .child(
                 div()
                     .flex_1()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .font_medium()
                     .child(name.to_owned()),
             )
@@ -2148,10 +2177,10 @@ impl SettingsPage {
                     .gap_3()
                     .child(
                         v_flex()
-                            .gap(px(2.))
+                            .gap(design(2.))
                             .child(
                                 div()
-                                    .text_size(px(11.5))
+                                    .text_size(design(11.5))
                                     .font_medium()
                                     .child(crate::usage::window_label(window)),
                             )
@@ -2159,7 +2188,7 @@ impl SettingsPage {
                                 crate::usage::resets_label(window.resets_at, now),
                                 |col, label| {
                                     col.child(
-                                        div().text_size(px(11.)).text_color(muted).child(label),
+                                        div().text_size(design(11.)).text_color(muted).child(label),
                                     )
                                 },
                             ),
@@ -2168,7 +2197,7 @@ impl SettingsPage {
                         div()
                             .flex_none()
                             .font_family(cx.theme().mono_font_family.clone())
-                            .text_size(px(11.5))
+                            .text_size(design(11.5))
                             .text_color(muted)
                             .child(crate::usage::percent_label(window.used_percent)),
                     ),
@@ -2176,7 +2205,7 @@ impl SettingsPage {
             .child(
                 div()
                     .w_full()
-                    .h(px(6.))
+                    .h(design(6.))
                     .rounded_full()
                     .bg(cx.theme().muted)
                     .child(div().h_full().rounded_full().bg(fill).w(gpui::relative(
@@ -2196,11 +2225,11 @@ impl SettingsPage {
         self.row_frame(cx)
             .flex_col()
             .items_start()
-            .gap(px(2.))
+            .gap(design(2.))
             .text_color(muted)
-            .child(div().text_size(px(11.5)).child(label))
+            .child(div().text_size(design(11.5)).child(label))
             .when_some(detail, |col, detail| {
-                col.child(div().text_size(px(11.)).child(detail))
+                col.child(div().text_size(design(11.)).child(detail))
             })
             .into_any_element()
     }
@@ -2212,17 +2241,17 @@ impl SettingsPage {
         if groups.is_empty() {
             let loading = self.store.read(cx).archived_loading();
             return v_flex()
-                .gap(px(20.))
+                .gap(design(20.))
                 .child(self.section_label(crate::tr!("settings.archived_section"), cx))
                 .child(
                     v_flex()
-                        .py(px(48.))
+                        .py(design(48.))
                         .gap_1()
                         .items_center()
                         .when(loading, |empty| {
                             empty.child(
                                 div()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .text_color(cx.theme().muted_foreground)
                                     .child(crate::tr!("settings.archived_loading")),
                             )
@@ -2231,13 +2260,13 @@ impl SettingsPage {
                             empty
                                 .child(
                                     div()
-                                        .text_size(px(15.))
+                                        .text_size(design(15.))
                                         .font_medium()
                                         .child(crate::tr!("settings.archived_empty")),
                                 )
                                 .child(
                                     div()
-                                        .text_size(px(13.))
+                                        .text_size(design(13.))
                                         .text_color(cx.theme().muted_foreground)
                                         .child(crate::tr!("settings.archived_empty_desc")),
                                 )
@@ -2261,14 +2290,14 @@ impl SettingsPage {
 
         let now = now_secs();
         let mut col = v_flex()
-            .gap(px(20.))
+            .gap(design(20.))
             .child(
                 gpui_base::h_flex()
                     .items_center()
                     .gap_2()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!(
                                 "settings.archived_range",
@@ -2527,7 +2556,7 @@ impl SettingsPage {
             ),
         ];
         v_flex()
-            .gap(px(24.))
+            .gap(design(24.))
             .child(
                 v_flex()
                     .child(self.section_label(crate::tr!("computer_use.section"), cx))
@@ -2541,7 +2570,7 @@ impl SettingsPage {
                                 div()
                                     .pt_2()
                                     .pl_3()
-                                    .text_size(px(11.))
+                                    .text_size(design(11.))
                                     .text_color(cx.theme().muted_foreground)
                                     .child(crate::tr!(
                                         "providers.native_computer_use",
@@ -2590,7 +2619,7 @@ impl SettingsPage {
                 WorkspaceStore::set_browser_allow_evaluate,
             ),
         ];
-        v_flex().gap(px(24.)).child(
+        v_flex().gap(design(24.)).child(
             v_flex()
                 .child(self.section_label(crate::tr!("browser.section"), cx))
                 .child(self.grouped_plain(rows, cx)),
@@ -2619,7 +2648,7 @@ impl SettingsPage {
             .child(
                 div()
                     .when(compact, |field| field.w_full())
-                    .when(!compact, |field| field.w(px(240.)))
+                    .when(!compact, |field| field.w(design(240.)))
                     .child(
                         Input::new(&self.home_url_input.state)
                             .placeholder(crate::tr!("browser.home_url.placeholder")),
@@ -2721,8 +2750,8 @@ impl SettingsPage {
     fn section_label(&self, label: impl Into<SharedString>, cx: &mut Context<Self>) -> AnyElement {
         div()
             .pl_3()
-            .pb(px(6.))
-            .text_size(px(11.))
+            .pb(design(6.))
+            .text_size(design(11.))
             .font_medium()
             .text_color(cx.theme().muted_foreground)
             .child(label.into())
@@ -2757,12 +2786,17 @@ impl SettingsPage {
                 gpui_base::h_flex()
                     .items_center()
                     .gap_1()
-                    .child(div().text_size(px(15.)).font_medium().child(title.into()))
+                    .child(
+                        div()
+                            .text_size(design(15.))
+                            .font_medium()
+                            .child(title.into()),
+                    )
                     .children(reset),
             )
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(desc.into()),
             )
@@ -2807,7 +2841,7 @@ impl SettingsPage {
         if self.window_state.read(cx).compact {
             v_flex()
                 .w_full()
-                .min_h(px(44.))
+                .min_h(design(44.))
                 .px_3()
                 .py_2p5()
                 .gap_2()
@@ -2822,7 +2856,7 @@ impl SettingsPage {
     fn control_frame(&self) -> gpui::Div {
         gpui_base::h_flex()
             .w_full()
-            .min_h(px(44.))
+            .min_h(design(44.))
             .px_3()
             .py_2p5()
             .gap_3()
@@ -2849,7 +2883,7 @@ impl SettingsPage {
             WorkspaceStore::set_remove_agent_credits_on_merge,
         );
         v_flex()
-            .gap(px(24.))
+            .gap(design(24.))
             .child(self.source_control_panel.clone())
             .child(self.grouped_plain(vec![row], cx))
     }
@@ -2928,11 +2962,11 @@ impl SettingsPage {
     ) -> Button {
         Button::new(id).ghost().outline().compact().child(
             gpui_base::h_flex()
-                .w(px(160.))
+                .w(design(160.))
                 .items_center()
                 .justify_between()
                 .gap_2()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 // A theme's name is the user's to choose; a long one truncates.
                 .child(div().flex_1().min_w_0().truncate().child(label.into()))
                 .child(
@@ -2970,7 +3004,7 @@ impl SettingsPage {
                     .role(Role::Menu)
                     .aria_label(menu_label.clone())
                     .p_1()
-                    .min_w(px(menu_width))
+                    .min_w(design(menu_width))
                     .gap_0p5()
                     .children(options.clone().into_iter().map(|option| {
                         let page = page.clone();
@@ -2996,10 +3030,10 @@ impl SettingsPage {
                                 v_flex()
                                     .flex_1()
                                     .gap_0p5()
-                                    .child(div().text_size(px(13.)).child(label))
+                                    .child(div().text_size(design(13.)).child(label))
                                     .child(
                                         div()
-                                            .text_size(px(11.))
+                                            .text_size(design(11.))
                                             .text_color(cx.theme().muted_foreground)
                                             .child(description),
                                     ),
@@ -3007,7 +3041,7 @@ impl SettingsPage {
                         } else {
                             item.py_1()
                                 .items_center()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .child(div().flex_1().child(label))
                         };
                         item.when(option.selected, |item| {
@@ -3180,6 +3214,49 @@ impl SettingsPage {
             .into_any_element()
     }
 
+    fn sync_zoom_input(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let value = crate::zoom::percent(cx).to_string();
+        if self.zoom_input.read(cx).value().as_ref() != value {
+            self.zoom_input
+                .update(cx, |input, cx| input.set_value(value, window, cx));
+        }
+    }
+
+    /// Apply what the field holds, then show what was applied: the zoom
+    /// clamps, and text that is not a number changes nothing.
+    fn commit_zoom(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let typed = self.zoom_input.read(cx).value().trim().parse::<f32>();
+        if let Ok(percent) = typed {
+            crate::zoom::set(percent.round() as u16, window, cx);
+        }
+        self.sync_zoom_input(window, cx);
+    }
+
+    fn zoom_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let reset = self.reset_action(
+            "reset-zoom",
+            crate::zoom::percent(cx) != crate::zoom::DEFAULT,
+            cx,
+            |_, window, cx| crate::zoom::set(crate::zoom::DEFAULT, window, cx),
+        );
+        self.row_frame(cx)
+            .child(self.row_labels(
+                crate::tr!("settings.zoom.title"),
+                crate::tr!("settings.zoom.description"),
+                reset,
+                cx,
+            ))
+            .child(
+                gpui_base::h_flex()
+                    .gap_2()
+                    .items_center()
+                    .debug_selector(|| "settings-zoom-input".into())
+                    .child(crate::widgets::input::NumberInput::new(&self.zoom_input))
+                    .child("%"),
+            )
+            .into_any_element()
+    }
+
     fn language_row(
         &self,
         language: Option<&str>,
@@ -3289,6 +3366,7 @@ mod tests {
 
     use super::*;
     use crate::store::WorkspaceAttachment;
+    use gpui::px;
 
     fn capabilities(
         preview_backend: bool,
@@ -3807,5 +3885,58 @@ mod tests {
                 })
             },
         );
+    }
+
+    #[gpui::test]
+    fn numeric_zoom_commits_on_enter_or_blur_and_tracks_external_changes(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            crate::theme::init(cx);
+            crate::zoom::restore(None, cx);
+        });
+        let (to_host, _outgoing) = async_channel::unbounded();
+        let (incoming, from_host) = async_channel::unbounded();
+        let deferred = std::iter::from_fn(|| from_host.try_recv().ok()).collect();
+        let link = tcode_client::HostLink::new(to_host, from_host);
+        let store = cx.new(|cx| {
+            WorkspaceStore::new_attached(link, WorkspaceAttachment::Local, None, None, false, cx)
+        });
+        crate::store::tests::seed_full_scope(&store, &incoming, deferred, cx);
+        let window_state = cx.new(|_| WindowState::new(false));
+        let (page, cx) =
+            cx.add_window_view(|window, cx| SettingsPage::new(store, window_state, window, cx));
+        let input = page.read_with(cx, |page, _| page.zoom_input.clone());
+        let edit = |value: &str, event: Option<InputEvent>, cx: &mut VisualTestContext| {
+            cx.update(|window, cx| {
+                input.update(cx, |input, cx| {
+                    input.set_value(value, window, cx);
+                    if let Some(event) = event {
+                        cx.emit(event);
+                    }
+                })
+            });
+            cx.run_until_parked();
+        };
+        let zoom = |cx: &mut VisualTestContext| cx.update(|_, cx| crate::zoom::percent(cx));
+
+        edit("107", None, cx);
+        assert_eq!(zoom(cx), 100);
+        let enter = InputEvent::PressEnter {
+            secondary: false,
+            shift: false,
+        };
+        edit("107", Some(enter), cx);
+        assert_eq!(zoom(cx), 107);
+        edit("108", Some(InputEvent::Blur), cx);
+        assert_eq!(zoom(cx), 108);
+        for (typed, applied) in [("201", 200), ("", 200), ("74", 75)] {
+            edit(typed, Some(InputEvent::Blur), cx);
+            assert_eq!(zoom(cx), applied);
+            input.read_with(cx, |input, _| {
+                assert_eq!(input.value(), applied.to_string())
+            });
+        }
+        cx.update(|window, cx| crate::zoom::set(100, window, cx));
+        cx.run_until_parked();
+        input.read_with(cx, |input, _| assert_eq!(input.value(), "100"));
     }
 }
