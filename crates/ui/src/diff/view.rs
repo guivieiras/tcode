@@ -123,12 +123,12 @@ fn render_file(
 }
 
 /// Cache of rendered files, invalidated when the session, selected turn, or
-/// theme brightness changes (highlight colors are theme-resolved).
+/// theme changes (highlight colors are theme-resolved).
 struct DiffCache {
     session: String,
     scope: DiffScope,
     revision: u64,
-    dark: bool,
+    theme_revision: u64,
     ignore_ws: bool,
     show_invisibles: bool,
     list: DiffList,
@@ -140,7 +140,7 @@ struct RenderKey {
     session: String,
     scope: DiffScope,
     revision: u64,
-    dark: bool,
+    theme_revision: u64,
     ignore_ws: bool,
     show_invisibles: bool,
 }
@@ -480,7 +480,7 @@ impl DiffPanel {
                         session: key.session.clone(),
                         scope: key.scope,
                         revision: key.revision,
-                        dark: key.dark,
+                        theme_revision: key.theme_revision,
                         ignore_ws: key.ignore_ws,
                         show_invisibles: key.show_invisibles,
                         list,
@@ -514,7 +514,7 @@ impl DiffPanel {
                 });
             }
         }
-        let dark = cx.theme().mode.is_dark();
+        let theme_revision = cx.theme().revision;
         let (session, scope, revision, cwd) = {
             let store = self.workspace_store.read(cx);
             let Some(active) = store.diff_active_state() else {
@@ -577,7 +577,7 @@ impl DiffPanel {
             c.session != session
                 || c.scope != scope
                 || c.revision != revision
-                || c.dark != dark
+                || c.theme_revision != theme_revision
                 || c.ignore_ws != self.ignore_ws
                 || c.show_invisibles != self.show_invisibles
         });
@@ -618,7 +618,7 @@ impl DiffPanel {
                     session,
                     scope,
                     revision,
-                    dark,
+                    theme_revision,
                     ignore_ws: self.ignore_ws,
                     show_invisibles: self.show_invisibles,
                 },
@@ -1683,7 +1683,7 @@ impl Render for DiffPanel {
         let mut root = v_flex()
             .size_full()
             .min_w_0()
-            .text_color(cx.theme().foreground)
+            .text_color(cx.theme().editor_foreground)
             .on_action(cx.listener(Self::on_view_option))
             .on_action(cx.listener(Self::on_selection_menu))
             .when(!compact, |root| {
@@ -1735,7 +1735,7 @@ mod tests {
                     session: "thread".into(),
                     scope: DiffScope::WorkingTree,
                     revision: 1,
-                    dark: true,
+                    theme_revision: 0,
                     ignore_ws: false,
                     show_invisibles: false,
                 },
@@ -1840,7 +1840,7 @@ mod tests {
                     session: "thread".into(),
                     scope: DiffScope::WorkingTree,
                     revision: 1,
-                    dark: true,
+                    theme_revision: 0,
                     ignore_ws: false,
                     show_invisibles: false,
                 },
@@ -1911,7 +1911,7 @@ mod tests {
                     session: "thread".into(),
                     scope: DiffScope::WorkingTree,
                     revision: 1,
-                    dark: false,
+                    theme_revision: 1,
                     ignore_ws: false,
                     show_invisibles: true,
                 },

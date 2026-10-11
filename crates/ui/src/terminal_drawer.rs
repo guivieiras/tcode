@@ -284,6 +284,9 @@ pub(crate) struct TerminalPalette {
     pub(crate) foreground: Hsla,
     pub(crate) background: Hsla,
     pub(crate) selection: Hsla,
+    pub(crate) cursor: Hsla,
+    /// The sixteen named ANSI colors, normal then bright.
+    pub(crate) ansi: [Hsla; 16],
 }
 
 #[derive(Clone, Copy)]
@@ -833,11 +836,7 @@ impl TerminalDrawer {
         register_input: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let palette = TerminalPalette {
-            foreground: cx.theme().foreground,
-            background: cx.theme().background,
-            selection: cx.theme().primary.opacity(0.28),
-        };
+        let palette = cx.theme().terminal;
         let marked_text = self
             .marked_text
             .as_ref()
@@ -2579,18 +2578,15 @@ pub(crate) fn terminal_font() -> gpui::Font {
 
 pub(crate) fn terminal_color(color: TerminalColor, palette: TerminalPalette) -> Hsla {
     match color {
-        TerminalColor::Foreground | TerminalColor::Cursor => palette.foreground,
+        TerminalColor::Foreground => palette.foreground,
+        TerminalColor::Cursor => palette.cursor,
         TerminalColor::Background => palette.background,
         TerminalColor::Rgb { r, g, b } => {
             rgb((u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)).into()
         }
         TerminalColor::Indexed(index) => {
-            const ANSI: [u32; 16] = [
-                0x1f2329, 0xe45649, 0x50a14f, 0xc18401, 0x4078f2, 0xa626a4, 0x0184bc, 0xabb2bf,
-                0x5c6370, 0xff616e, 0x7bc275, 0xe5c07b, 0x61afef, 0xc678dd, 0x56b6c2, 0xffffff,
-            ];
             if index < 16 {
-                return rgb(ANSI[index as usize]).into();
+                return palette.ansi[index as usize];
             }
             if index < 232 {
                 let n = index - 16;
@@ -2835,6 +2831,8 @@ mod tests {
             foreground: rgb(0xffffff).into(),
             background: rgb(0x000000).into(),
             selection: rgb(0x336699).into(),
+            cursor: rgb(0xffffff).into(),
+            ansi: [rgb(0x808080).into(); 16],
         };
         for (state, expected, wavy) in [
             (
@@ -2893,6 +2891,8 @@ mod tests {
             foreground: rgb(0xffffff).into(),
             background: rgb(0x000000).into(),
             selection: rgb(0x336699).into(),
+            cursor: rgb(0xffffff).into(),
+            ansi: [rgb(0x808080).into(); 16],
         };
         let mut state = model(vec![cell('a', CellWidth::Narrow)]);
         let mut caches = HashMap::new();

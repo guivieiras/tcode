@@ -7,60 +7,32 @@ use std::{
     sync::{Arc, LazyLock, Mutex, PoisonError},
 };
 
-use gpui::{FontStyle, FontWeight, HighlightStyle, Hsla, Rgba};
+use gpui::{FontStyle, FontWeight, HighlightStyle, Hsla};
 use syntect::{
     easy::ScopeRangeIterator,
     parsing::{ParseState, ScopeStack, SyntaxReference, SyntaxSet},
     util::LinesWithEndings,
 };
 
-/// Named syntax styles resolved from the bundled light or dark palette.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Named syntax styles resolved from the active Zed theme.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct HighlightTheme {
-    styles: BTreeMap<&'static str, ThemeStyle>,
+    styles: BTreeMap<String, ThemeStyle>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct ThemeStyle {
     color: Option<Hsla>,
+    background_color: Option<Hsla>,
     font_style: Option<FontStyle>,
     font_weight: Option<FontWeight>,
-}
-
-impl ThemeStyle {
-    fn color(value: &str) -> Self {
-        Self {
-            color: Some(
-                Rgba::try_from(value)
-                    .expect("built-in highlight color should parse")
-                    .into(),
-            ),
-            font_style: None,
-            font_weight: None,
-        }
-    }
-
-    const fn italic() -> Self {
-        Self {
-            color: None,
-            font_style: Some(FontStyle::Italic),
-            font_weight: None,
-        }
-    }
-
-    const fn bold(weight: FontWeight) -> Self {
-        Self {
-            color: None,
-            font_style: None,
-            font_weight: Some(weight),
-        }
-    }
 }
 
 impl From<ThemeStyle> for HighlightStyle {
     fn from(style: ThemeStyle) -> Self {
         Self {
             color: style.color,
+            background_color: style.background_color,
             font_style: style.font_style,
             font_weight: style.font_weight,
             ..Default::default()
@@ -71,13 +43,13 @@ impl From<ThemeStyle> for HighlightStyle {
 impl HighlightTheme {
     pub fn default_light() -> Arc<Self> {
         static LIGHT: LazyLock<Arc<HighlightTheme>> =
-            LazyLock::new(|| Arc::new(HighlightTheme::from_styles(LIGHT_STYLES)));
+            LazyLock::new(|| Arc::new(HighlightTheme::bundled(0)));
         LIGHT.clone()
     }
 
     pub fn default_dark() -> Arc<Self> {
         static DARK: LazyLock<Arc<HighlightTheme>> =
-            LazyLock::new(|| Arc::new(HighlightTheme::from_styles(DARK_STYLES)));
+            LazyLock::new(|| Arc::new(HighlightTheme::bundled(1)));
         DARK.clone()
     }
 
@@ -92,31 +64,63 @@ impl HighlightTheme {
             .map(Into::into)
     }
 
-    fn from_styles(styles: &[(&'static str, StyleValue)]) -> Self {
-        Self {
-            styles: styles
-                .iter()
-                .map(|&(name, value)| {
-                    let style = match value {
-                        StyleValue::Color(color) => ThemeStyle::color(color),
-                        StyleValue::Italic => ThemeStyle::italic(),
-                        StyleValue::Weight(weight) => ThemeStyle::bold(weight),
-                        StyleValue::ColorWithStyle(color, font_style) => ThemeStyle {
-                            color: ThemeStyle::color(color).color,
-                            font_style: Some(font_style),
-                            font_weight: None,
-                        },
-                        StyleValue::ColorWithWeight(color, font_weight) => ThemeStyle {
-                            color: ThemeStyle::color(color).color,
-                            font_style: None,
-                            font_weight: Some(font_weight),
-                        },
-                    };
-                    (name, style)
-                })
-                .collect(),
-        }
+    fn bundled(index: usize) -> Self {
+        let file: serde_json::Value =
+            serde_json::from_str(crate::theme::TCODE_THEME).expect("bundled theme is valid JSON");
+        Self::default()
+            .with_syntax(&file["themes"][index]["style"]["syntax"])
+            .expect("bundled syntax is valid")
     }
+
+    pub(crate) fn with_syntax(&self, value: &serde_json::Value) -> Result<Self, String> {
+        let mut theme = self.clone();
+        if value.is_null() {
+            return Ok(theme);
+        }
+        let styles = value.as_object().ok_or("syntax must be an object")?;
+        for (name, value) in styles {
+            if value.is_null() {
+                continue;
+            }
+            let config: SyntaxStyle =
+                serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+            let style = theme.styles.entry(name.clone()).or_insert(ThemeStyle {
+                color: None,
+                background_color: None,
+                font_style: None,
+                font_weight: None,
+            });
+            if let Some(color) = config.background_color {
+                style.background_color = Some(crate::theme::parse_color(&color)?);
+            }
+            if let Some(color) = config.color {
+                style.color = Some(crate::theme::parse_color(&color)?);
+            }
+            if let Some(font_style) = config.font_style {
+                style.font_style = Some(match font_style.as_str() {
+                    "normal" => FontStyle::Normal,
+                    "italic" => FontStyle::Italic,
+                    "oblique" => FontStyle::Oblique,
+                    _ => return Err(format!("invalid font_style for {name}")),
+                });
+            }
+            if let Some(weight) = config.font_weight {
+                if !(100..=900).contains(&weight) || weight % 100 != 0 {
+                    return Err(format!("invalid font_weight for {name}"));
+                }
+                style.font_weight = Some(FontWeight(weight as f32));
+            }
+        }
+        Ok(theme)
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct SyntaxStyle {
+    color: Option<String>,
+    background_color: Option<String>,
+    font_style: Option<String>,
+    font_weight: Option<u16>,
 }
 
 impl gpui_base::input::HighlightStyleResolver for HighlightTheme {
@@ -124,77 +128,6 @@ impl gpui_base::input::HighlightStyleResolver for HighlightTheme {
         self.style(name)
     }
 }
-
-#[derive(Clone, Copy)]
-enum StyleValue {
-    Color(&'static str),
-    Italic,
-    Weight(FontWeight),
-    ColorWithStyle(&'static str, FontStyle),
-    ColorWithWeight(&'static str, FontWeight),
-}
-
-use StyleValue::{Color, ColorWithStyle, ColorWithWeight, Italic, Weight};
-
-// Values are the upstream styled layer's Default Light/Dark syntax palettes.
-const LIGHT_STYLES: &[(&str, StyleValue)] = &[
-    ("attribute", Color("#957931")),
-    ("boolean", Color("#C5060B")),
-    ("comment", Color("#007fff")),
-    ("comment.doc", Color("#007fff")),
-    ("constant", Color("#C5060B")),
-    ("constructor", Color("#0433ff")),
-    ("embedded", Color("#333333")),
-    ("emphasis", Italic),
-    ("emphasis.strong", Weight(FontWeight::BOLD)),
-    ("function", Color("#0000A2")),
-    ("keyword", Color("#0433ff")),
-    ("link_text", ColorWithStyle("#0000A2", FontStyle::Normal)),
-    ("link_uri", ColorWithStyle("#6A7293", FontStyle::Italic)),
-    ("number", Color("#0433ff")),
-    ("property", Color("#333333")),
-    ("string", Color("#036A07")),
-    ("string.escape", Color("#036A07")),
-    ("string.regex", Color("#036A07")),
-    ("string.special", Color("#d21f07")),
-    ("string.special.symbol", Color("#d21f07")),
-    ("tag", Color("#0433ff")),
-    ("text.code.span", Color("#6F42C1")),
-    ("text.literal", Color("#6F42C1")),
-    ("title", Color("#0433FF")),
-    ("type", Color("#6f42c1")),
-    ("variable", Color("#333333")),
-    ("variable.special", Color("#C5060B")),
-];
-
-const DARK_STYLES: &[(&str, StyleValue)] = &[
-    ("attribute", Color("#e7cb8f")),
-    ("boolean", Color("#E1D797")),
-    ("comment", Color("#9E9E9E")),
-    ("comment.doc", Color("#9E9E9E")),
-    ("constant", Color("#E1D797")),
-    ("constructor", Color("#b5af9a")),
-    ("embedded", Color("#CACCCA")),
-    ("emphasis", Italic),
-    ("emphasis.strong", Weight(FontWeight::BOLD)),
-    ("function", Color("#fdd888")),
-    ("keyword", Color("#c28b12")),
-    ("link_text", ColorWithStyle("#307BF6", FontStyle::Normal)),
-    ("link_uri", ColorWithStyle("#7faef9", FontStyle::Italic)),
-    ("number", Color("#E1D797")),
-    ("property", Color("#CACCCA")),
-    ("string", Color("#62BA46")),
-    ("string.escape", Color("#62BA46")),
-    ("string.regex", Color("#62BA46")),
-    ("string.special", Color("#E1D797")),
-    ("string.special.symbol", Color("#E1D797")),
-    ("tag", Color("#b5af9a")),
-    ("text.code.span", Color("#E1D797")),
-    ("text.literal", Color("#E1D797")),
-    ("title", ColorWithWeight("#fdd888", FontWeight::SEMIBOLD)),
-    ("type", Color("#c75828")),
-    ("variable.special", Color("#E19773")),
-];
 
 static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(|| {
     syntect::dumps::from_uncompressed_data(include_bytes!("../assets/syntaxes.bin"))
@@ -236,7 +169,7 @@ pub(crate) fn syntax_for_name_or_extension(name: &str) -> Option<&'static Syntax
 /// Each scope in a token's stack is examined from innermost to outermost. If
 /// the theme has no style for a matching key, matching continues so a broader
 /// scope can supply a style.
-const SCOPE_TO_THEME_KEY: &[(&str, &str)] = &[
+pub(crate) const SCOPE_TO_THEME_KEY: &[(&str, &str)] = &[
     ("comment.documentation", "comment.doc"),
     ("constant.character.escape", "string.escape"),
     ("constant.character", "string"),
@@ -285,7 +218,7 @@ const SCOPE_TO_THEME_KEY: &[(&str, &str)] = &[
     ("punctuation", "punctuation"),
 ];
 
-fn scope_matches(scope: &str, selector: &str) -> bool {
+pub(crate) fn scope_matches(scope: &str, selector: &str) -> bool {
     scope == selector
         || scope
             .strip_prefix(selector)

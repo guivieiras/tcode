@@ -96,7 +96,7 @@ pub(super) enum TextState {
 pub(super) struct FilesView {
     pub(super) list: Option<crate::diff::list::DiffList>,
     /// The head, file count and options the list was rendered for.
-    pub(super) rendered: Option<(String, usize, bool, bool, bool)>,
+    pub(super) rendered: Option<(String, usize, u64, bool, bool)>,
     pub(super) rendering: bool,
     pub(super) page_loading: bool,
     pub(super) page_error: Option<ProtocolError>,
