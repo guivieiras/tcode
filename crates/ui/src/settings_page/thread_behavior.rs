@@ -1,4 +1,5 @@
 use super::*;
+use crate::sizing::design;
 use tcode_core::{project::Project, settings::ProjectSettlementSettings};
 
 pub(crate) fn open_project_rules(
@@ -159,7 +160,7 @@ impl SettingsPage {
                         cx,
                     )
                     .w_full()
-                    .min_h(px(44.))
+                    .min_h(design(44.))
                     .px_3()
                     .gap_2()
                     .items_center()
@@ -171,12 +172,12 @@ impl SettingsPage {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(15.))
+                            .text_size(design(15.))
                             .child(project.name.clone()),
                     )
                     .children(summary.map(|summary| {
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(summary)
                     }))
@@ -240,14 +241,14 @@ impl SettingsPage {
                 let id = project.id.clone();
                 rows.push(
                     gpui_base::h_flex()
-                        .min_h(px(44.))
+                        .min_h(design(44.))
                         .px_3()
                         .gap_2()
                         .child(crate::project_icon::artwork(&project, 16.))
-                        .child(div().flex_1().text_size(px(15.)).child(project.name))
+                        .child(div().flex_1().text_size(design(15.)).child(project.name))
                         .child(
                             div()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(summary),
                         )
@@ -255,7 +256,7 @@ impl SettingsPage {
                             Button::new(SharedString::from(format!("edit-rules-{id}")))
                                 .ghost()
                                 .xsmall()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .label(crate::tr!("settings.auto_settle.edit"))
                                 .on_click(cx.listener(move |this, _, window, cx| {
                                     this.edit_project_rules(edit.clone(), window, cx)
@@ -285,7 +286,7 @@ impl SettingsPage {
                 div()
                     .pl_3()
                     .pt_2()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("settings.auto_settle.footnote")),
             )
@@ -476,7 +477,7 @@ impl Render for ProjectRulesEditor {
             .gap_3()
             .child(
                 div()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .child(crate::tr!("settings.auto_settle.title")),
             )
             .child(rule_selector(
@@ -491,7 +492,7 @@ impl Render for ProjectRulesEditor {
             content = content
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("settings.auto_settle.days")),
                 )
@@ -500,7 +501,7 @@ impl Render for ProjectRulesEditor {
         content = content
             .child(
                 div()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .child(crate::tr!("settings.auto_settle.on_merge")),
             )
             .child(rule_selector(
@@ -561,13 +562,13 @@ fn rule_selector<T: Clone + 'static>(
                 )
                 .aria_selected(checked)
                 .w_full()
-                .min_h(px(44.))
+                .min_h(design(44.))
                 .px_3()
                 .gap_2()
                 .items_center()
                 .cursor_pointer()
                 .hover(|row| row.bg(cx.theme().list_hover))
-                .child(div().flex_1().text_size(px(15.)).child(label))
+                .child(div().flex_1().text_size(design(15.)).child(label))
                 .when(checked, |row| {
                     row.child(
                         Icon::new(IconName::Check)
@@ -603,7 +604,7 @@ fn rule_selector<T: Clone + 'static>(
                         .items_center()
                         .justify_between()
                         .gap_2()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .child(trigger_label)
                         .child(
                             Icon::new(IconName::ChevronDown)
@@ -614,7 +615,7 @@ fn rule_selector<T: Clone + 'static>(
         )
         .content(move |_, _, cx| {
             let popover = cx.entity();
-            v_flex().p_1().min_w(px(240.)).gap_0p5().children(
+            v_flex().p_1().min_w(design(240.)).gap_0p5().children(
                 choices
                     .clone()
                     .into_iter()
@@ -636,7 +637,7 @@ fn rule_selector<T: Clone + 'static>(
                         .py_1()
                         .gap_2()
                         .items_center()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .rounded(crate::material::radius_button(cx))
                         .cursor_pointer()
                         .hover(|item| item.bg(cx.theme().accent))

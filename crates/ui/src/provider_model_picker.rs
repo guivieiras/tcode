@@ -5,6 +5,7 @@
 //! live here so Orchestrate and other settings do not grow subtly different
 //! pickers.
 
+use crate::sizing::design;
 use std::rc::Rc;
 
 use crate::theme::ActiveTheme as _;
@@ -17,7 +18,7 @@ use crate::{
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, InteractiveElement as _, IntoElement,
     ParentElement as _, Render, StatefulInteractiveElement as _, Styled as _, Subscription, Window,
-    div, prelude::FluentBuilder as _, px, rgb,
+    div, prelude::FluentBuilder as _, rgb,
 };
 use gpui_base::{PopoverState, h_flex, v_flex};
 
@@ -201,10 +202,10 @@ impl ProviderModelPicker {
                     .compact()
                     .child(
                         h_flex()
-                            .w(px(230.))
+                            .w(design(230.))
                             .items_center()
                             .gap_2()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .child(glyph.small())
                             .child(div().flex_1().min_w_0().child(display))
                             .child(
@@ -263,7 +264,7 @@ impl Render for ProviderModelPicker {
                         .child(
                             div()
                                 .p_4()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(crate::tr!("model_picker.no_models")),
                         )
@@ -305,7 +306,7 @@ impl Render for ProviderModelPicker {
                     .pt_1()
                     .px_1()
                     // The last row carries its gap.
-                    .pb(px(2.))
+                    .pb(design(2.))
                     .into_any_element()
                 };
 
@@ -388,14 +389,14 @@ fn option_row(
                 .child(
                     div()
                         .truncate()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .child(option.name.clone()),
                 )
                 .child(
                     div()
                         .truncate()
                         .font_family("monospace")
-                        .text_size(px(11.))
+                        .text_size(design(11.))
                         .text_color(cx.theme().muted_foreground)
                         .child(option.id.clone()),
                 ),

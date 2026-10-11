@@ -3,6 +3,7 @@
 //! Shared by the composer's pending strip, sent-message thumbnails, Markdown
 //! images and image-link badges.
 
+use crate::sizing::design;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -780,7 +781,7 @@ impl Render for ImageViewer {
             )
             .child(
                 div()
-                    .w(px(48.))
+                    .w(design(48.))
                     .text_center()
                     .text_xs()
                     .text_color(muted)

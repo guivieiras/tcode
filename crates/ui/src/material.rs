@@ -3,6 +3,7 @@
 //! semantic colors come from the active theme.
 
 use crate::sizing::Sizable as _;
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::widgets::Popover;
 use crate::widgets::button::{Button, ButtonVariants as _};
@@ -163,9 +164,9 @@ pub fn grouped(rows: Vec<gpui::AnyElement>, cx: &App) -> Div {
 pub fn list_row(id: impl Into<ElementId>, label: SharedString, cx: &App) -> Stateful<Div> {
     accessible_clickable(gpui_base::h_flex(), id, Role::Button, label, cx)
         .w_full()
-        .min_h(px(LIST_ROW_MIN_HEIGHT))
-        .px(px(COMPACT_PAGE_INSET))
-        .py(px(8.))
+        .min_h(design(LIST_ROW_MIN_HEIGHT))
+        .px(design(COMPACT_PAGE_INSET))
+        .py(design(8.))
         .gap_3()
         .items_center()
         .cursor_pointer()
@@ -187,11 +188,11 @@ where
     E: Styled + InteractiveElement + gpui::prelude::FluentBuilder,
 {
     let (active, hover) = (cx.theme().list_active, cx.theme().list_hover);
-    el.h(px(selectable_row_height(compact)))
+    el.h(design(selectable_row_height(compact)))
         .flex()
         .items_center()
-        .gap(px(if compact { 8. } else { 6. }))
-        .px(px(if compact { 12. } else { 10. }))
+        .gap(design(if compact { 8. } else { 6. }))
+        .px(design(if compact { 12. } else { 10. }))
         .rounded(cx.theme().tokens.radius.md)
         .when(selected, |row| row.bg(active))
         .when(!selected, |row| row.hover(move |style| style.bg(hover)))
@@ -201,10 +202,10 @@ where
 pub fn list_caption(label: SharedString, cx: &App) -> Div {
     div()
         .w_full()
-        .px(px(COMPACT_PAGE_INSET))
-        .pt(px(12.))
-        .pb(px(4.))
-        .text_size(px(13.))
+        .px(design(COMPACT_PAGE_INSET))
+        .pt(design(12.))
+        .pb(design(4.))
+        .text_size(design(13.))
         .font_medium()
         .text_color(cx.theme().muted_foreground)
         .child(label)
@@ -220,7 +221,7 @@ pub fn plain_list(rows: Vec<gpui::AnyElement>, cx: &App) -> Div {
             list = list.child(
                 div()
                     .w_full()
-                    .pl(px(COMPACT_PAGE_INSET))
+                    .pl(design(COMPACT_PAGE_INSET))
                     .child(div().w_full().h(px(1.)).bg(cx.theme().border.opacity(0.6))),
             );
         }
@@ -232,7 +233,7 @@ pub fn plain_list(rows: Vec<gpui::AnyElement>, cx: &App) -> Div {
 pub fn brand_wordmark(cx: &App) -> impl IntoElement {
     gpui_base::h_flex().items_center().gap_2().child(
         div()
-            .text_size(px(14.))
+            .text_size(design(14.))
             .font_bold()
             .text_color(cx.theme().sidebar_foreground)
             .child(crate::tr!("app.name")),
@@ -256,14 +257,14 @@ pub fn sheet_grabber(cx: &App) -> impl IntoElement {
     div()
         .flex_none()
         .w_full()
-        .h(px(16.))
+        .h(design(16.))
         .flex()
         .items_center()
         .justify_center()
         .child(
             div()
-                .w(px(36.))
-                .h(px(5.))
+                .w(design(36.))
+                .h(design(5.))
                 .rounded_full()
                 .bg(cx.theme().muted_foreground.opacity(0.3)),
         )
@@ -281,24 +282,27 @@ pub fn empty_state(
         .min_h_0()
         .items_center()
         .justify_center()
-        .gap(px(10.))
-        .p(px(24.))
-        .child(icon.size(px(24.)).text_color(cx.theme().muted_foreground))
+        .gap(design(10.))
+        .p(design(24.))
+        .child(
+            icon.size(design(24.))
+                .text_color(cx.theme().muted_foreground),
+        )
         .child(
             div()
-                .max_w(px(280.))
+                .max_w(design(280.))
                 .text_center()
-                .text_size(px(17.))
-                .line_height(px(22.))
+                .text_size(design(17.))
+                .line_height(design(22.))
                 .font_semibold()
                 .child(title.into()),
         )
         .child(
             div()
-                .max_w(px(280.))
+                .max_w(design(280.))
                 .text_center()
-                .text_size(px(15.))
-                .line_height(px(20.))
+                .text_size(design(15.))
+                .line_height(design(20.))
                 .text_color(cx.theme().muted_foreground)
                 .child(body.into()),
         )
@@ -321,8 +325,8 @@ pub fn toolbar_icon_button(
             .aria_label(tooltip.clone())
             .tooltip(tooltip)
             .with_size(px(TOUCH_TARGET))
-            .size(px(TOUCH_TARGET))
-            .child(crate::icon::Icon::new(icon).size(px(20.)))
+            .size(design(TOUCH_TARGET))
+            .child(crate::icon::Icon::new(icon).size(design(20.)))
     } else {
         Button::new(id)
             .ghost()
@@ -344,7 +348,7 @@ pub fn rail_detail(content: impl IntoElement, cx: &App) -> Div {
         div()
             .w_full()
             .min_w_0()
-            .pl(px(14.))
+            .pl(design(14.))
             .py_0p5()
             .border_l_1()
             .border_color(cx.theme().border)
@@ -359,7 +363,7 @@ pub fn semantic_chip(label: impl Into<SharedString>, bg: Hsla, fg: Hsla, cx: &Ap
         .py(px(1.))
         .rounded(radius_chip(cx))
         .bg(bg)
-        .text_size(px(11.))
+        .text_size(design(11.))
         .font_medium()
         .text_color(fg)
         .child(label.into())
@@ -369,7 +373,7 @@ pub fn semantic_chip(label: impl Into<SharedString>, bg: Hsla, fg: Hsla, cx: &Ap
 /// GPUI has no letter-spacing primitive, so the 10.5px label is split into
 /// glyph elements with an exact 0.84px inter-glyph gap.
 pub(crate) fn tracked_uppercase(text: &str) -> Div {
-    gpui_base::h_flex().gap(px(0.84)).children(
+    gpui_base::h_flex().gap(design(0.84)).children(
         text.to_uppercase()
             .chars()
             .map(|character| div().child(character.to_string())),
@@ -417,26 +421,26 @@ pub fn loading_skeleton(cx: &gpui::App) -> gpui::AnyElement {
         .id("baseline-loading")
         .debug_selector(|| "baseline-loading".into())
         .flex_1()
-        .px(px(COMPACT_PAGE_INSET))
-        .pt(px(8.))
-        .gap(px(4.))
+        .px(design(COMPACT_PAGE_INSET))
+        .pt(design(8.))
+        .gap(design(4.))
         .children((0..3).map(|_| {
             v_flex()
-                .h(px(56.))
+                .h(design(56.))
                 .justify_center()
-                .gap(px(8.))
+                .gap(design(8.))
                 .opacity(0.3)
                 .child(
                     div()
                         .w(gpui::relative(0.7))
-                        .h(px(14.))
+                        .h(design(14.))
                         .rounded(cx.theme().tokens.radius.sm)
                         .bg(cx.theme().secondary),
                 )
                 .child(
                     div()
                         .w(gpui::relative(0.35))
-                        .h(px(11.))
+                        .h(design(11.))
                         .rounded(cx.theme().tokens.radius.sm)
                         .bg(cx.theme().secondary),
                 )

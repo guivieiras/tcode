@@ -1,6 +1,7 @@
 //! System dictation and replacement of the session's whole transcript.
 
 use super::super::*;
+use crate::sizing::design;
 use client::{DictationEvent as SpeechEvent, SpeechState, SpeechStatus};
 use gpui::SharedString;
 
@@ -97,7 +98,7 @@ impl Composer {
             Button::new("voice-mic")
                 .ghost()
                 .compact()
-                .h(px(28.))
+                .h(design(28.))
                 .rounded(crate::material::radius_chip(cx))
                 .disabled(!available)
                 .tooltip(tooltip)
@@ -111,7 +112,7 @@ impl Composer {
                     if status == SpeechStatus::Recording {
                         div()
                             .rounded_full()
-                            .p(px(2.))
+                            .p(design(2.))
                             .bg(cx.theme().danger.opacity(0.08 + state.level() * 0.42))
                             .child(icon)
                             .into_any_element()

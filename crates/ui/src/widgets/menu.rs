@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -329,8 +330,8 @@ impl Render for PopupMenu {
             .on_action(cx.listener(Self::down))
             .flex()
             .flex_col()
-            .min_w(px(160.))
-            .max_w(px(420.))
+            .min_w(design(160.))
+            .max_w(design(420.))
             .rounded(crate::material::radius_overlay(cx))
             .bg(cx.theme().popover)
             .border_1()
@@ -358,7 +359,7 @@ impl Render for PopupMenu {
                         div()
                             .px_2()
                             .py_1()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .font_medium()
                             .text_color(cx.theme().muted_foreground)
                             .child(label.clone()),
@@ -386,7 +387,7 @@ impl Render for PopupMenu {
                             .gap_2()
                             .px_2()
                             .py_1()
-                            .when(self.touch, |el| el.min_h(px(44.)))
+                            .when(self.touch, |el| el.min_h(design(44.)))
                             .rounded(crate::material::radius_button(cx))
                             .text_sm()
                             .when(selected, |el| el.bg(cx.theme().muted))

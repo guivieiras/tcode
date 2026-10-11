@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use gpui::{Bounds, Hsla, IntoElement, PathBuilder, Pixels, Styled as _, canvas, point, px};
 
 /// Draw the small progress ring: a muted full-circle track plus a `pct`-swept
@@ -21,7 +22,7 @@ pub(crate) fn ring_canvas(pct: f32, fg: Hsla, track: Hsla) -> impl IntoElement {
             }
         },
     )
-    .size(px(16.))
+    .size(design(16.))
 }
 
 /// Build a stroked arc path from `start_deg` to `end_deg` (degrees, clockwise

@@ -2,11 +2,11 @@
 //! check for two seconds after it fired, and the per-entity record of which
 //! button that was.
 
+use crate::sizing::design;
 use std::time::Duration;
 
 use gpui::{
     App, ClickEvent, Context, SharedString, Styled as _, Task, Window, prelude::FluentBuilder as _,
-    px,
 };
 
 use crate::{
@@ -51,7 +51,9 @@ pub(crate) fn copy_button(
         },
         cx,
     )
-    .when(compact, |button| button.min_w(px(44.)).min_h(px(44.)))
+    .when(compact, |button| {
+        button.min_w(design(44.)).min_h(design(44.))
+    })
     .on_click(on_copy)
 }
 

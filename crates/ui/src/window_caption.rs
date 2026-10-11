@@ -18,6 +18,7 @@
 //! need no click handlers of their own and are never part of the surrounding
 //! drag area.
 
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::{
     icon::{Icon, IconName},
@@ -209,7 +210,7 @@ fn caption_button(button: CaptionButton, maximized: bool, cx: &App) -> impl Into
         .flex()
         .flex_none()
         .h_full()
-        .w(px(CAPTION_BUTTON_WIDTH))
+        .w(design(CAPTION_BUTTON_WIDTH))
         .items_center()
         .justify_center()
         .text_color(cx.theme().muted_foreground)
