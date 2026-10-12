@@ -73,7 +73,6 @@ public final class GpuiActivity extends NativeActivity {
             videoPreview = null;
         }
     }
-    @Override protected void onPause() { if (videoPreview != null) videoPreview.pause(); super.onPause(); }
     public PreviewHost previewHost;
     private GpuiInputView inputView;
     /** Android 12 and later only; null below, where scrolling capture does not exist. */
@@ -253,6 +252,7 @@ public final class GpuiActivity extends NativeActivity {
     @Override
     protected void onPause() {
         resumed = false;
+        if (videoPreview != null) videoPreview.pause();
         super.onPause();
     }
 
