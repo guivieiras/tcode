@@ -1184,9 +1184,11 @@ pub(crate) struct Mapper {
     saw_requesting: bool,
     /// Tasks still owned by this Claude process, whatever their `task_type`:
     /// a Monitor watch or a backgrounded subagent keeps the process busy
-    /// exactly like a background Bash command. When the list becomes empty
-    /// Claude immediately re-invokes itself with the completion notification,
-    /// so zero is not published until that follow-up result.
+    /// exactly like a background Bash command. Tasks the CLI flags `ambient`
+    /// (housekeeping and persistent live-update watchers) are not activity
+    /// and are not counted. When the list becomes empty Claude immediately
+    /// re-invokes itself with the completion notification, so zero is not
+    /// published until that follow-up result.
     background_tasks: HashSet<String>,
     /// Native rewind control requests awaiting Claude's correlated response.
     pending_rewinds: HashMap<String, PendingRewind>,
@@ -1743,6 +1745,7 @@ impl Mapper {
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
+            .filter(|task| task.get("ambient").and_then(Value::as_bool) != Some(true))
             .filter_map(|task| task.get("task_id").and_then(Value::as_str))
             .map(str::to_owned)
             .collect::<HashSet<_>>();
@@ -5657,10 +5660,15 @@ mod tests {
                 .all(|status| status == ItemStatus::InProgress),
             "launch acknowledgement and task_notification must not settle the item yet"
         );
+        // The running agent keeps the parent's turn result live, so the runtime
+        // neither parks the process nor reports the thread finished; the
+        // ambient watcher counts for nothing.
+        turn_completed_after_count(&events, 1);
         assert!(
-            events
+            !events
                 .iter()
-                .any(|event| matches!(event, AgentEvent::TurnCompleted { .. }))
+                .any(|event| matches!(event, AgentEvent::BackgroundTasksChanged { count: 0 })),
+            "the drain withholds zero until the follow-up turn's result"
         );
         assert!(events.iter().any(|event| matches!(
             event,
