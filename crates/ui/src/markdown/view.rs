@@ -369,13 +369,12 @@ impl Element for MarkdownView {
                     state.list_state.scroll_px_offset_for_scrollbar(),
                 )
             };
-            let y = hitbox.bounds.origin.y.as_f32().max(0.).to_bits() as u64;
-            let x = hitbox.bounds.origin.x.as_f32().max(0.).to_bits() as u64;
+            let origin = hitbox.bounds.origin;
             adapter.register(
                 hitbox.clone(),
                 content_bounds,
                 scroll_offset,
-                (y << 32) | x,
+                (ordered_bits(origin.y) << 32) | ordered_bits(origin.x),
                 window,
                 cx,
             );
@@ -389,6 +388,17 @@ impl Element for MarkdownView {
             );
         }
     }
+}
+
+/// Bits of `value` that sort as the value does, negative values included: a
+/// list paints views above the window top, and a selection still spans them.
+fn ordered_bits(value: Pixels) -> u64 {
+    let bits = value.as_f32().to_bits();
+    u64::from(if bits >> 31 == 1 {
+        !bits
+    } else {
+        bits | 1 << 31
+    })
 }
 
 #[cfg(test)]
@@ -572,6 +582,55 @@ mod tests {
                     div()
                         .h(px(40.))
                         .child(MarkdownView::new(&self.second).selectable(true)),
+                )
+        }
+    }
+
+    /// A user bubble indented past the answer below it, then a follow-up,
+    /// scrolled up by `scrolled`.
+    struct ScrolledThreadRoot {
+        question: Entity<MarkdownState>,
+        answer: Entity<MarkdownState>,
+        follow_up: Entity<MarkdownState>,
+        scrolled: Pixels,
+    }
+
+    impl ScrolledThreadRoot {
+        fn new(cx: &mut Context<Self>) -> Self {
+            Self {
+                question: cx.new(|cx| MarkdownState::new("User question", cx)),
+                answer: cx.new(|cx| MarkdownState::new("Assistant answer", cx)),
+                follow_up: cx.new(|cx| MarkdownState::new("Follow up", cx)),
+                scrolled: px(0.),
+            }
+        }
+    }
+
+    impl Render for ScrolledThreadRoot {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .overflow_hidden()
+                .child(TextSelectionLayer)
+                .child(
+                    div()
+                        .mt(-self.scrolled)
+                        .child(
+                            div()
+                                .h(px(40.))
+                                .pl(px(120.))
+                                .child(MarkdownView::new(&self.question).selectable(true)),
+                        )
+                        .child(
+                            div()
+                                .h(px(40.))
+                                .child(MarkdownView::new(&self.answer).selectable(true)),
+                        )
+                        .child(
+                            div()
+                                .h(px(400.))
+                                .child(MarkdownView::new(&self.follow_up).selectable(true)),
+                        ),
                 )
         }
     }
@@ -1309,6 +1368,34 @@ mod tests {
 
         let selected = cx.update(gpui_base::TextSelection::selected_text);
         assert_eq!(selected, "Hello world\nSecond message");
+    }
+
+    #[gpui::test]
+    fn cross_view_copy_keeps_document_order_above_the_window_top(cx: &mut TestAppContext) {
+        cx.update(crate::theme::init);
+        cx.update(crate::markdown::init);
+        let (view, cx) = cx.add_window_view(|_, cx| ScrolledThreadRoot::new(cx));
+        cx.simulate_resize(gpui::size(px(400.), px(300.)));
+        cx.run_until_parked();
+        cx.update(|window, cx| _ = window.draw(cx));
+
+        let start = point(px(121.), px(10.));
+        cx.simulate_mouse_down(start, MouseButton::Left, Modifiers::default());
+        cx.update(|window, cx| _ = window.draw(cx));
+        drag_to(cx, point(px(390.), px(90.)));
+        let expected = "User question\nAssistant answer\nFollow up";
+        assert_eq!(release(cx, point(px(390.), px(90.))), expected);
+
+        // The question and the answer above the window top, the follow-up
+        // still on screen.
+        view.update(cx, |root, cx| {
+            root.scrolled = px(60.);
+            cx.notify();
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| _ = window.draw(cx));
+        let selected = cx.update(gpui_base::TextSelection::selected_text);
+        assert_eq!(selected, expected);
     }
 
     #[gpui::test]
