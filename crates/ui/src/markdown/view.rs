@@ -412,6 +412,7 @@ mod tests {
     };
 
     use super::*;
+    use crate::widgets::input::{Textarea, TextareaState};
     use gpui_base::TextSelectionLayer;
 
     struct TestRoot {
@@ -632,6 +633,37 @@ mod tests {
                                 .child(MarkdownView::new(&self.follow_up).selectable(true)),
                         ),
                 )
+        }
+    }
+
+    /// A message bubble above a focused composer, under the window root.
+    struct ComposerRoot {
+        markdown: Entity<MarkdownState>,
+        composer: Entity<TextareaState>,
+    }
+
+    impl ComposerRoot {
+        fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+            let composer = cx.new(|cx| TextareaState::new(window, cx));
+            composer.update(cx, |composer, cx| composer.focus(window, cx));
+            Self {
+                markdown: cx.new(|cx| MarkdownState::new("quick select value", cx)),
+                composer,
+            }
+        }
+    }
+
+    impl Render for ComposerRoot {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .child(
+                    div()
+                        .h(px(60.))
+                        .p(px(16.))
+                        .child(MarkdownView::new(&self.markdown).selectable(true)),
+                )
+                .child(div().h(px(60.)).child(Textarea::new(&self.composer)))
         }
     }
 
@@ -1396,6 +1428,36 @@ mod tests {
         cx.update(|window, cx| _ = window.draw(cx));
         let selected = cx.update(gpui_base::TextSelection::selected_text);
         assert_eq!(selected, expected);
+    }
+
+    #[gpui::test]
+    fn copy_takes_a_drag_begun_beside_the_text_from_a_focused_composer(cx: &mut TestAppContext) {
+        cx.update(crate::theme::init);
+        cx.update(crate::markdown::init);
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|cx| ComposerRoot::new(window, cx));
+            gpui_base::Root::new(page, window, cx)
+        });
+        cx.simulate_resize(gpui::size(px(320.), px(300.)));
+        cx.run_until_parked();
+        cx.update(|window, cx| _ = window.draw(cx));
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string("stale".into()));
+
+        // The press lands in the bubble's padding, beside the text.
+        let start = point(px(6.), px(24.));
+        cx.simulate_mouse_down(start, MouseButton::Left, Modifiers::default());
+        cx.update(|window, cx| _ = window.draw(cx));
+        drag_to(cx, point(px(70.), px(24.)));
+        assert_eq!(release(cx, point(px(70.), px(24.))), "quick ");
+        cx.simulate_keystrokes("secondary-c");
+        cx.run_until_parked();
+
+        assert_eq!(
+            cx.read_from_clipboard()
+                .and_then(|item| item.text())
+                .as_deref(),
+            Some("quick")
+        );
     }
 
     #[gpui::test]

@@ -214,6 +214,7 @@ impl MarkdownSelectionAdapter {
                         });
                         if anchor_dragging {
                             start_auto_scroll(&auto_scroll_for_events, cx);
+                            focus_on_drag(&view_for_events, &auto_scroll_for_events, cx);
                         } else {
                             stop_auto_scroll(&auto_scroll_for_events);
                         }
@@ -480,6 +481,32 @@ fn nearest_boundary(run: &TextSelectionRun, window_point: Point<Pixels>) -> usiz
     } else {
         offset
     }
+}
+
+/// Focuses the view a drag selection is anchored in.
+///
+/// gpui-base 0.7.1 focuses a participant only when the press lands on it. A
+/// drag begun in a message's padding or the gap between messages leaves the
+/// composer focused, and the composer input's Copy returns without
+/// propagating when it has nothing selected, so Ctrl-C never reaches the
+/// window root's selection copy.
+fn focus_on_drag(
+    view: &WeakEntity<MarkdownState>,
+    auto_scroll: &Rc<RefCell<AutoScrollState>>,
+    cx: &mut App,
+) {
+    let (Some(view), Some(window)) = (view.upgrade(), auto_scroll.borrow().window) else {
+        return;
+    };
+    let focus_handle = view.read(cx).focus_handle.clone();
+    // The selection changes while the window dispatches the pointer event.
+    cx.defer(move |cx| {
+        let _ = cx.update_window(window, |_, window, cx| {
+            if !focus_handle.is_focused(window) {
+                focus_handle.focus(window, cx);
+            }
+        });
+    });
 }
 
 fn start_auto_scroll(state: &Rc<RefCell<AutoScrollState>>, cx: &mut App) {
