@@ -22,6 +22,13 @@ post-tokens, 16,607 cumulative dropped tokens and 24,455 ms duration. Transcript
 UUIDs in preserved-segment metadata were omitted. Post-tokens describe the
 compaction result; they are not a fresh request context observation.
 
+`clear_recorded.jsonl` was captured on 2026-10-15 from a new Claude Code 2.1.296
+session with `--input-format stream-json`: one "Reply with exactly: PONG" turn,
+then `/clear` in the same process. The recorded lifecycle is result →
+`conversation_reset` (trigger `clear`) → a new `system/init` → a result with zero
+usage and no model usage. Only usage, context windows, model names, the reset
+trigger and result accounting were kept; session and message ids were replaced.
+
 `usage_scope.jsonl` and `usage_resume.jsonl` are constructed protocol fixtures,
 not live captures. They protect >capacity turn traffic, output-only deltas,
 repeated message/result IDs, main/subagent routing, a fresh process on an existing

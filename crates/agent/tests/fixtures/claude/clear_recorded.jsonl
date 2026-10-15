@@ -1,0 +1,6 @@
+{"type":"system","subtype":"init","session_id":"fixture-session","model":"claude-haiku-5-5"}
+{"type":"assistant","message":{"id":"fixture-message","model":"claude-haiku-5-5","role":"assistant","content":[{"type":"text","text":"PONG"}],"usage":{"input_tokens":2,"cache_creation_input_tokens":8478,"cache_read_input_tokens":15669,"output_tokens":4}}}
+{"type":"result","subtype":"success","is_error":false,"uuid":"fixture-result-1","num_turns":1,"stop_reason":"end_turn","usage":{"input_tokens":2,"cache_creation_input_tokens":8478,"cache_read_input_tokens":15669,"output_tokens":5},"modelUsage":{"claude-haiku-5-5":{"contextWindow":1000000}}}
+{"type":"conversation_reset","trigger":"clear"}
+{"type":"system","subtype":"init","session_id":"fixture-cleared-session","model":"claude-haiku-5-5"}
+{"type":"result","subtype":"success","is_error":false,"uuid":"fixture-result-2","num_turns":0,"stop_reason":null,"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0},"modelUsage":{}}

@@ -1518,6 +1518,12 @@ impl Mapper {
             Some("control_response") => self.on_control_response(&msg),
             Some("rate_limit_event") => self.on_rate_limit_event(&msg),
             Some("result") => self.on_result(&msg),
+            // `/clear` sends no request, so its `result` would otherwise carry
+            // the cleared conversation's occupancy.
+            Some("conversation_reset") => {
+                self.forget_context_observation();
+                Vec::new()
+            }
             other => {
                 log::debug!("claude: ignoring message type {other:?}");
                 Vec::new()
@@ -1576,6 +1582,17 @@ impl Mapper {
         }
     }
 
+    fn forget_context_observation(&mut self) {
+        self.request_usage = json!({});
+        self.usage_message_id = None;
+        self.current_message_id = None;
+        self.latest_usage.used_tokens = None;
+        self.latest_usage.input_tokens = None;
+        self.latest_usage.cached_input_tokens = None;
+        self.latest_usage.output_tokens = None;
+        self.latest_usage.freshness = crate::ContextFreshness::AwaitingObservation;
+    }
+
     fn on_system(&mut self, msg: &Value) -> Vec<AgentEvent> {
         if msg.get("subtype").and_then(Value::as_str) == Some("status")
             && msg.get("status").and_then(Value::as_str) == Some("requesting")
@@ -1588,14 +1605,7 @@ impl Mapper {
             // Claude compacted its context window (verified shape:
             // `{type:"system", subtype:"compact_boundary", compact_metadata:{…}}`).
             Some("compact_boundary") => {
-                self.request_usage = json!({});
-                self.usage_message_id = None;
-                self.current_message_id = None;
-                self.latest_usage.used_tokens = None;
-                self.latest_usage.input_tokens = None;
-                self.latest_usage.cached_input_tokens = None;
-                self.latest_usage.output_tokens = None;
-                self.latest_usage.freshness = crate::ContextFreshness::AwaitingObservation;
+                self.forget_context_observation();
                 return vec![AgentEvent::ContextCompacted(crate::Compaction {
                     in_progress: false,
                     trigger: msg
@@ -4511,6 +4521,29 @@ mod tests {
         assert_eq!(m.latest_usage.used_tokens, None);
         assert_eq!(
             m.latest_usage.freshness,
+            crate::ContextFreshness::AwaitingObservation
+        );
+    }
+
+    #[test]
+    fn recorded_clear_does_not_report_the_cleared_context() {
+        let mut m = Mapper::new();
+        let mut completions = Vec::new();
+        for line in include_str!("../tests/fixtures/claude/clear_recorded.jsonl").lines() {
+            if line.contains(r#""subtype":"init""#) {
+                m.start_turn();
+            }
+            for event in feed(&mut m, line) {
+                if let AgentEvent::TurnCompleted { usage, .. } = event {
+                    completions.push(usage.unwrap());
+                }
+            }
+        }
+        assert_eq!(completions.len(), 2);
+        assert_eq!(completions[0].used_tokens, Some(2 + 15_669 + 8_478));
+        assert_eq!(completions[1].used_tokens, None);
+        assert_eq!(
+            completions[1].freshness,
             crate::ContextFreshness::AwaitingObservation
         );
     }
