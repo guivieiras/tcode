@@ -62,6 +62,7 @@ pub struct ComposerState {
     pub preparing_worktree: bool,
     pub checkout: Option<ComposerCheckoutState>,
     pub turn_running: bool,
+    pub idle_hint: Option<ComposerIdleHint>,
     pub stopping: bool,
     pub context_window: Option<u64>,
     pub native_rewind_blocked: bool,
@@ -73,9 +74,18 @@ pub struct ComposerState {
     pub pending_approval_count: usize,
 }
 
+/// The provider's idle-return hint for the latest finished turn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ComposerIdleHint {
+    pub command: &'static str,
+    pub tokens: u64,
+    /// Unix ms from which the hint shows.
+    pub due_at: u64,
+}
+
 pub(crate) fn composer_state(
     status: Option<&SessionStatus>,
-    _timeline: Option<&Timeline>,
+    timeline: Option<&Timeline>,
     settings: &Settings,
     providers: &ProvidersStatus,
 ) -> ComposerState {
@@ -112,6 +122,23 @@ pub(crate) fn composer_state(
         status.usage.map(|mut usage| {
             usage.context_window = status.context_window;
             usage
+        })
+    });
+
+    let idle_hint = status.and_then(|status| {
+        let hint = status.provider.caps().idle_return_hint?;
+        if status.activity.turn_running || status.conversation_read_only {
+            return None;
+        }
+        let tokens = crate::context_meter::used_tokens(token_usage.as_ref()?)?;
+        if tokens < hint.min_context_tokens {
+            return None;
+        }
+        let ended_at = timeline?.turns.last()?.end_ts?;
+        Some(ComposerIdleHint {
+            command: hint.command,
+            tokens,
+            due_at: ended_at.saturating_add(hint.idle_ms),
         })
     });
 
@@ -170,6 +197,7 @@ pub(crate) fn composer_state(
         preparing_worktree: status.is_some_and(|status| status.preparing_worktree),
         checkout,
         turn_running: status.is_some_and(|status| status.activity.turn_running),
+        idle_hint,
         stopping: status.is_some_and(|status| status.stopping),
         context_window: status.and_then(|status| status.context_window),
         native_rewind_blocked: status.is_none_or(|status| status.native_rewind_blocked),
@@ -269,6 +297,61 @@ mod tests {
             options_pending_restart: false,
             pull_request_tools: None,
         }
+    }
+
+    /// Claude Code suggests `/clear` once a conversation of at least 100k tokens
+    /// has been idle for 75 minutes since its last turn; a cleared conversation
+    /// has no occupancy left to save.
+    #[test]
+    fn claude_idle_hint_is_due_after_a_large_turn_and_withdrawn_by_clear() {
+        let mut timeline = Timeline::default();
+        let mut status = session_status();
+        status.provider = agent::ProviderKind::ClaudeCode;
+        let mut finish = |ts: u64, usage: agent::TokenUsage| {
+            let turn_id = format!("turn-{ts}");
+            timeline.apply_at(
+                Some(ts),
+                &agent::AgentEvent::TurnStarted {
+                    turn_id: turn_id.clone(),
+                },
+            );
+            timeline.apply_at(
+                Some(ts),
+                &agent::AgentEvent::TurnCompleted {
+                    turn_id,
+                    status: agent::TurnStatus::Completed,
+                    usage: Some(usage),
+                },
+            );
+            status.usage = timeline.usage;
+            composer_state(
+                Some(&status),
+                Some(&timeline),
+                &Settings::default(),
+                &ProvidersStatus::default(),
+            )
+            .idle_hint
+        };
+        let observed = |used| agent::TokenUsage {
+            freshness: agent::ContextFreshness::Current,
+            used_tokens: Some(used),
+            ..Default::default()
+        };
+
+        assert_eq!(finish(1_000, observed(99_999)), None);
+        assert_eq!(
+            finish(2_000, observed(142_000)),
+            Some(ComposerIdleHint {
+                command: "/clear",
+                tokens: 142_000,
+                due_at: 2_000 + 75 * 60 * 1000,
+            })
+        );
+        let cleared = agent::TokenUsage {
+            freshness: agent::ContextFreshness::AwaitingObservation,
+            ..Default::default()
+        };
+        assert_eq!(finish(3_000, cleared), None);
     }
 
     #[test]

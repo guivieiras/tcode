@@ -85,6 +85,7 @@ pub struct Caps {
     pub plugin_management: PluginManagement,
     /// Where [`SessionOptions::instructions`] reach the model.
     pub instruction_channel: InstructionChannel,
+    pub idle_return_hint: Option<IdleReturnHint>,
 }
 
 /// The provider's own channel for instructions a host gives the model alongside the conversation.
@@ -101,6 +102,17 @@ pub enum InstructionChannel {
     /// `/command`, while the session attached Tcode's MCP servers.
     PerPromptUserBlock,
     None,
+}
+
+/// The harness's suggestion, on returning to a large conversation whose prompt
+/// cache has gone cold, to start fresh instead of re-sending it. Claude Code
+/// draws it only in its terminal UI and never sends it over stream-json, so
+/// clients apply the same rule themselves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IdleReturnHint {
+    pub idle_ms: u64,
+    pub min_context_tokens: u64,
+    pub command: &'static str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,6 +181,14 @@ impl ProviderKind {
                     marketplaces: true,
                 },
                 instruction_channel: InstructionChannel::SessionAppend,
+                // Claude Code 2.1.296 defaults; its `CLAUDE_CODE_IDLE_THRESHOLD_MINUTES`
+                // and `CLAUDE_CODE_IDLE_TOKEN_THRESHOLD` overrides live in the CLI's
+                // environment, which a remote client cannot see.
+                idle_return_hint: Some(IdleReturnHint {
+                    idle_ms: 75 * 60 * 1000,
+                    min_context_tokens: 100_000,
+                    command: "/clear",
+                }),
             },
             ProviderKind::Codex => Caps {
                 supports_steering: true,
@@ -195,6 +215,7 @@ impl ProviderKind {
                     marketplaces: true,
                 },
                 instruction_channel: InstructionChannel::DeveloperContext,
+                idle_return_hint: None,
             },
             ProviderKind::Acp => Caps {
                 supports_steering: false,
@@ -214,6 +235,7 @@ impl ProviderKind {
                 trust_project_extensions: false,
                 plugin_management: PluginManagement::NONE,
                 instruction_channel: InstructionChannel::PerPromptUserBlock,
+                idle_return_hint: None,
             },
             ProviderKind::Pi => Caps {
                 supports_steering: true,
@@ -231,6 +253,7 @@ impl ProviderKind {
                 trust_project_extensions: true,
                 plugin_management: PluginManagement::NONE,
                 instruction_channel: InstructionChannel::None,
+                idle_return_hint: None,
             },
             ProviderKind::OpenCode => Caps {
                 supports_steering: false,
@@ -248,6 +271,7 @@ impl ProviderKind {
                 trust_project_extensions: false,
                 plugin_management: PluginManagement::NONE,
                 instruction_channel: InstructionChannel::PerPromptSystem,
+                idle_return_hint: None,
             },
             ProviderKind::Cursor => Caps {
                 supports_steering: false,
@@ -265,6 +289,7 @@ impl ProviderKind {
                 trust_project_extensions: false,
                 plugin_management: PluginManagement::NONE,
                 instruction_channel: InstructionChannel::PerPromptUserBlock,
+                idle_return_hint: None,
             },
             ProviderKind::Grok => Caps {
                 supports_steering: true,
@@ -289,6 +314,7 @@ impl ProviderKind {
                     marketplaces: true,
                 },
                 instruction_channel: InstructionChannel::PerPromptUserBlock,
+                idle_return_hint: None,
             },
         }
     }

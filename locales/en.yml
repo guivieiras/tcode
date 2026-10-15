@@ -854,6 +854,7 @@ composer:
   queue_hint: "Enter to queue · %{shortcut} to steer"
   queued_title: "Queued"
   queued_count: "%{count} queued"
+  idle_return_hint: "new task? %{command} to save %{tokens} tokens"
   cmd_later_desc: "Schedule a message: /later 5:10 … or /later 5min …"
   later_usage: "Usage: /later <5:10 | 5min> <message>"
   send_now: "Send now"
