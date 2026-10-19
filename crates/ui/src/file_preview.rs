@@ -37,8 +37,7 @@ struct FilePreviewView {
     content: Content,
     pending_line: Option<u32>,
     _task: Option<Task<()>>,
-    #[cfg(all(feature = "native-preview", target_os = "android"))]
-    video_task: Option<Task<()>>,
+    content_task: Option<Task<()>>,
 }
 
 pub(crate) fn open(
@@ -65,8 +64,7 @@ pub(crate) fn open(
             content: Content::Loading,
             pending_line: None,
             _task: Some(task),
-            #[cfg(all(feature = "native-preview", target_os = "android"))]
-            video_task: None,
+            content_task: None,
         }
     });
     let title = action.target.clone();
@@ -88,7 +86,7 @@ impl FilePreviewView {
     fn loaded(
         &mut self,
         preview: FilePreview,
-        _store: &Entity<WorkspaceStore>,
+        store: &Entity<WorkspaceStore>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -103,18 +101,35 @@ impl FilePreviewView {
                 self.pending_line = line;
                 Content::Text(editor)
             }
-            FilePreviewContent::Image { bytes } => match image::guess_format(&bytes)
-                .ok()
-                .and_then(|format| gpui::ImageFormat::from_mime_type(format.to_mime_type()))
-            {
-                Some(format) => Content::Image(Arc::new(Image::from_bytes(format, bytes))),
-                None => Content::Error(crate::tr!("file_preview.unsupported").into_owned()),
-            },
+            FilePreviewContent::Image { size } => {
+                let path = preview.path.clone();
+                let read = store.update(cx, |store, cx| store.read_file_original(path, size, cx));
+                self.content_task = Some(cx.spawn_in(window, async move |this, cx| {
+                    let content = match read.await {
+                        Ok(bytes) => match image::guess_format(&bytes).ok().and_then(|format| {
+                            gpui::ImageFormat::from_mime_type(format.to_mime_type())
+                        }) {
+                            Some(format) => {
+                                Content::Image(Arc::new(Image::from_bytes(format, bytes)))
+                            }
+                            None => {
+                                Content::Error(crate::tr!("file_preview.unsupported").into_owned())
+                            }
+                        },
+                        Err(error) => Content::Error(error.to_string()),
+                    };
+                    let _ = this.update(cx, |this, cx| {
+                        this.content = content;
+                        cx.notify();
+                    });
+                }));
+                Content::Loading
+            }
             FilePreviewContent::Video { size, mime } => {
                 let audio_only = mime.starts_with("audio/");
                 #[cfg(all(feature = "native-preview", target_os = "android"))]
                 {
-                    match _store
+                    match store
                         .read(cx)
                         .video_stream(preview.path.clone(), size, mime)
                     {
@@ -138,7 +153,7 @@ impl FilePreviewView {
                                 "seek": crate::tr!("file_preview.seek"),
                             })
                             .to_string();
-                            self.video_task = Some(cx.spawn_in(window, async move |this, cx| {
+                            self.content_task = Some(cx.spawn_in(window, async move |this, cx| {
                                 let result = gpui_android::video::play(
                                     stream.url().into(),
                                     title,
@@ -166,7 +181,7 @@ impl FilePreviewView {
                     any(target_os = "linux", target_os = "macos", target_os = "windows")
                 ))]
                 {
-                    match _store.read(cx).video_stream(preview.path, size, mime) {
+                    match store.read(cx).video_stream(preview.path, size, mime) {
                         Ok(stream) => Content::Video(
                             cx.new(|cx| video::VideoView::new(stream, audio_only, window, cx)),
                         ),
@@ -299,8 +314,7 @@ mod tests {
                 content: Content::Loading,
                 pending_line: None,
                 _task: None,
-                #[cfg(all(feature = "native-preview", target_os = "android"))]
-                video_task: None,
+                content_task: None,
             };
             view.loaded(
                 FilePreview {
@@ -333,5 +347,81 @@ mod tests {
                 "line 90 must be visible, not just selected offscreen"
             );
         });
+    }
+
+    #[gpui::test]
+    fn image_preview_reads_the_host_original_and_refuses_a_changed_file(cx: &mut TestAppContext) {
+        use tcode_protocol::{
+            ClientPayload, HostMessage, Query, QueryResponse, decode_client_line, encode_line,
+        };
+        cx.update(crate::theme::init);
+        let file = include_bytes!("../../../assets/icons/app/tcode.png").to_vec();
+        let path = PathBuf::from("/host-only/image.png");
+        for (announced, shown) in [(file.len() as u64, true), (file.len() as u64 + 1, false)] {
+            let (to_host, requests) = async_channel::unbounded();
+            let (replies, from_host) = async_channel::unbounded();
+            let link = tcode_client::HostLink::new(to_host, from_host);
+            let executor = cx.background_executor.clone();
+            let pump = link.clone();
+            let _pump = cx.background_executor.spawn(async move {
+                pump.pump_with_timer(|| executor.timer(std::time::Duration::from_millis(25)))
+                    .await;
+            });
+            let store = cx.new(|cx| {
+                WorkspaceStore::new_attached(
+                    link,
+                    crate::store::WorkspaceAttachment::Local,
+                    None,
+                    None,
+                    false,
+                    cx,
+                )
+            });
+            let (view, cx) = cx.add_window_view(|window, cx| {
+                let mut view = FilePreviewView {
+                    content: Content::Loading,
+                    pending_line: None,
+                    _task: None,
+                    content_task: None,
+                };
+                view.loaded(
+                    FilePreview {
+                        path: path.clone(),
+                        content: FilePreviewContent::Image { size: announced },
+                    },
+                    &store,
+                    window,
+                    cx,
+                );
+                view
+            });
+            cx.run_until_parked();
+            let request = std::iter::from_fn(|| requests.try_recv().ok())
+                .map(|line| decode_client_line(&line).unwrap())
+                .find(|request| matches!(request.payload, ClientPayload::Query(_)))
+                .expect("the preview reads the image's original");
+            assert_eq!(
+                request.payload,
+                ClientPayload::Query(Query::ReadFileBytes {
+                    path: path.clone(),
+                    max_bytes: None,
+                })
+            );
+            replies
+                .send_blocking(
+                    encode_line(&HostMessage::QueryResult {
+                        id: request.id,
+                        result: Ok(QueryResponse::FileBytes(file.clone())),
+                    })
+                    .unwrap(),
+                )
+                .unwrap();
+            cx.run_until_parked();
+            view.read_with(cx, |view, _| match &view.content {
+                Content::Image(image) if shown => assert_eq!(image.bytes(), file.as_slice()),
+                Content::Error(_) if !shown => {}
+                _ => panic!("announced {announced} bytes for a {} byte file", file.len()),
+            });
+        }
     }
 }

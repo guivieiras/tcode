@@ -41,6 +41,8 @@ pub fn resolve(target: &str, base_dir: Option<&Path>) -> io::Result<(PathBuf, Op
     Ok((path.canonicalize()?, line))
 }
 
+const MAX_TEXT_PREVIEW_BYTES: usize = 1024 * 1024;
+
 pub fn open(target: &str, base_dir: Option<&Path>) -> io::Result<FilePreview> {
     let (path, line) = resolve(target, base_dir)?;
     let mut file = File::open(&path)?;
@@ -59,24 +61,24 @@ pub fn open(target: &str, base_dir: Option<&Path>) -> io::Result<FilePreview> {
             mime: mime.into(),
         }
     } else {
-        if metadata.len() > MAX_FILE_PREVIEW_BYTES as u64 {
-            return Err(io::Error::other(
-                "This file exceeds the 8 MiB preview limit",
-            ));
-        }
         let mut bytes = Vec::new();
-        file.by_ref()
-            .take(MAX_FILE_PREVIEW_BYTES as u64 + 1)
-            .read_to_end(&mut bytes)?;
-        if bytes.len() > MAX_FILE_PREVIEW_BYTES {
-            return Err(io::Error::other(
-                "This file exceeds the 8 MiB preview limit",
-            ));
-        }
+        // Covers the longest signature `image::guess_format` checks.
+        file.by_ref().take(16).read_to_end(&mut bytes)?;
         if image::guess_format(&bytes).is_ok() {
-            FilePreviewContent::Image { bytes }
+            if metadata.len() > MAX_FILE_PREVIEW_BYTES as u64 {
+                return Err(io::Error::other(format!(
+                    "This image exceeds the {} MiB preview limit",
+                    MAX_FILE_PREVIEW_BYTES / (1024 * 1024)
+                )));
+            }
+            FilePreviewContent::Image {
+                size: metadata.len(),
+            }
         } else {
-            if bytes.len() > 1024 * 1024 {
+            file.by_ref()
+                .take(MAX_TEXT_PREVIEW_BYTES as u64 + 1 - bytes.len() as u64)
+                .read_to_end(&mut bytes)?;
+            if bytes.len() > MAX_TEXT_PREVIEW_BYTES {
                 return Err(io::Error::other(
                     "This text file exceeds the 1 MiB preview limit",
                 ));
@@ -218,10 +220,18 @@ mod tests {
             include_bytes!("../../../assets/icons/app/tcode.png"),
         )
         .unwrap();
-        assert!(matches!(
+        let image = File::options()
+            .append(true)
+            .open(root.join("image.png"))
+            .unwrap();
+        let size = 2 * MAX_FILE_RANGE_BYTES as u64;
+        image.set_len(size).unwrap();
+        assert_eq!(
             open("image.png", Some(&root)).unwrap().content,
-            FilePreviewContent::Image { .. }
-        ));
+            FilePreviewContent::Image { size }
+        );
+        image.set_len(MAX_FILE_PREVIEW_BYTES as u64 + 1).unwrap();
+        assert!(open("image.png", Some(&root)).is_err());
         std::fs::rename(root.join("large.txt"), root.join("video.mp4")).unwrap();
         assert!(matches!(
             open("video.mp4", Some(&root)).unwrap().content,

@@ -181,8 +181,9 @@ pub use wire::{
 // the child's `expectation`; the protocol adds the CompactContext command,
 // which asks a provider with a native compaction operation to compact now.
 // Unreleased: the PreviewFile query and FilePreview response resolve a file
-// link on the host into a text, image or video preview, and ReadFileRange
-// reads a bounded range of a file whose size is unchanged, for media players.
+// link on the host into a text, image or video preview, an image's bytes then
+// read as an explicit original, and ReadFileRange reads a bounded range of a
+// file whose size is unchanged, for media players.
 pub const PROTOCOL_VERSION: u32 = 14;
 
 #[cfg(test)]

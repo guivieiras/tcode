@@ -537,8 +537,10 @@ impl PathInfo {
     }
 }
 
-/// Keep whole-file previews and streaming chunks below the transport frame cap.
-pub const MAX_FILE_PREVIEW_BYTES: usize = 8 * 1024 * 1024;
+/// An image preview is assembled in client memory before it is decoded, so this
+/// bounds memory; its bytes travel as an explicit original, outside query replies.
+pub const MAX_FILE_PREVIEW_BYTES: usize = 64 * 1024 * 1024;
+/// Keeps each ranged read well below the transport frame cap.
 pub const MAX_FILE_RANGE_BYTES: usize = 512 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -554,9 +556,9 @@ pub enum FilePreviewContent {
         text: String,
         line: Option<u32>,
     },
+    /// Read as an [`OriginalTarget::File`](crate::OriginalTarget) of the previewed path.
     Image {
-        #[serde(with = "crate::wire::base64_bytes")]
-        bytes: Vec<u8>,
+        size: u64,
     },
     /// Streamed audio or video; the MIME type selects the media format.
     Video {
