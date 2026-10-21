@@ -2,6 +2,7 @@
 //! permission/mode chips + send/stop), the below-card checkout/branch row, and
 //! the pending-approval panel.
 
+use crate::sizing::design;
 mod components;
 pub(crate) mod model;
 
@@ -777,7 +778,7 @@ impl Composer {
             .preparing_worktree
         {
             return div()
-                .size(px(44.))
+                .size(design(44.))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -803,7 +804,7 @@ impl Composer {
         // Keep the touch target larger than the visible circle.
         let button = crate::material::accessible_clickable(div(), id, Role::Button, label, cx)
             .debug_selector(move || id.into())
-            .size(px(44.))
+            .size(design(44.))
             .flex()
             .items_center()
             .justify_center()
@@ -813,7 +814,7 @@ impl Composer {
             })
             .child(
                 div()
-                    .size(px(40.))
+                    .size(design(40.))
                     .rounded_full()
                     .flex()
                     .items_center()
@@ -821,13 +822,13 @@ impl Composer {
                     .bg(bg)
                     .child(if stopping {
                         div()
-                            .size(px(13.))
-                            .rounded(px(2.))
+                            .size(design(13.))
+                            .rounded(design(2.))
                             .bg(gpui::white())
                             .into_any_element()
                     } else {
                         Icon::new(IconName::ArrowUp)
-                            .size(px(18.))
+                            .size(design(18.))
                             .text_color(fg)
                             .into_any_element()
                     }),
@@ -851,8 +852,8 @@ impl Composer {
             .when(turn_running && has_text, |el| {
                 el.child(
                     div()
-                        .text_size(px(10.))
-                        .line_height(px(12.))
+                        .text_size(design(10.))
+                        .line_height(design(12.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("mobile.queue")),
                 )
@@ -889,7 +890,7 @@ impl Composer {
             cx,
         )
         .debug_selector(|| "stop-turn".into())
-        .size(px(28.))
+        .size(design(28.))
         .rounded(crate::material::radius_input(cx))
         .flex()
         .items_center()
@@ -901,7 +902,12 @@ impl Composer {
         )
         .cursor_pointer()
         .hover(|s| s.opacity(0.9))
-        .child(div().size(px(11.)).rounded(px(2.)).bg(gpui::white()))
+        .child(
+            div()
+                .size(design(11.))
+                .rounded(design(2.))
+                .bg(gpui::white()),
+        )
         .on_click(cx.listener(|this, _, _, cx| {
             if !this.interactive(cx) {
                 return;
@@ -947,7 +953,7 @@ impl Composer {
                         crate::tr!("composer.steer_tooltip"),
                         cx,
                     )
-                    .size(px(28.))
+                    .size(design(28.))
                     .rounded(crate::material::radius_input(cx))
                     .flex()
                     .items_center()
@@ -983,7 +989,7 @@ impl Composer {
                 .child(Spinner::new().small().color(cx.theme().primary))
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("composer.preparing_worktree")),
                 )
@@ -1007,7 +1013,7 @@ impl Composer {
             cx,
         )
         .debug_selector(|| "send-message".into())
-        .size(px(28.))
+        .size(design(28.))
         .rounded(crate::material::radius_input(cx))
         .flex()
         .items_center()
@@ -1036,7 +1042,7 @@ impl Composer {
                 .compact()
                 .disabled(true)
                 .aria_label(crate::tr!("composer.send").into_owned())
-                .size(px(if self.compact { 44. } else { 28. }))
+                .size(design(if self.compact { 44. } else { 28. }))
                 .child(Icon::new(IconName::ArrowUp).small())
                 .into_any_element();
         }
@@ -1063,7 +1069,7 @@ impl Render for Composer {
         let approval_count = composer_state.pending_approval_count;
 
         let border = cx.theme().border;
-        let divider = move || div().w_px().h(px(16.)).bg(border);
+        let divider = move || div().w_px().h(design(16.)).bg(border);
 
         let compact = self.compact || self.control_row_narrow.get();
 
@@ -1173,9 +1179,9 @@ impl Render for Composer {
                     Button::new(("terminal-context-chip", id))
                         .ghost()
                         .small()
-                        .h(px(22.))
+                        .h(design(22.))
                         .rounded(crate::material::radius_chip(cx))
-                        .text_size(px(11.5))
+                        .text_size(design(11.5))
                         .font_family(cx.theme().mono_font_family.clone())
                         .label(format!("{} · {}  ×", context.terminal_label, range))
                         .tooltip(context.text)
@@ -1211,9 +1217,9 @@ impl Render for Composer {
                     Button::new(("review-comment-chip", index))
                         .ghost()
                         .small()
-                        .h(px(22.))
+                        .h(design(22.))
                         .rounded(crate::material::radius_chip(cx))
-                        .text_size(px(11.5))
+                        .text_size(design(11.5))
                         .font_family(cx.theme().mono_font_family.clone())
                         .label(format!("{} {}  ×", comment.file, range))
                         .tooltip(comment.text)
@@ -1242,7 +1248,7 @@ impl Render for Composer {
             .debug_selector(|| "composer-card".into())
             .w_full()
             .gap_1p5()
-            .p(px(6.))
+            .p(design(6.))
             .rounded(if self.compact {
                 px(16.)
             } else {
@@ -1339,7 +1345,7 @@ impl Render for Composer {
             .flex_shrink_0()
             .w_full()
             .items_center()
-            .px(px(if self.compact {
+            .px(design(if self.compact {
                 16.
             } else {
                 crate::chat::CONTENT_MIN_PADDING
@@ -1350,7 +1356,7 @@ impl Render for Composer {
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(px(crate::chat::CONTENT_MAX_WIDTH))
+                    .max_w(design(crate::chat::CONTENT_MAX_WIDTH))
                     .gap_2()
                     .when_some(approval, |this, request| {
                         this.child(self.render_approval_panel(&request, approval_count, cx))
@@ -1382,7 +1388,7 @@ impl Render for Composer {
                                         .min_w_0()
                                         .gap_1()
                                         .items_center()
-                                        .rounded_b(px(12.))
+                                        .rounded_b(design(12.))
                                         .border_1()
                                         .border_t_0()
                                         .border_color(cx.theme().border)

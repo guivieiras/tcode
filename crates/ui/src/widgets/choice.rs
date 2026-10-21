@@ -1,6 +1,7 @@
 //! Tcode's single-choice form control: a styled composition of
 //! `gpui_base::RadioGroup`/`Radio`, drawn as a
 //! [`TabBar::segmented`](super::tabs::TabBar::segmented) track.
+use crate::sizing::design;
 use crate::{
     icon::{Icon, IconName},
     material::focus_ring,
@@ -13,7 +14,7 @@ use crate::{
 use gpui::{
     App, Axis, ElementId, InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce,
     SharedString, StatefulInteractiveElement as _, StyleRefinement, Styled, Window, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _,
 };
 use gpui_base::{Radio, RadioGroup, StyledExt as _};
 use std::rc::Rc;
@@ -162,9 +163,9 @@ fn render_choice(choice: Choice, ix: usize, count: usize, compact: bool, cx: &Ap
         .focus_visible(move |style| style.shadow(vec![ring]))
         .flex()
         .items_center()
-        .px(px(if compact { 14. } else { 12. }))
-        .gap(px(if compact { 8. } else { 6. }))
-        .text_size(px(if compact { 15. } else { 13. }))
+        .px(design(if compact { 14. } else { 12. }))
+        .gap(design(if compact { 8. } else { 6. }))
+        .text_size(design(if compact { 15. } else { 13. }))
         .font_medium()
         .whitespace_nowrap()
         .text_color(theme.muted_foreground)
@@ -177,7 +178,7 @@ fn render_choice(choice: Choice, ix: usize, count: usize, compact: bool, cx: &Ap
         .when(recommended, |this| {
             this.child(
                 Icon::new(IconName::Star)
-                    .size(px(if compact { 13. } else { 11. }))
+                    .size(design(if compact { 13. } else { 11. }))
                     .flex_none(),
             )
             .tooltip(|window, cx| Tooltip::new(crate::tr!("choice.recommended")).build(window, cx))

@@ -4,11 +4,12 @@
 //! renders at the width this panel subscribed to, pushed again while the
 //! command runs. Both parts paint as terminal grids.
 
+use crate::sizing::{design, design_px};
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use gpui::{
     AnyElement, App, ContentMask, Hsla, InteractiveElement as _, IntoElement as _,
-    ParentElement as _, Rgba, Styled as _, Window, canvas, div, prelude::FluentBuilder as _, px,
+    ParentElement as _, Rgba, Styled as _, Window, canvas, div, prelude::FluentBuilder as _,
 };
 use gpui_base::ElementExt as _;
 use tcode_core::session::TimelineEntry;
@@ -217,7 +218,7 @@ impl Panel {
                     (
                         div()
                             .w_full()
-                            .h(px(rows as f32 * TERMINAL_CELL_HEIGHT))
+                            .h(design(rows as f32 * TERMINAL_CELL_HEIGHT))
                             .into_any_element(),
                         rows,
                     )
@@ -245,7 +246,7 @@ impl Panel {
             .when_some(on_cols_change, |panel, on_cols_change| {
                 panel.on_prepaint(move |bounds, window, cx| {
                     let measured = clamp_cols(
-                        (f32::from(bounds.size.width) / TERMINAL_CELL_WIDTH)
+                        (bounds.size.width / design_px(TERMINAL_CELL_WIDTH, window))
                             .floor()
                             .clamp(0., f32::from(u16::MAX)) as u16,
                     );
@@ -297,15 +298,15 @@ fn grid_element(
                     cx,
                     &paint_data,
                     palette,
-                    TERMINAL_CELL_WIDTH,
-                    TERMINAL_CELL_HEIGHT,
+                    f32::from(design_px(TERMINAL_CELL_WIDTH, window)),
+                    f32::from(design_px(TERMINAL_CELL_HEIGHT, window)),
                     false,
                 );
             });
         },
     )
-    .w(px(f32::from(cols) * TERMINAL_CELL_WIDTH))
-    .h(px(rows as f32 * TERMINAL_CELL_HEIGHT))
+    .w(design(f32::from(cols) * TERMINAL_CELL_WIDTH))
+    .h(design(rows as f32 * TERMINAL_CELL_HEIGHT))
     .into_any_element()
 }
 

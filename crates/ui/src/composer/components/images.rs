@@ -1,5 +1,6 @@
 use super::super::*;
 use crate::attachments::{TransferVerdict, transfer_verdict};
+use crate::sizing::design;
 use crate::thread_export::format_size;
 use crate::widgets::menu::ContextMenuExt as _;
 use gpui::StyledImage as _;
@@ -467,11 +468,11 @@ impl Composer {
                 h_flex()
                     .id(("thumb", index))
                     .flex_none()
-                    .h(px(22.))
-                    .max_w(px(220.))
+                    .h(design(22.))
+                    .max_w(design(220.))
                     .gap_1()
                     .items_center()
-                    .pl(px(2.))
+                    .pl(design(2.))
                     .pr_1()
                     .rounded(crate::material::radius_chip(cx))
                     .overflow_hidden()
@@ -480,7 +481,7 @@ impl Composer {
                     .child(
                         img(crate::store::image_preview(path, 18., false))
                             .id("attachment-image")
-                            .size(px(18.))
+                            .size(design(18.))
                             .rounded(crate::material::radius_chip(cx))
                             .with_fallback(crate::image_viewer::unpreviewed(false, false, cx)),
                     )
@@ -488,7 +489,7 @@ impl Composer {
                         div()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(11.5))
+                            .text_size(design(11.5))
                             .font_family(cx.theme().mono_font_family.clone())
                             .child(name),
                     )
@@ -499,7 +500,7 @@ impl Composer {
                         div()
                             .id(("thumb-x", index))
                             .flex_none()
-                            .size(px(18.))
+                            .size(design(18.))
                             .flex()
                             .items_center()
                             .justify_center()

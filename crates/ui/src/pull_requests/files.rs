@@ -1,6 +1,7 @@
 //! The Files view: a pull request's changed files drawn by the diff list, from the host's
 //! files read and never from the local checkout.
 
+use crate::sizing::design;
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -8,7 +9,7 @@ use agent::FileChangeKind;
 use gpui::{
     Action, AnyElement, App, AppContext as _, Context, HighlightStyle, InteractiveElement as _,
     IntoElement, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Window, div, prelude::FluentBuilder as _, px,
+    Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 use serde::Deserialize;
@@ -588,11 +589,11 @@ impl PullRequestView {
                 .child(
                     h_flex()
                         .id("pr-off-diff")
-                        .h(px(28.))
+                        .h(design(28.))
                         .px_3()
                         .gap_2()
                         .items_center()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .cursor_pointer()
                         .child(
                             Icon::new(if open {
@@ -600,7 +601,7 @@ impl PullRequestView {
                             } else {
                                 IconName::ChevronRight
                             })
-                            .size(px(12.))
+                            .size(design(12.))
                             .text_color(muted),
                         )
                         .child(label)
@@ -615,7 +616,7 @@ impl PullRequestView {
                     gpui_base::Collapsible::new().open(open).content(
                         v_flex()
                             .id("pr-off-diff-rows")
-                            .max_h(px(240.))
+                            .max_h(design(240.))
                             .overflow_y_scroll()
                             .pb_1()
                             .children(pending)
@@ -635,17 +636,17 @@ impl PullRequestView {
                                 let id = thread.id.clone();
                                 h_flex()
                                     .id(SharedString::from(format!("pr-off-diff-{}", thread.id)))
-                                    .h(px(28.))
+                                    .h(design(28.))
                                     .px_3()
                                     .gap_2()
                                     .items_center()
-                                    .text_size(px(12.))
+                                    .text_size(design(12.))
                                     .cursor_pointer()
                                     .hover(|row| row.bg(cx.theme().list_hover))
                                     .child(
                                         div()
                                             .flex_none()
-                                            .max_w(px(220.))
+                                            .max_w(design(220.))
                                             .truncate()
                                             .font_family(cx.theme().mono_font_family.clone())
                                             .child(line),
@@ -700,7 +701,7 @@ impl PullRequestView {
                     .flex_none()
                     .child(
                         Icon::new(IconName::CircleQuestionMark)
-                            .size(px(14.))
+                            .size(design(14.))
                             .text_color(cx.theme().muted_foreground),
                     )
                     .tooltip(move |window, cx| {
@@ -747,8 +748,8 @@ impl PullRequestView {
                 .flex()
                 .items_center()
                 .justify_center()
-                .text_size(px(11.))
-                .when(compact, |cell| cell.size(px(material::TOUCH_TARGET)))
+                .text_size(design(11.))
+                .when(compact, |cell| cell.size(design(material::TOUCH_TARGET)))
                 .on_click(|_, _, cx| cx.stop_propagation())
                 .child(checkbox)
                 .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
@@ -824,7 +825,7 @@ impl PullRequestView {
             div()
                 .id("pr-viewed-counter")
                 .flex_none()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(cx.theme().muted_foreground)
                 .child(counter)
                 .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
@@ -871,9 +872,9 @@ impl PullRequestView {
         ];
         let mut toolbar = h_flex()
             .flex_none()
-            .h(px(if compact { material::TOUCH_TARGET } else { 40. }))
+            .h(design(if compact { material::TOUCH_TARGET } else { 40. }))
             .w_full()
-            .px(px(if compact {
+            .px(design(if compact {
                 material::COMPACT_PAGE_INSET
             } else {
                 8.
@@ -1044,7 +1045,7 @@ impl PullRequestView {
                 "pr-file-row-{in_popover}-{index}"
             )))
             .w_full()
-            .h(px(if compact { 44. } else { 28. }))
+            .h(design(if compact { 44. } else { 28. }))
             .px_2()
             .gap_2()
             .items_center()
@@ -1056,7 +1057,7 @@ impl PullRequestView {
             })
             .child(
                 Icon::new(IconName::File)
-                    .size(px(12.))
+                    .size(design(12.))
                     .text_color(kind_rail(file.kind, cx).unwrap_or(muted)),
             )
             // gpui-base has no start truncation: the directory gives way first, then the name.
@@ -1065,7 +1066,7 @@ impl PullRequestView {
                     .flex_1()
                     .min_w_0()
                     .overflow_hidden()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .child(
                         div()
                             .flex_shrink(8.)
@@ -1077,13 +1078,14 @@ impl PullRequestView {
                     .child(div().flex_shrink(1.).min_w_0().truncate().child(name)),
             )
             .children(
-                availability.map(|(icon, color)| Icon::new(icon).size(px(12.)).text_color(color)),
+                availability
+                    .map(|(icon, color)| Icon::new(icon).size(design(12.)).text_color(color)),
             )
             .child(
                 h_flex()
                     .flex_none()
                     .gap_1()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_family(cx.theme().mono_font_family.clone())
                     .child(
                         div()
@@ -1136,8 +1138,8 @@ impl PullRequestView {
                 h_flex()
                     .gap_1p5()
                     .items_center()
-                    .text_size(px(13.))
-                    .child(Icon::new(IconName::Files).size(px(14.)))
+                    .text_size(design(13.))
+                    .child(Icon::new(IconName::Files).size(design(14.)))
                     .child(label)
                     .child(Icon::new(IconName::ChevronDown).xsmall().text_color(muted)),
             );
@@ -1153,8 +1155,8 @@ impl PullRequestView {
                     let input = view.filter_input(window, cx);
                     let filter = input.read(cx).value().to_string();
                     v_flex()
-                        .w(px(360.))
-                        .max_h(px(420.))
+                        .w(design(360.))
+                        .max_h(design(420.))
                         .p_1()
                         .gap_1()
                         .child(
@@ -1178,7 +1180,7 @@ impl PullRequestView {
         let count = self.count_label();
         v_flex()
             .flex_none()
-            .w(px(280.))
+            .w(design(280.))
             .h_full()
             .border_r_1()
             .border_color(cx.theme().border)
@@ -1187,7 +1189,7 @@ impl PullRequestView {
             .child(
                 div()
                     .px_2()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(cx.theme().muted_foreground)
                     .child(count),
             )
@@ -1283,11 +1285,11 @@ impl PullRequestView {
             let failed = page.files_view.page_error.is_some();
             h_flex()
                 .flex_none()
-                .h(px(40.))
+                .h(design(40.))
                 .px_3()
                 .gap_2()
                 .items_center()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .text_color(cx.theme().muted_foreground)
                 .when(!failed, |row| {
                     row.child(crate::widgets::spinner::Spinner::new().small())
@@ -1325,7 +1327,9 @@ impl PullRequestView {
                 v_flex()
                     .flex_1()
                     .min_h_0()
-                    .when(compact, |body| body.px(px(material::COMPACT_PAGE_INSET)))
+                    .when(compact, |body| {
+                        body.px(design(material::COMPACT_PAGE_INSET))
+                    })
                     .child(body),
             )
             .children(footer);
@@ -1381,7 +1385,7 @@ impl PullRequestView {
         let url = self.file_url(&entry.path, cx);
         h_flex()
             .min_w_full()
-            .min_h(px(72.))
+            .min_h(design(72.))
             .my_1()
             .px_3()
             .py_2()
@@ -1389,10 +1393,10 @@ impl PullRequestView {
             .items_center()
             .rounded(material::radius_card(cx))
             .bg(cx.theme().muted)
-            .text_size(px(12.))
+            .text_size(design(12.))
             .text_color(cx.theme().muted_foreground)
             .font_family(cx.theme().font_family.clone())
-            .child(Icon::new(icon).size(px(14.)))
+            .child(Icon::new(icon).size(design(14.)))
             .child(div().flex_1().min_w_0().child(text))
             .children(url.map(|url| {
                 let host_name = self.host_name(cx);
@@ -1482,8 +1486,8 @@ impl DiffListHost for PullRequestView {
         h_flex()
             .min_w_0()
             .gap_1()
-            .text_size(px(13.))
-            .line_height(px(18.))
+            .text_size(design(13.))
+            .line_height(design(18.))
             .font_weight(gpui::FontWeight::MEDIUM)
             .children(entry.previous_path.as_ref().map(|previous| {
                 div()
@@ -1515,7 +1519,7 @@ impl DiffListHost for PullRequestView {
                     } else {
                         IconName::ChevronDown
                     })
-                    .size(px(12.))
+                    .size(design(12.))
                     .text_color(cx.theme().muted_foreground),
                 )
                 .tooltip(move |window, cx| {
@@ -1537,8 +1541,8 @@ impl DiffListHost for PullRequestView {
         let path = &self.files_of()?.get(file)?.path;
         (self.viewed_state(path) == Viewed::Changed).then(|| {
             div()
-                .text_size(px(11.))
-                .line_height(px(18.))
+                .text_size(design(11.))
+                .line_height(design(18.))
                 .text_color(cx.theme().warning)
                 .child(crate::tr!("pull_requests.files.changed_since_viewed"))
                 .into_any_element()

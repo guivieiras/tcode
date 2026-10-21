@@ -1,10 +1,11 @@
+use crate::sizing::design_px;
 use crate::{
     sizing::{Sizable, Size},
     theme::ActiveTheme as _,
 };
 use gpui::{
     Animation, AnimationExt as _, App, ElementId, Hsla, IntoElement, ParentElement as _,
-    RenderOnce, StyleRefinement, Styled, Window, prelude::FluentBuilder as _, px, relative,
+    RenderOnce, StyleRefinement, Styled, Window, prelude::FluentBuilder as _, relative,
 };
 use gpui_base::StyledExt as _;
 use gpui_base::{ProgressIndicator, ProgressTrack};
@@ -55,15 +56,18 @@ impl Styled for Progress {
     }
 }
 impl RenderOnce for Progress {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let color = self.color.unwrap_or(cx.theme().primary);
-        let height = match self.size {
-            Size::XSmall => px(4.),
-            Size::Small => px(6.),
-            Size::Medium => px(8.),
-            Size::Large => px(10.),
-            Size::Size(v) => v,
-        };
+        let height = design_px(
+            match self.size {
+                Size::XSmall => 4.,
+                Size::Small => 6.,
+                Size::Medium => 8.,
+                Size::Large => 10.,
+                Size::Size(v) => f32::from(v),
+            },
+            window,
+        );
         let value = self.value;
         gpui_base::Progress::new(self.id)
             .value(value)

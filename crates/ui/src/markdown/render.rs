@@ -1,6 +1,7 @@
 //! Block renderer adapted from gpui-component's Apache-2.0 `text/node.rs` and
 //! `text/document.rs`, with rushdown IR and syntect highlighting.
 
+use crate::sizing::{design, design_px};
 use std::{
     cell::RefCell,
     collections::{HashMap, VecDeque},
@@ -791,7 +792,7 @@ fn render_block(
                 .id(options.path.clone())
                 .pb(rems(0.3))
                 .whitespace_normal()
-                .text_size(size)
+                .text_size(design(f32::from(size)))
                 .font_weight(weight)
                 .child(render_paragraph(children, &options.path, state, cx))
                 .into_any_element()
@@ -835,7 +836,7 @@ fn render_block(
         BlockNode::HorizontalRule => div()
             .id(options.path)
             .pb(gap)
-            .child(div().h(px(2.)).w_full().bg(cx.theme().border))
+            .child(div().h(design(2.)).w_full().bg(cx.theme().border))
             .into_any_element(),
         BlockNode::Unknown => div().into_any_element(),
     }
@@ -1167,9 +1168,9 @@ fn inline_flow_items(paragraph: &Paragraph, id: &str, cx: &mut App) -> Vec<Inlin
                 font_overrides: code_fonts,
                 code_style: Some(InlineCodeStyle {
                     font_family: cx.theme().mono_font_family.clone(),
-                    font_size: INLINE_CODE_FONT_SIZE,
+                    font_size: INLINE_CODE_FONT_SIZE * crate::zoom::factor(cx),
                     background: cx.theme().tokens.colors.muted,
-                    radius: INLINE_CODE_RADIUS,
+                    radius: INLINE_CODE_RADIUS * crate::zoom::factor(cx),
                 }),
             });
             continue;
@@ -1304,7 +1305,7 @@ fn render_list_item(
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .rounded(px(3.))
+                                    .rounded(design(3.))
                                     .border_1()
                                     .border_color(cx.theme().primary)
                                     .when(checked, |this| {
@@ -1420,11 +1421,11 @@ fn render_code_lines(
         let runs = sub_runs(span_runs, offset, end);
         let line = div()
             .id(("code-line", ix))
-            .min_h(px(18.))
+            .min_h(design(18.))
             .whitespace_normal()
             .font_family(mono_font_family.clone())
             .text_color(cx.theme().editor_foreground)
-            .text_size(INLINE_CODE_FONT_SIZE)
+            .text_size(design(f32::from(INLINE_CODE_FONT_SIZE)))
             .child(Inline::new(
                 ix,
                 view.clone(),
@@ -1485,7 +1486,7 @@ impl Element for CodeSliceMeasure {
         );
         let prepared = self.code.prepared();
         let mut text_layout = None;
-        let mut content = if line_height >= px(18.)
+        let mut content = if line_height >= design_px(18., window)
             && style.line_clamp.is_none()
             && style.text_overflow.is_none()
             && !self.span.is_empty()
@@ -1566,7 +1567,7 @@ fn render_code_block(
             .w_full()
             .whitespace_normal()
             .font_family(cx.theme().mono_font_family.clone())
-            .text_size(INLINE_CODE_FONT_SIZE)
+            .text_size(design(f32::from(INLINE_CODE_FONT_SIZE)))
             .child(CodeSliceMeasure {
                 measurement: measurement.clone(),
                 code: code.clone(),

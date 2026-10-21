@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -766,6 +767,12 @@ impl SessionsSidebar {
                 }
                 last_destination = destination;
             }),
+            crate::zoom::observe(cx, |this: &mut Self| {
+                this.arrange_list_state.remeasure();
+                this.flat_list_state.remeasure();
+                this.grouped_list_state.remeasure();
+                this.compact_list_state.remeasure();
+            }),
         ];
         Self {
             store,
@@ -1326,14 +1333,14 @@ impl SessionsSidebar {
             move || format!("settled-more-{key}")
         })
         .w_full()
-        .h(px(if self.compact(cx) { 44. } else { 34. }))
+        .h(design(if self.compact(cx) { 44. } else { 34. }))
         .px_2()
         .gap_2()
-        .text_size(px(13.))
+        .text_size(design(13.))
         .text_color(cx.theme().muted_foreground)
         .cursor_pointer()
         .hover(|row| row.bg(cx.theme().list_hover))
-        .child(Icon::new(IconName::Plus).size(px(14.)))
+        .child(Icon::new(IconName::Plus).size(design(14.)))
         .child(crate::tr!("sidebar.show_more_settled", count = count))
         .on_click(cx.listener(move |this, _, _, cx| {
             *this.settled_limits.entry(key.clone()).or_insert(10) += 25;
@@ -1380,14 +1387,14 @@ impl SessionsSidebar {
             move || format!("settled-{key}")
         })
         .w_full()
-        .h(px(if self.compact(cx) {
+        .h(design(if self.compact(cx) {
             44.
         } else {
             SETTLED_HEADER_HEIGHT
         }))
         .gap_2()
         .px_3()
-        .text_size(px(12.))
+        .text_size(design(12.))
         .text_color(color)
         .cursor_pointer()
         .on_click(cx.listener(move |this, _, _, cx| {
@@ -1692,11 +1699,11 @@ impl SessionsSidebar {
         window_drag_area(
             "sidebar-app-row-drag",
             h_flex()
-                .h(px(52.))
+                .h(design(52.))
                 .flex_none()
                 .items_center()
                 .gap_2()
-                .pl(px(TRAFFIC_LIGHT_INSET))
+                .pl(design(TRAFFIC_LIGHT_INSET))
                 .pr_2(),
             window,
             cx,
@@ -1723,7 +1730,7 @@ impl SessionsSidebar {
                 crate::tr!("sidebar.search"),
                 cx,
             )
-            .h(px(32.))
+            .h(design(32.))
             .items_center()
             .gap_2()
             .px_2()
@@ -1754,7 +1761,7 @@ impl SessionsSidebar {
                     .border_1()
                     .border_color(cx.theme().border)
                     .text_color(cx.theme().muted_foreground)
-                    .text_size(px(10.))
+                    .text_size(design(10.))
                     .child(format_secondary_shortcut("k")),
             ),
         )
@@ -1781,7 +1788,7 @@ impl SessionsSidebar {
         });
         div()
             .flex_none()
-            .px(px(if compact { COMPACT_PAGE_PADDING } else { 8. }))
+            .px(design(if compact { COMPACT_PAGE_PADDING } else { 8. }))
             .pb_1()
             .child(
                 crate::material::selectable_row(
@@ -1826,7 +1833,7 @@ impl SessionsSidebar {
                 .child(
                     div()
                         .flex_none()
-                        .text_size(px(if compact { 15. } else { 13. }))
+                        .text_size(design(if compact { 15. } else { 13. }))
                         .text_color(cx.theme().sidebar_foreground)
                         .child(crate::tr!("hosts.title")),
                 )
@@ -1836,7 +1843,7 @@ impl SessionsSidebar {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(if compact { 13. } else { 12. }))
+                            .text_size(design(if compact { 13. } else { 12. }))
                             .text_align(gpui::TextAlign::Right)
                             .text_color(cx.theme().muted_foreground)
                             .child(host),
@@ -1844,7 +1851,7 @@ impl SessionsSidebar {
                     .child(
                         div()
                             .flex_none()
-                            .size(px(8.))
+                            .size(design(8.))
                             .rounded_full()
                             .bg(connection_color),
                     )
@@ -1866,9 +1873,9 @@ impl SessionsSidebar {
                 if compact {
                     button
                         .with_size(px(44.))
-                        .w(px(44.))
-                        .h(px(44.))
-                        .child(Icon::new(IconName::LayoutDashboard).size(px(18.)))
+                        .w(design(44.))
+                        .h(design(44.))
+                        .child(Icon::new(IconName::LayoutDashboard).size(design(18.)))
                 } else {
                     button.icon(IconName::LayoutDashboard)
                 }
@@ -1890,13 +1897,13 @@ impl SessionsSidebar {
         let sort_label = crate::settings::project_sort_label(self.store.read(cx).project_sort());
         h_flex()
             .flex_none()
-            .h(px(28.))
+            .h(design(28.))
             .items_center()
             .justify_between()
             .px_3()
             .child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_medium()
                     .text_color(cx.theme().muted_foreground)
                     // Small-caps section label; `to_uppercase` is a no-op on CJK.
@@ -2030,13 +2037,13 @@ impl SessionsSidebar {
 
         h_flex()
             .flex_none()
-            .h(px(28.))
+            .h(design(28.))
             .items_center()
             .justify_between()
             .px_3()
             .child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_medium()
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("sidebar.threads").to_uppercase()),
@@ -2117,7 +2124,7 @@ impl SessionsSidebar {
             }
         })
         .group(group_key.clone())
-        .h(px(30.))
+        .h(design(30.))
         .items_center()
         .gap_1()
         .px_2()
@@ -2152,7 +2159,7 @@ impl SessionsSidebar {
                 div()
                     .flex_none()
                     .group_hover(group_key.clone(), |s| s.invisible())
-                    .child(div().size(px(6.)).rounded_full().bg(cx.theme().primary)),
+                    .child(div().size(design(6.)).rounded_full().bg(cx.theme().primary)),
             )
         })
         .child(
@@ -2271,7 +2278,7 @@ impl SessionsSidebar {
     ) -> gpui::AnyElement {
         let item = v_flex().w_full().px_2().when(
             index > 0 && matches!(row, GroupedListRow::Project { .. }),
-            |item| item.pt(px(2.)),
+            |item| item.pt(design(2.)),
         );
         match row {
             GroupedListRow::Project { group, collapsed } => item
@@ -2297,9 +2304,9 @@ impl SessionsSidebar {
                     )
                     .aria_expanded(*expanded)
                     .debug_selector(move || format!("show-more-{project_id}"))
-                    .pl(px(30.))
+                    .pl(design(30.))
                     .py_1()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().muted_foreground)
                     .cursor_pointer()
                     .hover(|s| s.text_color(cx.theme().sidebar_foreground))
@@ -2376,13 +2383,13 @@ impl SessionsSidebar {
             agent::ProviderKind::Acp => Icon::empty().path("icons/box.svg"),
             kind => crate::provider_card::provider_glyph(kind),
         };
-        let size = px(row_height - PROVIDER_MARK_INSET);
+        let size = design(row_height - PROVIDER_MARK_INSET);
         let id = meta.id.clone();
         div()
             .absolute()
             .top_0()
             .bottom_0()
-            .right(px(right_padding))
+            .right(design(right_padding))
             .flex()
             .items_center()
             .child(
@@ -2477,8 +2484,8 @@ impl SessionsSidebar {
                 .into_any_element()
         } else {
             truncated_sidebar_label()
-                .text_size(px(13.))
-                .line_height(px(18.))
+                .text_size(design(13.))
+                .line_height(design(18.))
                 .text_color(if meta.is_settled() {
                     cx.theme().muted_foreground
                 } else {
@@ -2494,7 +2501,7 @@ impl SessionsSidebar {
         h_flex()
             .flex_1()
             .min_w_0()
-            .gap(px(6.))
+            .gap(design(6.))
             .child(title)
             .when(state.title_generating, |row| {
                 row.child(
@@ -2522,7 +2529,7 @@ impl SessionsSidebar {
             div()
                 .relative()
                 .flex_none()
-                .size(px(20.))
+                .size(design(20.))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -2531,7 +2538,7 @@ impl SessionsSidebar {
                         .group_hover(row_key.to_owned(), |glyph| glyph.invisible())
                         .child(
                             Icon::new(IconName::Pin)
-                                .size(px(12.))
+                                .size(design(12.))
                                 .text_color(cx.theme().muted_foreground),
                         ),
                 )
@@ -2625,12 +2632,12 @@ impl SessionsSidebar {
                 .flex_none()
                 .items_center()
                 .gap_1()
-                .child(div().size(px(6.)).rounded_full().bg(color))
+                .child(div().size(design(6.)).rounded_full().bg(color))
                 .child(
                     div()
                         .whitespace_nowrap()
-                        .text_size(px(11.))
-                        .line_height(px(18.))
+                        .text_size(design(11.))
+                        .line_height(design(18.))
                         .text_color(color)
                         .child(label),
                 )
@@ -2822,7 +2829,7 @@ impl SessionsSidebar {
                 cx,
             )
             // Indent threads beneath their project header's icon and chevron.
-            .pl(px(30.))
+            .pl(design(30.))
             // First child so the row's content paints over the mark.
             .relative()
             .child(self.provider_mark(
@@ -2844,7 +2851,7 @@ impl SessionsSidebar {
                 row.child(
                     div()
                         .flex_none()
-                        .size(px(6.))
+                        .size(design(6.))
                         .rounded_full()
                         .bg(cx.theme().primary),
                 )
@@ -2913,14 +2920,14 @@ impl SessionsSidebar {
         div()
             .relative()
             .flex_none()
-            .h(px(20.))
-            .min_w(px(20.))
+            .h(design(20.))
+            .min_w(design(20.))
             .child(
                 h_flex()
                     .h_full()
                     .items_center()
                     .whitespace_nowrap()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .text_color(cx.theme().muted_foreground)
                     .when(action_on_hover, |time| {
                         time.group_hover(row_key.clone(), |time| time.invisible())
@@ -2996,10 +3003,10 @@ impl SessionsSidebar {
                 move || format!("sidebar-thread-{id}")
             })
             // Two lines need the taller flat slot; the rail supplies its surface.
-            .h(px(FLAT_ROW_INNER_HEIGHT))
+            .h(design(FLAT_ROW_INNER_HEIGHT))
             .items_stretch()
             .justify_center()
-            .gap(px(2.))
+            .gap(design(2.))
             // First child so the row's content paints over the mark.
             .relative()
             .child(self.provider_mark(meta, FLAT_ROW_INNER_HEIGHT, THREAD_ROW_PADDING_X, cx));
@@ -3019,9 +3026,9 @@ impl SessionsSidebar {
                 .w_full()
                 .min_w_0()
                 .items_center()
-                .gap(px(6.))
+                .gap(design(6.))
                 .when_some(dot, |line, color| {
-                    line.child(div().flex_none().size(px(6.)).rounded_full().bg(color))
+                    line.child(div().flex_none().size(design(6.)).rounded_full().bg(color))
                 })
                 .child(title_or_input)
                 .when(!renaming, |line| {
@@ -3045,7 +3052,7 @@ impl SessionsSidebar {
                 .min_w_0()
                 .items_center()
                 .gap_1()
-                .text_size(px(11.))
+                .text_size(design(11.))
                 .text_color(cx.theme().muted_foreground)
                 .when_some(status, |line, (color, label, waiting)| {
                     line.child(
@@ -3116,7 +3123,7 @@ impl SessionsSidebar {
                 crate::tr!("settings.title"),
                 cx,
             )
-            .h(px(40.))
+            .h(design(40.))
             .items_center()
             .gap_2()
             .px_3()
@@ -3133,7 +3140,7 @@ impl SessionsSidebar {
             )
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().sidebar_foreground)
                     .child(crate::tr!("settings.title")),
             ),
@@ -3270,7 +3277,7 @@ fn thread_list_scrollbar(
         .inset_0()
         .child(crate::scroll::list_height_hint(
             state,
-            px(estimated_row_height),
+            design(estimated_row_height),
         ))
         .child(Scrollbar::vertical(state).id(id))
 }
@@ -3555,12 +3562,12 @@ impl SessionsSidebar {
                             .cursor_pointer()
                             .child(
                                 div()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .child(crate::tr!("chat.waiting_connection")),
                             )
                             .child(
                                 div()
-                                    .text_size(px(11.))
+                                    .text_size(design(11.))
                                     .truncate()
                                     .text_color(cx.theme().muted_foreground)
                                     .child(preview),
@@ -3604,12 +3611,12 @@ impl SessionsSidebar {
                     list.child(
                         div()
                             .w_full()
-                            .pl(px(crate::material::COMPACT_PAGE_INSET))
+                            .pl(design(crate::material::COMPACT_PAGE_INSET))
                             .child(div().w_full().h(px(1.)).bg(cx.theme().border.opacity(0.6))),
                     )
                 })
                 .into_any_element(),
-            CompactListRow::BottomInset => div().h(px(24.)).into_any_element(),
+            CompactListRow::BottomInset => div().h(design(24.)).into_any_element(),
         }
     }
 
@@ -3747,11 +3754,11 @@ impl SessionsSidebar {
             .child(
                 h_flex()
                     .flex_none()
-                    .px(px(COMPACT_PAGE_PADDING))
+                    .px(design(COMPACT_PAGE_PADDING))
                     .justify_between()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(match layout {
                                 SidebarLayout::Flat => crate::tr!("sidebar.recent"),
@@ -3774,9 +3781,9 @@ impl SessionsSidebar {
     fn render_compact_search(&self, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .flex_none()
-            .px(px(COMPACT_PAGE_PADDING))
-            .pt(px(8.))
-            .pb(px(4.))
+            .px(design(COMPACT_PAGE_PADDING))
+            .pt(design(8.))
+            .pb(design(4.))
             .child(
                 crate::material::accessible_clickable(
                     h_flex(),
@@ -3786,10 +3793,10 @@ impl SessionsSidebar {
                     cx,
                 )
                 .debug_selector(|| "compact-search".into())
-                .h(px(COMPACT_SEARCH_HEIGHT))
+                .h(design(COMPACT_SEARCH_HEIGHT))
                 .items_center()
-                .gap(px(8.))
-                .px(px(12.))
+                .gap(design(8.))
+                .px(design(12.))
                 .rounded_full()
                 .bg(cx.theme().secondary)
                 .cursor_pointer()
@@ -3800,7 +3807,7 @@ impl SessionsSidebar {
                 }))
                 .child(
                     Icon::new(IconName::Search)
-                        .size(px(16.))
+                        .size(design(16.))
                         .text_color(cx.theme().muted_foreground),
                 )
                 .child(
@@ -3808,7 +3815,7 @@ impl SessionsSidebar {
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .text_size(px(15.))
+                        .text_size(design(15.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("mobile.search_threads")),
                 ),
@@ -3834,16 +3841,16 @@ impl SessionsSidebar {
         // A project is a section of the thread list, so its header is the
         // shared list caption — with the collapse affordance it also carries.
         .w_full()
-        .px(px(COMPACT_PAGE_PADDING))
-        .pt(px(16.))
-        .pb(px(4.))
+        .px(design(COMPACT_PAGE_PADDING))
+        .pt(design(16.))
+        .pb(design(4.))
         .items_center()
-        .gap(px(8.))
+        .gap(design(8.))
         .cursor_pointer()
         .on_click(cx.listener(move |this, _, _, cx| {
             this.toggle_project(&project_id, cx);
         }))
-        .text_size(px(13.))
+        .text_size(design(13.))
         .text_color(cx.theme().muted_foreground)
         .when_some(
             self.store.read(cx).project(&row.project_id),
@@ -3869,7 +3876,7 @@ impl SessionsSidebar {
             } else {
                 IconName::ChevronDown
             })
-            .size(px(14.)),
+            .size(design(14.)),
         )
     }
 
@@ -3952,16 +3959,16 @@ impl SessionsSidebar {
                 v_flex()
                     .flex_1()
                     .min_w_0()
-                    .gap(px(2.))
+                    .gap(design(2.))
                     .child(
                         h_flex()
                             .w_full()
                             .min_w_0()
-                            .gap(px(6.))
+                            .gap(design(6.))
                             .child(
                                 truncated_sidebar_label()
-                                    .text_size(px(16.))
-                                    .line_height(px(21.))
+                                    .text_size(design(16.))
+                                    .line_height(design(21.))
                                     .text_color(if meta.is_settled() {
                                         cx.theme().muted_foreground
                                     } else {
@@ -3980,7 +3987,7 @@ impl SessionsSidebar {
                             .when(meta.pinned_at.is_some() && !meta.is_settled(), |row| {
                                 row.child(
                                     Icon::new(IconName::Pin)
-                                        .size(px(14.))
+                                        .size(design(14.))
                                         .flex_none()
                                         .text_color(cx.theme().muted_foreground),
                                 )
@@ -3995,9 +4002,9 @@ impl SessionsSidebar {
                         h_flex()
                             .w_full()
                             .min_w_0()
-                            .gap(px(4.))
-                            .text_size(px(13.))
-                            .line_height(px(18.))
+                            .gap(design(4.))
+                            .text_size(design(13.))
+                            .line_height(design(18.))
                             .text_color(cx.theme().muted_foreground)
                             .when_some(project_name, |line, name| {
                                 line.child(
@@ -4040,7 +4047,7 @@ fn compact_status_glyph(
     project: Option<&tcode_core::project::Project>,
     cx: &App,
 ) -> gpui::AnyElement {
-    let slot = div().flex_none().size(px(20.)).flex().items_center();
+    let slot = div().flex_none().size(design(20.)).flex().items_center();
     if state.waiting_for_approval {
         return slot
             .justify_center()
@@ -4048,7 +4055,7 @@ fn compact_status_glyph(
             .bg(cx.theme().warning)
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .font_semibold()
                     .text_color(gpui::white())
                     .child("!"),
@@ -4062,7 +4069,7 @@ fn compact_status_glyph(
             .bg(cx.theme().primary)
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .font_semibold()
                     .text_color(cx.theme().primary_foreground)
                     .child("?"),
@@ -4074,7 +4081,7 @@ fn compact_status_glyph(
             .justify_center()
             .child(
                 Icon::new(IconName::TriangleAlert)
-                    .size(px(16.))
+                    .size(design(16.))
                     .text_color(cx.theme().danger),
             )
             .into_any_element();
@@ -4093,7 +4100,7 @@ fn compact_status_glyph(
     if state.show_unread {
         return slot
             .justify_center()
-            .child(div().size(px(8.)).rounded_full().bg(cx.theme().primary))
+            .child(div().size(design(8.)).rounded_full().bg(cx.theme().primary))
             .into_any_element();
     }
     slot.justify_center()
@@ -4393,8 +4400,8 @@ impl Render for SessionsSidebar {
                                 }
                                 FlatListRow::Empty => return this.render_active_empty(cx),
                             };
-                            let target_top = *target_top;
-                            let row = div().w_full().px_2().pb(px(2.));
+                            let target_top = *target_top * crate::zoom::factor(cx);
+                            let row = div().w_full().px_2().pb(design(2.));
                             let row = if this
                                 .drag
                                 .as_ref()

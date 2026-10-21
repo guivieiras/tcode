@@ -1,7 +1,8 @@
 //! Read-only system grants from the attached agent host, on every client.
+use crate::sizing::design;
 use gpui::{
     Context, Entity, IntoElement, ParentElement as _, Render, Styled as _, Subscription, Task,
-    Window, div, px,
+    Window, div,
 };
 use gpui_base::{h_flex, v_flex};
 use tcode_core::permissions::ComputerUsePermissions;
@@ -68,7 +69,7 @@ impl HostPermissions {
 
 impl Render for HostPermissions {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let mut body = v_flex().w_full().gap_3().p_3().text_size(px(13.));
+        let mut body = v_flex().w_full().gap_3().p_3().text_size(design(13.));
         match &self.result {
             Some(Ok(ComputerUsePermissions::MacOs(status))) => {
                 for (name, granted) in [

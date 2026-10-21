@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use gpui::{
     App, BoxShadow, ElementId, Entity, Hsla, InteractiveElement as _, IntoElement,
@@ -98,10 +99,10 @@ impl RenderOnce for Slider {
             let at = fraction(min + index as f32 * step);
             div()
                 .absolute()
-                .top(px((TRACK_HEIGHT - TICK_SIZE) / 2.))
+                .top(design((TRACK_HEIGHT - TICK_SIZE) / 2.))
                 .left(relative(at))
-                .ml(px(-TICK_SIZE / 2.))
-                .size(px(TICK_SIZE))
+                .ml(design(-TICK_SIZE / 2.))
+                .size(design(TICK_SIZE))
                 .rounded_full()
                 .bg(if at <= target {
                     hsla(0., 0., 1., 0.3)
@@ -114,15 +115,15 @@ impl RenderOnce for Slider {
                 .absolute()
                 .top_0()
                 .bottom_0()
-                .left(px(END_INSET))
-                .right(px(END_INSET))
+                .left(design(END_INSET))
+                .right(design(END_INSET))
         };
 
         gpui_base::Slider::new(&self.state)
             .disabled(self.disabled)
             .relative()
             .w_full()
-            .h(px(THUMB_SIZE))
+            .h(design(THUMB_SIZE))
             .refine_style(&self.style)
             .when(self.disabled, |this| this.opacity(0.6))
             .child(
@@ -137,7 +138,7 @@ impl RenderOnce for Slider {
                         div()
                             .relative()
                             .w_full()
-                            .h(px(TRACK_HEIGHT))
+                            .h(design(TRACK_HEIGHT))
                             .rounded_full()
                             .overflow_hidden()
                             .bg(foreground.opacity(0.1))
@@ -147,7 +148,7 @@ impl RenderOnce for Slider {
                                         .absolute()
                                         .top_0()
                                         .bottom_0()
-                                        .left(px(-END_INSET))
+                                        .left(design(-END_INSET))
                                         .right(relative(1. - filled))
                                         // The track's overflow clip is
                                         // rectangular, so the fill rounds its
@@ -163,16 +164,16 @@ impl RenderOnce for Slider {
                             .absolute()
                             .top_0()
                             .bottom_0()
-                            .left(px(END_INSET))
-                            .right(px(END_INSET))
+                            .left(design(END_INSET))
+                            .right(design(END_INSET))
                             .child(
                                 SliderThumb::new(&self.state)
                                     .disabled(self.disabled)
                                     .absolute()
-                                    .top(px((THUMB_SIZE - thumb_size) / 2.))
+                                    .top(design((THUMB_SIZE - thumb_size) / 2.))
                                     .left(relative(filled))
-                                    .ml(px(-thumb_size / 2.))
-                                    .size(px(thumb_size))
+                                    .ml(design(-thumb_size / 2.))
+                                    .size(design(thumb_size))
                                     .rounded_full()
                                     .border(px(0.5))
                                     .border_color(foreground.opacity(0.15))

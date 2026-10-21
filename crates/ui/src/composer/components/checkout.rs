@@ -1,5 +1,6 @@
 use super::super::*;
 use crate::scroll::ScrollableElement as _;
+use crate::sizing::design;
 use gpui::ScrollHandle;
 use gpui_base::{Scrollbar, ScrollbarMode};
 
@@ -45,7 +46,7 @@ impl Composer {
                     h_flex()
                         .gap_1p5()
                         .items_center()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(Icon::empty().path("icons/git-branch.svg").xsmall())
                         .child(picker_current.clone()),
@@ -63,7 +64,7 @@ impl Composer {
                     h_flex()
                         .gap_1p5()
                         .items_center()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(muted)
                         .child(Icon::empty().path("icons/git-branch.svg").xsmall())
                         .child(picker_current.clone())
@@ -80,12 +81,12 @@ impl Composer {
                 .content(move |_state, _window, cx| {
                     let muted = cx.theme().muted_foreground;
                     let col = v_flex()
-                        .w(px(220.))
-                        .max_h(px(280.))
+                        .w(design(220.))
+                        .max_h(design(280.))
                         .pt_1()
                         .px_1()
                         // The last branch row carries its gap.
-                        .pb(px(if branches.is_empty() { 4. } else { 2. }))
+                        .pb(design(if branches.is_empty() { 4. } else { 2. }))
                         .gap_0p5();
                     if branches.is_empty() {
                         return col
@@ -94,7 +95,7 @@ impl Composer {
                                     .flex_none()
                                     .px_2()
                                     .py_1p5()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .text_color(muted)
                                     .child(crate::tr!("composer.loading")),
                             )
@@ -139,7 +140,7 @@ impl Composer {
                 .px_2()
                 .items_center()
                 .justify_between()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(muted)
                 .child(left)
                 .child(right)
@@ -187,7 +188,7 @@ impl Composer {
                 h_flex()
                     .gap_1p5()
                     .items_center()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(muted)
                     .child(Icon::empty().path("icons/folder-closed.svg").xsmall())
                     .child(div().max_w(px(180.)).truncate().child(label))
@@ -225,8 +226,8 @@ impl Composer {
                     .id("workspace-list")
                     .role(Role::Menu)
                     .aria_label(crate::tr!("composer.workspace"))
-                    .w(px(260.))
-                    .max_h(px(280.))
+                    .w(design(260.))
+                    .max_h(design(280.))
                     .overflow_y_scroll_area()
                     .track_scroll(&scroll)
                     .p_1()
@@ -237,7 +238,7 @@ impl Composer {
                             .flex_none()
                             .px_2()
                             .py_1()
-                            .text_size(px(11.))
+                            .text_size(design(11.))
                             .font_medium()
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("composer.workspace")),
@@ -333,7 +334,7 @@ fn branch_row(
                 .items_center()
                 .rounded(cx.theme().tokens.radius.sm)
                 .cursor_pointer()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .hover(|s| s.bg(cx.theme().muted))
                 .child(div().flex_1().min_w_0().truncate().child(name.to_string()))
                 .when(is_current, |this| {

@@ -8,6 +8,7 @@
 //! the sidebar's share items — reads and changes spaces through it, so a
 //! change made on one repaints the others.
 
+use crate::sizing::design;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
@@ -625,7 +626,7 @@ pub(crate) fn open_create(
         let ok = submit.clone();
         let create = submit.clone();
         dialog
-            .w(px(420.))
+            .w(design(420.))
             .title(title.clone())
             .on_ok(move |_, window, cx| ok(window, cx))
             .content(move |content, _, cx| {
@@ -636,7 +637,7 @@ pub(crate) fn open_create(
                         .child(Input::new(&field))
                         .child(
                             div()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(crate::tr!("spaces.create.disclosure")),
                         ),
@@ -711,7 +712,7 @@ fn open_shared(
             crate::tr!("spaces.shared.description", project = project_name.clone()).into_owned();
         let title = quoted("spaces.shared.title", &space.name);
         dialog
-            .w(px(440.))
+            .w(design(440.))
             .title(title)
             .content(move |content, _, cx| {
                 content.child(link_body(&space, accepting, description.clone(), true, cx))
@@ -767,7 +768,7 @@ fn link_body(
     let Some(link) = space.link.clone() else {
         let reason = link_unavailable(space, accepting).unwrap_or_default();
         return div()
-            .text_size(px(13.))
+            .text_size(design(13.))
             .text_color(if space.link_dead {
                 cx.theme().danger_foreground
             } else {
@@ -782,7 +783,7 @@ fn link_body(
         .gap_3()
         .child(
             div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().muted_foreground)
                 .child(description),
         )
@@ -942,7 +943,7 @@ mod section {
                 let ok = submit.clone();
                 let save = submit.clone();
                 dialog
-                    .w(px(420.))
+                    .w(design(420.))
                     .title(crate::tr!("spaces.rename_title").into_owned())
                     .on_ok(move |_, window, cx| ok(window, cx))
                     .content(move |content, _, _| content.child(Input::new(&field)))
@@ -1058,7 +1059,7 @@ mod section {
                 move || format!("space-row-{id}")
             })
             .w_full()
-            .min_h(px(44.))
+            .min_h(design(44.))
             .px_3()
             .py_2p5()
             .gap_3()
@@ -1089,14 +1090,14 @@ mod section {
                     .gap_0p5()
                     .child(
                         div()
-                            .text_size(px(15.))
+                            .text_size(design(15.))
                             .font_medium()
                             .truncate()
                             .child(space.name.clone()),
                     )
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(summary(space)),
                     ),
@@ -1109,7 +1110,7 @@ mod section {
 
         fn subheading(label: SharedString, cx: &App) -> AnyElement {
             div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .font_medium()
                 .text_color(cx.theme().muted_foreground)
                 .child(label)
@@ -1141,7 +1142,7 @@ mod section {
                         .gap_3()
                         .child(
                             div()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(quoted("spaces.link.description", &space.name)),
                         )
@@ -1176,8 +1177,8 @@ mod section {
                         .child(
                             div()
                                 .flex_1()
-                                .min_w(px(160.))
-                                .text_size(px(13.))
+                                .min_w(design(160.))
+                                .text_size(design(13.))
                                 .text_color(if space.link_dead {
                                     cx.theme().danger_foreground
                                 } else {
@@ -1203,7 +1204,7 @@ mod section {
                             div()
                                 .flex_1()
                                 .min_w_0()
-                                .text_size(px(15.))
+                                .text_size(design(15.))
                                 .child(crate::tr!("spaces.link.enabled")),
                         )
                         .child(
@@ -1255,7 +1256,7 @@ mod section {
                     h_flex()
                         .flex_none()
                         .max_w_full()
-                        .h(px(28.))
+                        .h(design(28.))
                         .pl_2p5()
                         .pr_0p5()
                         .gap_1()
@@ -1268,7 +1269,7 @@ mod section {
                             div()
                                 .min_w_0()
                                 .truncate()
-                                .text_size(px(13.))
+                                .text_size(design(13.))
                                 .when(removed, |label| {
                                     label.italic().text_color(cx.theme().muted_foreground)
                                 })
@@ -1335,7 +1336,7 @@ mod section {
                 .when(space.project_ids.is_empty(), |column| {
                     column.child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("spaces.projects.empty")),
                     )
@@ -1388,7 +1389,7 @@ mod section {
                         div()
                             .flex_none()
                             .when(compact, |status| status.flex_1())
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(status_color)
                             .child(super::super::path_label(member.path.as_ref())),
                     )
@@ -1410,7 +1411,7 @@ mod section {
                 let name = div()
                     .flex_1()
                     .min_w_0()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .truncate()
                     .child(super::super::device_label(
                         &member.name,
@@ -1427,7 +1428,7 @@ mod section {
                 } else {
                     h_flex()
                         .w_full()
-                        .min_h(px(36.))
+                        .min_h(design(36.))
                         .gap_3()
                         .items_center()
                         .child(name)
@@ -1445,7 +1446,7 @@ mod section {
                 .when(space.members.is_empty(), |column| {
                     column.child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(design(13.))
                             .text_color(cx.theme().muted_foreground)
                             .child(crate::tr!("spaces.members.empty")),
                     )
@@ -1543,7 +1544,7 @@ mod section {
                         .w_full()
                         .px_3()
                         .pt_3()
-                        .text_size(px(13.))
+                        .text_size(design(13.))
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("spaces.intro")),
                 );
@@ -1576,8 +1577,8 @@ mod section {
                 .child(
                     div()
                         .pl_3()
-                        .pb(px(6.))
-                        .text_size(px(11.))
+                        .pb(design(6.))
+                        .text_size(design(11.))
                         .font_medium()
                         .text_color(cx.theme().muted_foreground)
                         .child(crate::tr!("spaces.section")),
@@ -1637,7 +1638,7 @@ mod section {
             let spaces = spaces.clone();
             let device_id = device_id.clone();
             dialog
-                .w(px(420.))
+                .w(design(420.))
                 .close_button(false)
                 .title(
                     crate::tr!(
@@ -1654,7 +1655,7 @@ mod section {
                             .debug_selector(|| "spaces-remove-member".into())
                             .child(
                                 div()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .text_color(cx.theme().muted_foreground)
                                     .child(crate::tr!("spaces.members.remove_description")),
                             )
@@ -1700,14 +1701,14 @@ mod section {
     pub(crate) fn member_badge(name: &str, cx: &App) -> AnyElement {
         h_flex()
             .flex_none()
-            .max_w(px(160.))
+            .max_w(design(160.))
             .gap_1()
             .px_2()
             .py(px(1.))
             .items_center()
             .rounded(crate::material::radius_chip(cx))
             .bg(cx.theme().muted)
-            .text_size(px(11.))
+            .text_size(design(11.))
             .font_medium()
             .text_color(cx.theme().muted_foreground)
             .child(Icon::empty().path("icons/users.svg").xsmall())
@@ -1808,8 +1809,8 @@ mod machines {
             }
             let line = h_flex()
                 .w_full()
-                .px(px(inset))
-                .py(px(8.))
+                .px(design(inset))
+                .py(design(8.))
                 .gap_3()
                 .items_center()
                 .debug_selector({
@@ -1820,15 +1821,15 @@ mod machines {
                     v_flex()
                         .flex_1()
                         .min_w_0()
-                        .gap(px(2.))
+                        .gap(design(2.))
                         .child(
                             div()
-                                .text_size(px(15.))
+                                .text_size(design(15.))
                                 .font_medium()
                                 .truncate()
                                 .child(space.name.clone()),
                         )
-                        .child(div().text_size(px(13.)).text_color(color).child(status)),
+                        .child(div().text_size(design(13.)).text_color(color).child(status)),
                 )
                 .child(controls);
             let mut row = v_flex().w_full().child(line);
@@ -1838,15 +1839,15 @@ mod machines {
                         div()
                             .flex_1()
                             .min_w_0()
-                            .text_size(px(15.))
-                            .line_height(px(20.))
+                            .text_size(design(15.))
+                            .line_height(design(20.))
                             .child(quoted("spaces.link.description", &space.name)),
                         link,
                         compact,
                         cx,
                     )
-                    .px(px(inset))
-                    .pb(px(8.)),
+                    .px(design(inset))
+                    .pb(design(8.)),
                 );
             }
             rows.push(row.into_any_element());

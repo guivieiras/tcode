@@ -7,6 +7,7 @@
 //! the window is currently attached to, so **Connect** and **Back to local**
 //! never stop it and never disturb another attached client.
 
+use crate::sizing::design;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -15,7 +16,7 @@ use gpui::prelude::FluentBuilder as _;
 use gpui::{
     AnyElement, App, AppContext as _, BorrowAppContext as _, ClipboardItem, Context, Entity,
     Global, InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Task, Window, div, px,
+    StatefulInteractiveElement as _, Styled as _, Task, Window, div,
 };
 use gpui_base::{StyledExt as _, h_flex, v_flex};
 use tcode_client::HostLink;
@@ -46,8 +47,8 @@ const DEVICE_REFRESH: Duration = Duration::from_secs(2);
 fn section_caption(label: SharedString, cx: &App) -> AnyElement {
     div()
         .pl_3()
-        .pb(px(6.))
-        .text_size(px(11.))
+        .pb(design(6.))
+        .text_size(design(11.))
         .font_medium()
         .text_color(cx.theme().muted_foreground)
         .child(label)
@@ -60,7 +61,7 @@ fn note(text: SharedString, cx: &App) -> AnyElement {
         .w_full()
         .px_3()
         .py_3()
-        .text_size(px(13.))
+        .text_size(design(13.))
         .text_color(cx.theme().muted_foreground)
         .child(text)
         .into_any_element()
@@ -310,7 +311,7 @@ fn row(compact: bool) -> gpui::Div {
     if compact {
         v_flex()
             .w_full()
-            .min_h(px(44.))
+            .min_h(design(44.))
             .px_3()
             .py_2p5()
             .gap_2()
@@ -325,7 +326,7 @@ fn row(compact: bool) -> gpui::Div {
 fn switch_row() -> gpui::Div {
     h_flex()
         .w_full()
-        .min_h(px(44.))
+        .min_h(design(44.))
         .px_3()
         .py_2p5()
         .gap_3()
@@ -352,7 +353,7 @@ const STATUS_MIN_WIDTH: f32 = 96.;
 
 /// [`labels`] for a [`field_row`].
 fn field_labels(title: SharedString, description: Option<SharedString>, cx: &App) -> gpui::Div {
-    labels(title, description, cx).flex_basis(px(FIELD_LABEL_BASIS))
+    labels(title, description, cx).flex_basis(design(FIELD_LABEL_BASIS))
 }
 
 /// A row's title, with a description only where it says something the
@@ -362,10 +363,10 @@ fn labels(title: SharedString, description: Option<SharedString>, cx: &App) -> g
         .flex_1()
         .min_w_0()
         .gap_0p5()
-        .child(div().text_size(px(15.)).font_medium().child(title))
+        .child(div().text_size(design(15.)).font_medium().child(title))
         .children(description.map(|description| {
             div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().muted_foreground)
                 .child(description)
         }))
@@ -767,7 +768,7 @@ impl HostingPanel {
                 div()
                     .when(compact, |field| field.w_full())
                     .when(!compact, |field| {
-                        field.w(px(240.)).min_w_0().flex_shrink(1.)
+                        field.w(design(240.)).min_w_0().flex_shrink(1.)
                     })
                     .child(Input::new(&self.host_name_input)),
             )
@@ -802,7 +803,7 @@ impl HostingPanel {
             div()
                 .when(compact, |field| field.flex_1().min_w_0())
                 .when(!compact, |field| {
-                    field.w(px(240.)).min_w_0().flex_shrink(1.)
+                    field.w(design(240.)).min_w_0().flex_shrink(1.)
                 })
         };
         let mut rows = vec![
@@ -842,7 +843,7 @@ impl HostingPanel {
                             .flex_1()
                             .min_w_0()
                             .justify_end()
-                            .text_size(px(12.))
+                            .text_size(design(12.))
                             .text_color(cx.theme().muted_foreground)
                             .child(
                                 div()
@@ -1041,7 +1042,7 @@ impl HostingPanel {
                             .when(compact, |controls| controls.w_full().justify_between())
                             .child(
                                 div()
-                                    .text_size(px(13.))
+                                    .text_size(design(13.))
                                     .text_color(status_color)
                                     .child(status),
                             )
@@ -1178,17 +1179,17 @@ fn traverse_status_toggle(
     .flex_1()
     // Room for the dot, the chevron and a word: a self-hosted row's URL
     // field gives way before the status does.
-    .min_w(px(STATUS_MIN_WIDTH))
+    .min_w(design(STATUS_MIN_WIDTH))
     .justify_end()
     .gap_1p5()
     .items_center()
     .cursor_pointer()
-    .text_size(px(12.))
+    .text_size(design(12.))
     .text_color(cx.theme().muted_foreground)
     .child(
         div()
             .flex_none()
-            .size(px(8.))
+            .size(design(8.))
             .rounded_full()
             .bg(manifest_color(status.manifest.state, cx)),
     )
@@ -1198,7 +1199,7 @@ fn traverse_status_toggle(
         } else {
             IconName::ChevronDown
         })
-        .size(px(12.))
+        .size(design(12.))
         .flex_none(),
     )
     .child(div().min_w_0().truncate().child(summary))
@@ -1215,7 +1216,7 @@ fn traverse_status_detail(status: &TraverseSourceStatus, cx: &App) -> AnyElement
     let heading = |text: SharedString| {
         div()
             .pt_1()
-            .text_size(px(11.))
+            .text_size(design(11.))
             .font_medium()
             .text_color(muted)
             .child(text)
@@ -1232,7 +1233,7 @@ fn traverse_status_detail(status: &TraverseSourceStatus, cx: &App) -> AnyElement
     let error = |text: &str| {
         div()
             .w_full()
-            .text_size(px(12.))
+            .text_size(design(12.))
             .text_color(danger)
             .child(text.to_owned())
     };
@@ -1254,7 +1255,7 @@ fn traverse_status_detail(status: &TraverseSourceStatus, cx: &App) -> AnyElement
         .py_1p5()
         .rounded(crate::material::radius_input(cx))
         .bg(cx.theme().muted.opacity(0.5))
-        .text_size(px(12.))
+        .text_size(design(12.))
         .child(line(
             crate::tr!("remote.traverse.status.manifest").into_owned(),
             div()
@@ -1357,13 +1358,13 @@ pub(super) fn invitation_card<V: 'static>(
         .gap_3()
         .child(
             div()
-                .text_size(px(15.))
-                .line_height(px(20.))
+                .text_size(design(15.))
+                .line_height(design(20.))
                 .child(crate::tr!("hosts.invite.description")),
         )
         .child(
             div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(cx.theme().muted_foreground)
                 .child(crate::tr!(
                     "remote.invite.expires",
@@ -1400,8 +1401,8 @@ pub(super) fn invitation_card<V: 'static>(
                 ),
         );
     beside_qr(text, &link, compact, cx)
-        .px(px(inset))
-        .py(px(8.))
+        .px(design(inset))
+        .py(design(8.))
         .debug_selector(|| "remote-invitation".into())
         .into_any_element()
 }
@@ -1410,8 +1411,8 @@ pub(super) fn invitation_card<V: 'static>(
 pub(super) fn expired_invitation_row<V: 'static>(inset: f32, cx: &mut Context<V>) -> AnyElement {
     h_flex()
         .w_full()
-        .px(px(inset))
-        .py(px(8.))
+        .px(design(inset))
+        .py(design(8.))
         .gap_3()
         .items_center()
         .debug_selector(|| "remote-invitation-expired".into())
@@ -1419,7 +1420,7 @@ pub(super) fn expired_invitation_row<V: 'static>(inset: f32, cx: &mut Context<V>
             div()
                 .flex_1()
                 .min_w_0()
-                .text_size(px(15.))
+                .text_size(design(15.))
                 .child(crate::tr!("remote.invite.expired")),
         )
         .child(new_invitation_button("remote-new-invitation", cx).primary())
@@ -1441,6 +1442,7 @@ impl Render for HostingPanel {
 mod tests {
     use super::*;
     use gpui::TestAppContext;
+    use gpui::px;
 
     struct Probe(Entity<HostingPanel>);
 

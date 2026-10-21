@@ -3,11 +3,12 @@
 //! request fresh before a merge or a branch update and answers every write; nothing here
 //! retries one.
 
+use crate::sizing::{design, design_px};
 use std::rc::Rc;
 
 use gpui::{
     Action, AnyElement, App, AppContext as _, Context, Entity, IntoElement, ParentElement as _,
-    Render, SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    Render, SharedString, Styled as _, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 use serde::Deserialize;
@@ -1218,13 +1219,13 @@ impl MergeDialog {
             .items_start()
             .child(
                 div()
-                    .w(px(104.))
+                    .w(design(104.))
                     .flex_none()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!(label).into_owned()),
             )
-            .child(div().flex_1().min_w_0().text_size(px(13.)).child(value))
+            .child(div().flex_1().min_w_0().text_size(design(13.)).child(value))
             .into_any_element()
     }
 }
@@ -1308,7 +1309,7 @@ impl Render for MergeDialog {
                     .into_any_element()
             }
             (Some(_), Some(chosen)) => div()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .child(method_label(chosen))
                 .into_any_element(),
             (Some(_), None) => div().into_any_element(),
@@ -1357,7 +1358,7 @@ impl Render for MergeDialog {
                                 })
                             }),
                     )
-                    .child(div().text_size(px(11.)).text_color(muted).child(
+                    .child(div().text_size(design(11.)).text_color(muted).child(
                         crate::tr!("pull_requests.merge.remove_credits_caption").into_owned(),
                     ))
             });
@@ -1365,11 +1366,11 @@ impl Render for MergeDialog {
             h_flex()
                 .gap_1p5()
                 .items_start()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .child(
                     div()
-                        .pt(px(2.))
-                        .child(Icon::new(icon).size(px(12.)).text_color(color)),
+                        .pt(design(2.))
+                        .child(Icon::new(icon).size(design(12.)).text_color(color)),
                 )
                 .child(div().flex_1().min_w_0().child(text))
         };
@@ -1452,7 +1453,7 @@ impl Render for MergeDialog {
             Some(Err(reason)) => Some(
                 v_flex()
                     .gap_1()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(cx.theme().danger)
                     .child(
                         crate::tr!("pull_requests.merge.load_failed", number = number).into_owned(),
@@ -1477,7 +1478,7 @@ impl Render for MergeDialog {
                     .gap_2()
                     .child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(design(12.))
                             .text_color(muted)
                             .child(crate::tr!("pull_requests.merge.method").into_owned()),
                     )
@@ -1547,9 +1548,10 @@ fn open_merge_dialog(target: Target, auto: bool, window: &mut Window, cx: &mut A
     window.open_dialog(cx, move |base, window, cx| {
         let sending = dialog.read(cx).sending;
         let width = if compact {
-            (window.viewport_size().width - px(2. * material::COMPACT_PAGE_INSET)).min(px(480.))
+            (window.viewport_size().width - design_px(2. * material::COMPACT_PAGE_INSET, window))
+                .min(design_px(480., window))
         } else {
-            px(480.)
+            design_px(480., window)
         };
         base.title(title.clone())
             .w(width)
@@ -1583,12 +1585,12 @@ pub(super) fn primary_element(
             .gap_1()
             .items_center()
             .px_2()
-            .py(px(2.))
+            .py(design(2.))
             .rounded(material::radius_chip(cx))
             .bg(gpui::Hsla::opacity(&color, 0.1))
             .text_color(color)
-            .text_size(px(if compact { 13. } else { 12. }))
-            .child(Icon::new(icon).size(px(14.)))
+            .text_size(design(if compact { 13. } else { 12. }))
+            .child(Icon::new(icon).size(design(14.)))
             .child(label);
         match tooltip {
             Some(tooltip) => chip

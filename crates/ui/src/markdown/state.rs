@@ -85,6 +85,8 @@ pub struct MarkdownState {
     has_potential_link_reference_definition: bool,
     pub(super) list_state: ListState,
     item_heights: Rc<RefCell<render::ItemHeights>>,
+    /// The rem size the items were measured at; zoom changes every height.
+    measured_rem_size: Pixels,
     image_sizes: HashMap<String, Size<Pixels>>,
     selection_revision: usize,
     pub(super) selection_adapter: MarkdownSelectionAdapter,
@@ -134,6 +136,7 @@ impl MarkdownState {
             list_state: ListState::new(items.len(), ListAlignment::Top, px(1000.)).measure_all(),
             item_heights: Rc::new(RefCell::new(render::ItemHeights::new(items.len()))),
             items,
+            measured_rem_size: px(16.),
             image_sizes: HashMap::new(),
             selection_revision: 0,
             selection_adapter,
@@ -657,6 +660,11 @@ fn contains_potential_link_reference_definition(source: &str) -> bool {
 
 impl Render for MarkdownState {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.measured_rem_size != window.rem_size() {
+            self.measured_rem_size = window.rem_size();
+            self.item_heights.borrow_mut().reset(self.items.len());
+            self.list_state.remeasure();
+        }
         let state = cx.entity();
         v_flex()
             .w_full()

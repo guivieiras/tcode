@@ -2,6 +2,7 @@
 //! host decides which hosts exist, where each credential comes from and what is wrong; this
 //! panel shows it and sends the user's choices.
 
+use crate::sizing::design;
 use crate::{
     icon::Icon,
     overlay::{DialogActions, OverlayExt as _},
@@ -20,7 +21,7 @@ use crate::{
 use gpui::{
     Action, AnyElement, App, AppContext as _, Context, Entity, InteractiveElement as _,
     IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Subscription, Window, div, prelude::FluentBuilder as _, px,
+    Styled as _, Subscription, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_base::{h_flex, v_flex};
 use std::collections::{BTreeMap, BTreeSet};
@@ -59,7 +60,7 @@ fn prefill(kind: HostKind) -> &'static str {
 }
 
 fn mark(kind: HostKind, size: f32) -> Icon {
-    Icon::empty().path(kind.terms().mark).size(px(size))
+    Icon::empty().path(kind.terms().mark).size(design(size))
 }
 
 /// The hosts to list, each with its kind: configured, reported by the host, and github.com;
@@ -206,14 +207,14 @@ impl SourceControlPanel {
                 .py_2()
                 .rounded_md()
                 .bg(theme.muted)
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .child(
                     h_flex()
                         .gap_2()
                         .items_center()
                         .child(
                             Icon::new(crate::icon::IconName::TriangleAlert)
-                                .size(px(12.))
+                                .size(design(12.))
                                 .text_color(theme.warning),
                         )
                         .child(div().flex_1().min_w_0().child(text.into_owned())),
@@ -313,10 +314,10 @@ impl SourceControlPanel {
                 v_flex()
                     .flex_1()
                     .min_w_0()
-                    .gap(px(2.))
+                    .gap(design(2.))
                     .child(
                         div()
-                            .text_size(px(14.))
+                            .text_size(design(14.))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
                             .text_color(header_color)
                             .truncate()
@@ -324,7 +325,7 @@ impl SourceControlPanel {
                     )
                     .child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(design(12.))
                             .text_color(theme.muted_foreground)
                             .child(kind_line),
                     ),
@@ -335,7 +336,7 @@ impl SourceControlPanel {
             return row
                 .child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(design(12.))
                         .text_color(theme.muted_foreground)
                         .child(crate::tr!("source_control.off", host = host).into_owned()),
                 )
@@ -359,7 +360,7 @@ impl SourceControlPanel {
                 .flex()
                 .flex_wrap()
                 .gap_1()
-                .text_size(px(13.))
+                .text_size(design(13.))
                 .text_color(theme.muted_foreground)
                 .child(status_line(status.as_ref()))
                 .when(
@@ -430,7 +431,7 @@ impl SourceControlPanel {
         {
             row = row.child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(theme.muted_foreground)
                     .child(crate::tr!("source_control.env_override").into_owned()),
             );
@@ -459,7 +460,7 @@ impl SourceControlPanel {
         let compact = self.window_state.read(cx).compact;
         let field =
             div()
-                .min_w(px(120.))
+                .min_w(design(120.))
                 .map(|field| {
                     if compact {
                         field.w_full()
@@ -479,7 +480,7 @@ impl SourceControlPanel {
                 .ghost()
                 .outline()
                 .compact()
-                .when(compact, |button| button.min_h(px(44.)))
+                .when(compact, |button| button.min_h(design(44.)))
                 .label(crate::tr!("source_control.set").into_owned())
                 .aria_label(crate::tr!("source_control.set_label", host = host).into_owned())
                 .on_click(move |_, window, cx| {
@@ -498,7 +499,7 @@ impl SourceControlPanel {
                 )))
                 .ghost()
                 .compact()
-                .when(compact, |button| button.min_h(px(44.)))
+                .when(compact, |button| button.min_h(design(44.)))
                 .disabled(!token_set)
                 .label(crate::tr!("source_control.clear").into_owned())
                 .aria_label(crate::tr!("source_control.clear_label", host = host).into_owned())
@@ -515,7 +516,7 @@ impl SourceControlPanel {
                 Button::new(SharedString::from(format!("source-control-remove-{host}")))
                     .ghost()
                     .compact()
-                    .when(compact, |button| button.min_h(px(44.)))
+                    .when(compact, |button| button.min_h(design(44.)))
                     .label(crate::tr!("source_control.remove_host").into_owned())
                     .on_click(move |_, window, cx| {
                         confirm_remove(store.clone(), remove_host.clone(), window, cx)
@@ -548,7 +549,7 @@ impl SourceControlPanel {
                 .flex_wrap()
                 .gap_1()
                 .items_center()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .text_color(theme.muted_foreground)
                 .children(scopes)
                 .when_some(token_url, |help, url| {
@@ -674,7 +675,7 @@ impl SourceControlPanel {
             .w_full()
             .items_start()
             .gap_1()
-            .text_size(px(12.))
+            .text_size(design(12.))
             .text_color(theme.muted_foreground)
             .child(div().w_full().child(description.into_owned()))
             .when_some(link, |description, url| {
@@ -702,7 +703,7 @@ impl SourceControlPanel {
         .ghost()
         .outline()
         .compact()
-        .when(compact, |button| button.min_h(px(44.)))
+        .when(compact, |button| button.min_h(design(44.)))
         .label(crate::tr!("source_control.set").into_owned())
         .aria_label(crate::tr!("source_control.set_label", host = host).into_owned())
         .on_click(move |_, window, cx| {
@@ -732,7 +733,7 @@ impl SourceControlPanel {
         )))
         .ghost()
         .compact()
-        .when(compact, |button| button.min_h(px(44.)))
+        .when(compact, |button| button.min_h(design(44.)))
         .disabled(!status.is_some_and(|status| status.token_set))
         .label(crate::tr!("source_control.clear").into_owned())
         .aria_label(crate::tr!("source_control.clear_label", host = host).into_owned())
@@ -767,7 +768,7 @@ impl SourceControlPanel {
                         div()
                             .flex_1()
                             .min_w_0()
-                            .text_size(px(12.))
+                            .text_size(design(12.))
                             .text_color(theme.muted_foreground)
                             .children(replaces.map(|replaces| replaces.into_owned())),
                     )
@@ -829,11 +830,11 @@ impl Render for SourceControlPanel {
                 AddHostDialog::open(store.clone(), listed_hosts.clone(), window, cx)
             });
         let note = div()
-            .text_size(px(12.))
+            .text_size(design(12.))
             .text_color(cx.theme().muted_foreground)
             .child(crate::tr!("source_control.detection_note").into_owned());
         v_flex()
-            .gap(px(24.))
+            .gap(design(24.))
             .on_action(cx.listener(|this, action: &ChooseAccount, _, cx| {
                 this.store.update(cx, |store, _| {
                     store.patch_source_control_host(
@@ -846,7 +847,7 @@ impl Render for SourceControlPanel {
             }))
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("source_control.description").into_owned()),
             )
@@ -918,7 +919,7 @@ impl AddHostDialog {
             let cancel = footer.clone();
             let add = footer.clone();
             builder
-                .w(px(460.))
+                .w(design(460.))
                 .rounded(crate::material::radius_overlay(cx))
                 .bg(cx.theme().popover)
                 .border_1()
@@ -1035,7 +1036,7 @@ impl Render for AddHostDialog {
         let kind = self.kind;
         let label = |text: SharedString| {
             div()
-                .text_size(px(12.))
+                .text_size(design(12.))
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .child(text)
         };
@@ -1060,7 +1061,7 @@ impl Render for AddHostDialog {
                             .child(mark(kind, 16.))
                             .child(kind.terms().name)
                             .child(div().ml_auto().child(
-                                Icon::new(crate::icon::IconName::ChevronDown).size(px(14.)),
+                                Icon::new(crate::icon::IconName::ChevronDown).size(design(14.)),
                             )),
                     )
                     // gpui-base has no Select; a button with a menu stands in for one.
@@ -1088,7 +1089,7 @@ impl Render for AddHostDialog {
             .child(Input::new(&self.input).disabled(kind.fixed_host().is_some()))
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(design(12.))
                     .text_color(theme.muted_foreground)
                     .flex()
                     .flex_wrap()
@@ -1107,8 +1108,8 @@ impl Render for AddHostDialog {
             )
             .child(
                 div()
-                    .min_h(px(16.))
-                    .text_size(px(12.))
+                    .min_h(design(16.))
+                    .text_size(design(12.))
                     .text_color(theme.danger)
                     .children(self.error.clone()),
             )

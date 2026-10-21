@@ -1,5 +1,17 @@
-use gpui::{Pixels, px};
+use gpui::{Pixels, Rems, Window, px, rems};
 use serde::{Deserialize, Serialize};
+
+/// A design dimension: pixels at 100% zoom, resolved through the window's rem
+/// size (see `crate::zoom`). Measured geometry and OS insets stay in `Pixels`.
+pub const fn design(pixels: f32) -> Rems {
+    rems(pixels / 16.)
+}
+
+/// A design dimension in this window's pixels, for arithmetic with measured
+/// geometry and for APIs that take `Pixels`.
+pub fn design_px(pixels: f32, window: &Window) -> Pixels {
+    design(pixels).to_pixels(window.rem_size())
+}
 
 /// Space kept between a fixed-size surface and the window edge.
 const VIEWPORT_INSET: f32 = 32.;
@@ -12,13 +24,16 @@ const VIEWPORT_FLOOR: f32 = 120.;
 /// Design sizes (a 680px dialog, a 390px recents viewport) assume a desktop
 /// window. The same views now run in a phone-sized or browser viewport, where an
 /// unclamped size overflows off-screen instead of scrolling.
-pub fn fit_viewport(desired: f32, available: Pixels) -> Pixels {
-    px(desired.min((f32::from(available) - VIEWPORT_INSET).max(VIEWPORT_FLOOR)))
+pub fn fit_viewport(desired: Pixels, available: Pixels) -> Pixels {
+    desired.min(px(
+        (f32::from(available) - VIEWPORT_INSET).max(VIEWPORT_FLOOR)
+    ))
 }
 
 /// A size for tcode UI elements.
 #[derive(Clone, Default, Copy, PartialEq, Eq, Debug, Deserialize, Serialize)]
 pub enum Size {
+    /// Design pixels at 100% zoom; the widget resolves them through rems.
     Size(Pixels),
     XSmall,
     Small,

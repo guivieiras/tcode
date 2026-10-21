@@ -1,3 +1,4 @@
+use crate::sizing::design;
 use crate::theme::ActiveTheme as _;
 use crate::widgets::spinner::Spinner;
 use crate::{
@@ -52,7 +53,7 @@ impl PlanPanel {
             .child(
                 div()
                     .pt_1()
-                    .text_size(px(11.))
+                    .text_size(design(11.))
                     .font_medium()
                     .text_color(muted)
                     .child(crate::tr!("tasks.steps")),
@@ -72,21 +73,21 @@ impl PlanPanel {
                 .into_any_element(),
             PlanStepStatus::InProgress => Spinner::new().xsmall().color(primary).into_any_element(),
             PlanStepStatus::Pending => div()
-                .size(px(14.))
+                .size(design(14.))
                 .rounded_full()
                 .border_1()
                 .border_color(muted)
                 .flex()
                 .items_center()
                 .justify_center()
-                .child(div().size(px(4.)).rounded_full().bg(muted))
+                .child(div().size(design(4.)).rounded_full().bg(muted))
                 .into_any_element(),
         };
 
         let mut text = div()
             .flex_1()
             .min_w_0()
-            .text_size(px(13.))
+            .text_size(design(13.))
             .child(step.step.clone());
         if step.status == PlanStepStatus::Completed {
             text = text.line_through().text_color(muted);
@@ -113,13 +114,13 @@ impl PlanPanel {
             .gap_1()
             .child(
                 div()
-                    .text_size(px(15.))
+                    .text_size(design(15.))
                     .font_medium()
                     .child(crate::tr!("tasks.empty_title")),
             )
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(design(13.))
                     .text_color(cx.theme().muted_foreground)
                     .child(crate::tr!("tasks.empty_desc")),
             )
@@ -146,7 +147,7 @@ impl Render for PlanPanel {
         } else {
             material::CARD_INSET
         };
-        let mut column = v_flex().w_full().min_w_0().px(px(inset)).py_3().gap_3();
+        let mut column = v_flex().w_full().min_w_0().px(design(inset)).py_3().gap_3();
         if !steps.is_empty() {
             column = column.child(self.render_steps(&steps, cx));
         }
