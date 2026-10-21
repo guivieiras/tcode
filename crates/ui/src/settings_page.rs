@@ -35,6 +35,7 @@ use crate::time::{humanize_ago, now_secs};
 use crate::window_caption;
 use crate::window_drag_area;
 use crate::window_state::WindowState;
+use tcode_client::host::ThreadAppearance;
 use tcode_core::project::SessionMeta;
 use tcode_core::settings::{FallbackReviewSettings, TitleGenerationSettings};
 
@@ -1439,6 +1440,7 @@ impl SettingsPage {
         let store = self.store.read(cx);
         let settings = store.settings();
         let theme_overridden = store.client_theme_override().is_some();
+        let thread_appearance = store.thread_appearance();
         let provider_marks_reset = self.reset_action(
             "reset-sidebar-provider-marks",
             settings.sidebar_provider_marks,
@@ -1453,6 +1455,7 @@ impl SettingsPage {
             self.named_theme_row(UiThemeMode::Dark, cx),
             self.theme_import_row(cx),
             self.zoom_row(cx),
+            self.thread_appearance_row(thread_appearance, cx),
             self.toggle_row(
                 "sidebar-provider-marks",
                 crate::tr!("settings.sidebar_provider_marks.title"),
@@ -3071,6 +3074,62 @@ impl SettingsPage {
             .child(self.row_labels(title, description, reset, cx))
             .child(dropdown)
             .into_any_element()
+    }
+
+    fn thread_appearance_row(
+        &self,
+        appearance: ThreadAppearance,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let label = |appearance| match appearance {
+            ThreadAppearance::Inline => crate::tr!("settings.thread_appearance.inline"),
+            ThreadAppearance::IconColumn => crate::tr!("settings.thread_appearance.icon_column"),
+        };
+        let reset = self.reset_action(
+            "reset-thread-appearance",
+            appearance != ThreadAppearance::Inline,
+            cx,
+            |this, _, cx| {
+                this.store.update(cx, |store, cx| {
+                    store.set_thread_appearance(ThreadAppearance::Inline, cx)
+                });
+            },
+        );
+        self.select_row(
+            "thread-appearance-dropdown",
+            "thread-appearance-popover",
+            "thread-appearance-options",
+            180.,
+            crate::tr!("settings.thread_appearance.title")
+                .into_owned()
+                .into(),
+            crate::tr!("settings.thread_appearance.description")
+                .into_owned()
+                .into(),
+            label(appearance).into_owned().into(),
+            [ThreadAppearance::Inline, ThreadAppearance::IconColumn]
+                .into_iter()
+                .map(|value| SelectRowOption {
+                    value,
+                    id: match value {
+                        ThreadAppearance::Inline => "thread-appearance-inline",
+                        ThreadAppearance::IconColumn => "thread-appearance-icon-column",
+                    }
+                    .into(),
+                    label: label(value).into_owned().into(),
+                    description: None,
+                    selected: appearance == value,
+                })
+                .collect(),
+            reset,
+            |appearance, page, _, cx| {
+                page.update(cx, |page, cx| {
+                    page.store
+                        .update(cx, |store, cx| store.set_thread_appearance(appearance, cx));
+                });
+            },
+            cx,
+        )
     }
 
     fn theme_row(&self, mode: ThemeMode, overridden: bool, cx: &mut Context<Self>) -> AnyElement {

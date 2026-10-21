@@ -85,7 +85,7 @@ impl AgentRow {
             (false, Some(ended)) => ended,
             _ => return None,
         };
-        Some(crate::chat::format_duration(
+        Some(crate::time::format_duration(
             ended.saturating_sub(started) / 1000,
         ))
     }
@@ -1126,6 +1126,7 @@ mod tests {
                     run_completed_at: None,
                 }),
                 working: false,
+                working_started_at: None,
                 turn_running: false,
                 waiting: false,
                 waiting_for_approval: false,

@@ -260,6 +260,11 @@ impl ClientHost for NativeClientHost {
                 .get("desktop_notifications_disabled")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false),
+            thread_appearance: prefs
+                .get("thread_appearance")
+                .cloned()
+                .and_then(|value| serde_json::from_value(value).ok())
+                .unwrap_or_default(),
             appearance: value("appearance"),
             theme: prefs.get("theme").filter(|v| !v.is_null()).cloned(),
             zoom_percent: prefs
@@ -283,6 +288,7 @@ impl ClientHost for NativeClientHost {
         let mut prefs = self.prefs();
         prefs["desktop_notifications_disabled"] =
             serde_json::json!(preferences.desktop_notifications_disabled);
+        prefs["thread_appearance"] = serde_json::json!(preferences.thread_appearance);
         prefs["appearance"] = serde_json::json!(preferences.appearance);
         prefs["theme"] = serde_json::json!(preferences.theme);
         prefs["zoom_percent"] = serde_json::json!(preferences.zoom_percent);
@@ -862,6 +868,7 @@ mod tests {
         assert_eq!(identity["platform"], "Android 15");
         host.save_preferences(&ClientPreferences {
             desktop_notifications_disabled: true,
+            thread_appearance: tcode_client::host::ThreadAppearance::IconColumn,
             appearance: Some("light".into()),
             zoom_percent: Some(125),
             language: None,
@@ -880,6 +887,11 @@ mod tests {
         assert_eq!(host.load_preferences().theme.unwrap()["light"], "Paper");
         assert_eq!(saved["zoom_percent"], 125);
         assert_eq!(host.load_preferences().zoom_percent, Some(125));
+        assert_eq!(saved["thread_appearance"], "icon_column");
+        assert_eq!(
+            host.load_preferences().thread_appearance,
+            tcode_client::host::ThreadAppearance::IconColumn
+        );
         assert_eq!(
             host.load_preferences().navigation.unwrap()["history"],
             serde_json::json!(["hosts", "threads"])

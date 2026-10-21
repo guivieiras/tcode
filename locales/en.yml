@@ -125,6 +125,7 @@ markdown:
   image_copy_address: "Copy image address"
   mermaid_diagram: "Mermaid diagram"
 sidebar:
+  unsent_text: "Unsent text"
   show_more_settled: "Show %{count} more"
   show_more: "Show more"
   show_less: "Show less"
@@ -267,7 +268,7 @@ sidebar:
   fork_unsupported: "This provider does not support conversation forks."
   fork_empty: "This conversation is empty and cannot be forked."
   fork_running: "Wait for the running turn to finish before forking this conversation."
-  ctx_mark_unread: "Mark unread"
+  ctx_mark_completed: "Mark completed"
   ctx_copy_path: "Copy workspace path"
   ctx_copy_id: "Copy thread ID"
   ctx_export_jsonl: "Export as Tcode JSONL"
@@ -413,6 +414,11 @@ settings:
     imported: "Theme saved on this device."
     imported_vscode: "VS Code theme imported. Syntax colors are approximate; semantic highlighting is not imported."
     invalid: "Could not import theme: %{error}"
+  thread_appearance:
+    title: "Thread appearance"
+    description: "Choose how thread rows look in the wide sidebar. Compact mode always uses Inline."
+    inline: "Inline"
+    icon_column: "Icon column"
   device_name:
     title: "Device name"
     description: "The name this device shows to machines it connects to."
@@ -1167,6 +1173,9 @@ usage:
     minutes: "%{count} min"
     scoped: "%{window} · %{scope}"
 time:
+  minutes: "%{count}m"
+  hours: "%{count}h"
+  days: "%{count}d"
   just_now: "just now"
   minutes_ago: "%{count}m ago"
   hours_ago: "%{count}h ago"
@@ -1447,7 +1456,7 @@ mobile:
   working: "Working"
   approval: "Needs approval"
   answer: "Needs your answer"
-  unread: "Unread"
+  completed: "Completed"
   message: "Type a message…"
   offline_message: "Offline — you can send when reconnected"
   offline_action: "Offline — available when reconnected"

@@ -161,6 +161,31 @@ pub(crate) fn composer_destination(
     }
 }
 
+/// Threads whose composer input holds unsent text. The composer owns the
+/// inputs; this set lets the sidebar mark those threads without repainting on
+/// every keystroke.
+#[derive(Default)]
+pub(crate) struct UnsentThreads(std::collections::HashSet<String>);
+
+impl UnsentThreads {
+    pub(crate) fn contains(&self, session_id: &str) -> bool {
+        self.0.contains(session_id)
+    }
+
+    /// Record the text `destination` now holds. Returns whether the thread
+    /// gained or lost unsent text; a project's New thread page is no thread.
+    pub(super) fn record(&mut self, destination: Option<&ComposerDestination>, text: &str) -> bool {
+        let Some(ComposerDestination::Thread(id)) = destination else {
+            return false;
+        };
+        if text.trim().is_empty() {
+            self.0.remove(id)
+        } else {
+            self.0.insert(id.clone())
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 /// Which glyph a trigger-menu row shows.
 pub(super) enum MenuIcon {

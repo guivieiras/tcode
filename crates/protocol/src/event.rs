@@ -429,6 +429,9 @@ pub enum ForkAvailability {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionActivity {
     pub working: bool,
+    /// When the turn a working thread runs began (unix ms), if known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub working_started_at: Option<u64>,
     pub turn_running: bool,
     /// Background tasks run, or a child thread holds this thread: one still
     /// runs, or a dispatched one finished and awaits its lead's settle.

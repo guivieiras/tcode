@@ -836,8 +836,11 @@ impl AppShell {
         }
         let preview =
             cx.new(|cx| PreviewPanel::new(store.clone(), self.window_state.clone(), window, cx));
-        let sidebar =
-            cx.new(|cx| SessionsSidebar::new(store.clone(), self.window_state.clone(), cx));
+        let chat = cx.new(|cx| ChatView::new(store.clone(), self.window_state.clone(), window, cx));
+        let unsent_threads = chat.read(cx).composer().read(cx).unsent_threads();
+        let sidebar = cx.new(|cx| {
+            SessionsSidebar::new(store.clone(), self.window_state.clone(), unsent_threads, cx)
+        });
         let subscriptions = vec![
             cx.observe_in(&store, window, move |this, store, window, cx| {
                 this.stamp_connected(cx);
@@ -920,7 +923,7 @@ impl AppShell {
 
         let observed_session_id = store.read(cx).active_session_id();
         self.attachment = Some(ShellAttachment {
-            chat: cx.new(|cx| ChatView::new(store.clone(), self.window_state.clone(), window, cx)),
+            chat,
             diff: cx.new(|cx| DiffPanel::new(store.clone(), self.window_state.clone(), cx)),
             settings_page: cx
                 .new(|cx| SettingsPage::new(store.clone(), self.window_state.clone(), window, cx)),
@@ -7171,6 +7174,7 @@ mod tests {
             delivery_in_flight: None,
             activity: tcode_protocol::SessionActivity {
                 working: false,
+                working_started_at: None,
                 turn_running: false,
                 waiting: false,
                 waiting_for_approval: false,

@@ -192,6 +192,8 @@ pub use wire::{
 // host build state, IndexSummary.development says a host offers it, and the
 // StartDevelopmentBuild and RestartDevelopmentDesktop commands and the
 // DevelopmentCheckout settings patch drive it.
+// Unreleased: SessionActivity carries `working_started_at`, when a working thread's
+// running turn began.
 pub const PROTOCOL_VERSION: u32 = 14;
 
 #[cfg(test)]

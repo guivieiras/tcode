@@ -256,15 +256,11 @@ impl SessionsSidebar {
 
     /// The payload a row starts a drag with, or `None` where rows do not drag:
     /// in member scope and while the row is being renamed.
-    pub(super) fn dragged_thread(
-        &self,
-        meta: &SessionMeta,
-        state: &ThreadRowState,
-        cx: &App,
-    ) -> Option<DraggedThread> {
+    pub(super) fn dragged_thread(&self, meta: &SessionMeta, cx: &App) -> Option<DraggedThread> {
         let store = self.store.read(cx);
-        let draggable =
-            store.scope().is_full() && state.renaming.is_none() && !self.in_project_view(cx);
+        let draggable = store.scope().is_full()
+            && self.renaming_input(&meta.id).is_none()
+            && !self.in_project_view(cx);
         draggable.then(|| DraggedThread {
             session_id: meta.id.clone(),
             from: thread_section(meta),
@@ -1082,12 +1078,6 @@ impl SessionsSidebar {
             .as_ref()
             .and_then(|id| projects.get(id))
             .cloned();
-        let state = self.thread_row_state(
-            meta,
-            &HashMap::new(),
-            format!("arrange-thread-{}", meta.id),
-            cx,
-        );
         let handle = crate::material::accessible_clickable(
             div(),
             SharedString::from(format!("arrange-handle-{}", meta.id)),
@@ -1112,7 +1102,7 @@ impl SessionsSidebar {
                 .size(design(20.))
                 .text_color(cx.theme().muted_foreground),
         );
-        let handle = match self.dragged_thread(meta, &state, cx) {
+        let handle = match self.dragged_thread(meta, cx) {
             Some(dragged) => Self::drag_source(handle, dragged, cx),
             None => handle,
         };

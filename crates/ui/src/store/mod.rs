@@ -6,7 +6,7 @@ use std::rc::Rc;
 use gpui::{App, Context, Entity, EventEmitter, Subscription as GpuiSubscription, Task};
 use tcode_client::{
     ConnectionState, HostLink,
-    host::{ClientHost, ClientPreferences, LiveHost},
+    host::{ClientHost, ClientPreferences, LiveHost, ThreadAppearance},
 };
 use tcode_core::{
     git::{GitFileEntry, MenuItem, QuickAction, menu_items, quick_action},
@@ -2443,6 +2443,19 @@ impl WorkspaceStore {
         self.save_client_preferences();
     }
 
+    pub fn thread_appearance(&self) -> ThreadAppearance {
+        self.client_preferences.thread_appearance
+    }
+
+    pub fn set_thread_appearance(&mut self, appearance: ThreadAppearance, cx: &mut Context<Self>) {
+        self.client_preferences.thread_appearance = appearance;
+        self.save_client_preferences();
+        cx.emit(StoreChange {
+            topic: TopicKind::Settings,
+        });
+        cx.notify();
+    }
+
     pub fn client_theme_override(&self) -> Option<ThemeMode> {
         match self.client_preferences.appearance.as_deref() {
             Some("system") => Some(ThemeMode::System),
@@ -2657,6 +2670,13 @@ impl WorkspaceStore {
             }
         }
         Some(id)
+    }
+
+    pub fn working_started_at_for(&self, session_id: &str) -> Option<u64> {
+        self.index_summary
+            .activity
+            .get(session_id)
+            .and_then(|activity| activity.working_started_at)
     }
 
     pub fn turn_running_for(&self, session_id: &str) -> bool {
@@ -4354,7 +4374,12 @@ pub(crate) mod tests {
         });
         let window_state = cx.new(|_| crate::window_state::WindowState::new(false));
         let (_sidebar, cx) = cx.add_window_view(|_, cx| {
-            crate::sidebar::SessionsSidebar::new(workspace.clone(), window_state, cx)
+            crate::sidebar::SessionsSidebar::new(
+                workspace.clone(),
+                window_state,
+                cx.new(|_| Default::default()),
+                cx,
+            )
         });
         cx.simulate_resize(gpui::size(gpui::px(360.), gpui::px(800.)));
         cx.update(|window, cx| {
@@ -5077,7 +5102,12 @@ pub(crate) mod tests {
         let window_state =
             cx.new(|_| crate::window_state::WindowState::new(false).with_compact(true));
         let (_sidebar, cx) = cx.add_window_view(|_, cx| {
-            crate::sidebar::SessionsSidebar::new(store.clone(), window_state, cx)
+            crate::sidebar::SessionsSidebar::new(
+                store.clone(),
+                window_state,
+                cx.new(|_| Default::default()),
+                cx,
+            )
         });
         cx.simulate_resize(size(px(393.), px(852.)));
         cx.update(|window, cx| {
