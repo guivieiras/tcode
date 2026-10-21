@@ -189,6 +189,8 @@ pub struct ActiveSession {
     pub(super) interrupt_requested: bool,
     /// A compaction asked for while the provider was starting; sent once it is live.
     pub(super) compact_requested: bool,
+    /// A successful live turn awaiting settled work; never restored from history.
+    pub(super) completion_candidate: bool,
     /// Provider-owned background tasks which outlive a completed model turn.
     /// Claude currently supplies this transient liveness signal.
     pub(super) background_task_count: usize,
@@ -258,6 +260,7 @@ impl ActiveSession {
             turn_in_flight: false,
             interrupt_requested: false,
             compact_requested: false,
+            completion_candidate: false,
             background_task_count: 0,
             mcp_servers_attached: true,
             idle_since: None,
@@ -382,6 +385,7 @@ impl ActiveSession {
         self.turn_in_flight = false;
         self.interrupt_requested = false;
         self.compact_requested = false;
+        self.completion_candidate = false;
         self.background_task_count = 0;
         self.idle_since = None;
         self._pump = None;
@@ -394,6 +398,7 @@ impl ActiveSession {
         self.turn_in_flight = false;
         self.interrupt_requested = false;
         self.compact_requested = false;
+        self.completion_candidate = false;
         self.background_task_count = 0;
         self._pump = None;
     }

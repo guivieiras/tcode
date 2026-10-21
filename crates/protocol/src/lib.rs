@@ -45,7 +45,7 @@ pub use event::{
     RuntimeError, RuntimeNotice, RuntimeNotification, RuntimeOperationId, RuntimeToast, Scope,
     ScopedProviderChoice, ServerEvent, SessionActivity, SessionEventRecord, SessionPlan,
     SessionStatus, TcodeUpdateStatus, TerminalContextStatus, TerminalSplitStatus, TerminalStatus,
-    Topic,
+    ThreadAttentionKind, Topic,
 };
 pub use query::{
     DeviceAccess, ExternalThread, GitDiffResult, GitDiffScope, GitFileText, HostedDevice,
@@ -179,7 +179,9 @@ pub use wire::{
 // Unreleased: AgentStatus gains `report`, what a dispatched child owes its
 // lead (none, expected, reported, unreported, failed), and SessionMeta carries
 // the child's `expectation`; the protocol adds the CompactContext command,
-// which asks a provider with a native compaction operation to compact now.
+// which asks a provider with a native compaction operation to compact now;
+// RuntimeNotification gains ThreadAttention, a thread's settled completion,
+// new question or new approval request.
 pub const PROTOCOL_VERSION: u32 = 14;
 
 #[cfg(test)]

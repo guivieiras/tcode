@@ -311,6 +311,7 @@ async fn host_loop(
         state.sync_terminal_handles();
         state.reap_terminal_projections();
         domain_diff.emit_changes(&mut state, &mut cx);
+        state.reconcile_attention(&mut cx);
     }
     // Reject late completions and release their captured results.
     mailbox.close();
