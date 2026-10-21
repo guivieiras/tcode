@@ -52,13 +52,19 @@ pub fn shown_timestamp(meta: &SessionMeta) -> u64 {
 /// threads nobody arranged by hand by their last activity, newest first, so
 /// a message or a finished turn moves one to the top; then the arranged ones
 /// by the key the user gave them, which activity does not change. Settled
-/// threads newest settled first.
-pub fn compare_threads(a: &SessionMeta, b: &SessionMeta) -> Ordering {
+/// threads newest settled first. Without `arranged` every key is ignored:
+/// Pinned is newest pinned first and Active is by last activity alone.
+pub fn compare_threads(a: &SessionMeta, b: &SessionMeta, arranged: bool) -> Ordering {
     let section = thread_section(a);
     section
         .cmp(&thread_section(b))
         .then_with(|| match section {
             ThreadSection::Settled => settled_timestamp(b).cmp(&settled_timestamp(a)),
+            ThreadSection::Pinned if !arranged => b
+                .pinned_at
+                .cmp(&a.pinned_at)
+                .then_with(|| b.created_at.cmp(&a.created_at)),
+            ThreadSection::Active if !arranged => last_activity(b).cmp(&last_activity(a)),
             ThreadSection::Pinned => match (&a.pin_order, &b.pin_order) {
                 (Some(a), Some(b)) => a.cmp(b),
                 (Some(_), None) => Ordering::Less,
@@ -75,8 +81,8 @@ pub fn compare_threads(a: &SessionMeta, b: &SessionMeta) -> Ordering {
         .then_with(|| a.id.cmp(&b.id))
 }
 
-pub fn sort_threads(sessions: &mut [SessionMeta]) {
-    sessions.sort_by(compare_threads);
+pub fn sort_threads(sessions: &mut [SessionMeta], arranged: bool) {
+    sessions.sort_by(|a, b| compare_threads(a, b, arranged));
 }
 
 /// Threads split by section, each keeping the order it was given in.
@@ -262,7 +268,7 @@ mod tests {
             meta
         };
         let order = |sessions: &mut Vec<SessionMeta>| {
-            sort_threads(sessions);
+            sort_threads(sessions, true);
             sessions
                 .iter()
                 .map(|meta| meta.id.clone())
@@ -313,6 +319,16 @@ mod tests {
         assert_eq!(
             order(&mut sessions),
             ["new", "pinned", "old", "reopened", "arranged"]
+        );
+
+        sort_threads(&mut sessions, false);
+        assert_eq!(
+            sessions
+                .iter()
+                .map(|meta| meta.id.as_str())
+                .collect::<Vec<_>>(),
+            ["new", "pinned", "arranged", "old", "reopened"],
+            "with arrangement off, keys give way to the newest pin and the latest activity"
         );
     }
 

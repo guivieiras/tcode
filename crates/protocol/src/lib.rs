@@ -194,6 +194,8 @@ pub use wire::{
 // DevelopmentCheckout settings patch drive it.
 // Unreleased: SessionActivity carries `working_started_at`, when a working thread's
 // running turn began.
+// Unreleased: Settings carries thread_arrangement_disabled, patched by
+// ThreadArrangementDisabled.
 pub const PROTOCOL_VERSION: u32 = 14;
 
 #[cfg(test)]

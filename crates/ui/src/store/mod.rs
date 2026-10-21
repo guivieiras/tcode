@@ -2617,6 +2617,12 @@ impl WorkspaceStore {
         self.settings_replica.sidebar_layout
     }
 
+    /// Whether threads are arranged by hand: dragged, moved, and ordered by
+    /// the keys that gives them.
+    pub fn thread_arrangement(&self) -> bool {
+        !self.settings_replica.thread_arrangement_disabled
+    }
+
     pub fn flat_sessions(&self) -> Vec<SessionMeta> {
         let mut visible: Vec<_> = self
             .index_replica
@@ -2625,7 +2631,7 @@ impl WorkspaceStore {
             .filter(|meta| tcode_core::thread_sort::in_roster(meta))
             .cloned()
             .collect();
-        tcode_core::thread_sort::sort_threads(&mut visible);
+        tcode_core::thread_sort::sort_threads(&mut visible, self.thread_arrangement());
         visible
     }
 

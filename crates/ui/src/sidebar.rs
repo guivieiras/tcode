@@ -238,7 +238,7 @@ fn project_threads<'a>(
 fn project_group_threads(sessions: &[SessionMeta]) -> (Vec<&SessionMeta>, Vec<&SessionMeta>) {
     let (mut settled, active): (Vec<_>, Vec<_>) =
         sessions.iter().partition(|meta| meta.is_settled());
-    settled.sort_by(|a, b| tcode_core::thread_sort::compare_threads(a, b));
+    settled.sort_by(|a, b| tcode_core::thread_sort::compare_threads(a, b, false));
     (active, settled)
 }
 
@@ -2761,6 +2761,9 @@ impl SessionsSidebar {
                 .upgrade()
                 .filter(|_| !settled && scope.is_full())
                 .and_then(|sidebar| sidebar.read(cx).move_bounds(&id, cx));
+            let arrangement = sidebar
+                .upgrade()
+                .is_some_and(|sidebar| sidebar.read(cx).store.read(cx).thread_arrangement());
             menu.menu(
                 crate::tr!("sidebar.ctx_rename").into_owned(),
                 Box::new(ThreadRename(id.clone())),
@@ -2832,7 +2835,7 @@ impl SessionsSidebar {
                     down,
                 )
             })
-            .when(compact, |menu| {
+            .when(compact && arrangement, |menu| {
                 menu.menu(
                     crate::tr!("sidebar.ctx_arrange").into_owned(),
                     Box::new(ThreadArrange(id.clone())),

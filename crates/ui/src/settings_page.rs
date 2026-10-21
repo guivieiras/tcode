@@ -1449,6 +1449,14 @@ impl SettingsPage {
                 this.dispatch_settings(|store| store.set_sidebar_provider_marks(false), cx)
             },
         );
+        let thread_arrangement_reset = self.reset_action(
+            "reset-thread-arrangement",
+            settings.thread_arrangement_disabled,
+            cx,
+            |this, _, cx| {
+                this.dispatch_settings(|store| store.set_thread_arrangement_disabled(false), cx)
+            },
+        );
         let appearance = vec![
             self.theme_row(settings.theme_mode, theme_overridden, cx),
             self.named_theme_row(UiThemeMode::Light, cx),
@@ -1464,6 +1472,15 @@ impl SettingsPage {
                 provider_marks_reset,
                 cx,
                 WorkspaceStore::set_sidebar_provider_marks,
+            ),
+            self.toggle_row(
+                "thread-arrangement",
+                crate::tr!("settings.thread_arrangement.title"),
+                crate::tr!("settings.thread_arrangement.description"),
+                !settings.thread_arrangement_disabled,
+                thread_arrangement_reset,
+                cx,
+                |store, checked| store.set_thread_arrangement_disabled(!checked),
             ),
         ];
         v_flex().child(self.grouped_plain(appearance, cx))
