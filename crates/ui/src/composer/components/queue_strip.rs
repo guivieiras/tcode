@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(target_family = "wasm")]
 use web_time::{SystemTime, UNIX_EPOCH};
 
-/// Queue bubbles collapse whitespace and clip long messages (the full text is
+/// Queue previews collapse whitespace and clip long messages (the full text is
 /// still what gets sent).
 fn truncate_queued(text: &str) -> String {
     const MAX: usize = 80;
@@ -65,14 +65,18 @@ impl Composer {
         }
 
         let muted = cx.theme().muted_foreground;
-        let mut strip = v_flex().w_full().gap_1().child(
-            div()
-                .flex_none()
-                .px_1()
-                .text_size(px(11.))
-                .text_color(muted)
-                .child(crate::tr!("composer.queued_count", count = queued.len())),
-        );
+        let mut strip = v_flex()
+            .w_full()
+            .gap_1()
+            .when(self.compact, |el| el.gap_0())
+            .child(
+                div()
+                    .flex_none()
+                    .px_1()
+                    .text_size(px(11.))
+                    .text_color(muted)
+                    .child(crate::tr!("composer.queued_count", count = queued.len())),
+            );
 
         for (index, message) in queued.into_iter().enumerate() {
             let id = message.id;
@@ -101,14 +105,16 @@ impl Composer {
                     .items_center()
                     .px_1()
                     .when(index > 0, |row| {
-                        row.pt_1().border_t_1().border_color(cx.theme().border)
+                        row.when(!self.compact, |row| row.pt_1())
+                            .border_t_1()
+                            .border_color(cx.theme().border)
                     })
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(13.))
+                            .text_size(px(if self.compact { 12. } else { 13. }))
                             .text_color(cx.theme().foreground)
                             .child(truncate_queued(&message.text)),
                     )
@@ -126,7 +132,7 @@ impl Composer {
                             .debug_selector(move || format!("queue-steer-{id}"))
                             .ghost()
                             .xsmall()
-                            .when(self.compact, |button| button.min_w(px(44.)).min_h(px(44.)))
+                            .when(self.compact, |button| button.min_h(px(32.)))
                             .icon(IconName::ArrowUp)
                             // Scheduled rows always support send-now: the
                             // runtime removes the deadline and uses the normal
@@ -145,7 +151,7 @@ impl Composer {
                             .debug_selector(move || format!("queue-drop-{id}"))
                             .ghost()
                             .xsmall()
-                            .when(self.compact, |button| button.min_w(px(44.)).min_h(px(44.)))
+                            .when(self.compact, |button| button.min_h(px(32.)))
                             .icon(IconName::Close)
                             .disabled(!editable || !self.interactive(cx))
                             .tooltip(crate::tr!("composer.drop_queued"))
@@ -190,11 +196,25 @@ impl Composer {
         }
         Some(
             div()
-                .id("queued-messages-scroll")
-                .w_full()
-                .max_h(px(180.))
-                .overflow_y_scroll_area()
-                .child(strip)
+                .debug_selector(|| "composer-queue-drawer".into())
+                .mx_2()
+                .px_2()
+                .py_1p5()
+                .when(self.compact, |el| el.py_1())
+                .min_w_0()
+                .rounded_t(px(12.))
+                .border_1()
+                .border_b_0()
+                .border_color(cx.theme().border)
+                .bg(cx.theme().muted)
+                .child(
+                    div()
+                        .id("queued-messages-scroll")
+                        .w_full()
+                        .max_h(px(180.))
+                        .overflow_y_scroll_area()
+                        .child(strip),
+                )
                 .into_any_element(),
         )
     }
