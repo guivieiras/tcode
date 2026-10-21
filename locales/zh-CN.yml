@@ -402,6 +402,9 @@ settings:
   sidebar_provider_marks:
     title: "提供方标识"
     description: "在侧边栏每个对话行的右侧以提供方颜色显示其 logo。"
+  thread_arrangement:
+    title: "手动排列对话"
+    description: "拖动对话，或使用“上移”和“下移”来设定顺序。关闭后，对话按最近活动排序，已设定的顺序将被忽略。"
   provider_updates:
     title: "提供方更新检查"
     description: "启动时检查 Tcode 和提供方 CLI 的新版本，并从 t3code 刷新 Claude Code 模型列表。"

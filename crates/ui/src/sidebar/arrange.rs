@@ -210,11 +210,14 @@ impl Render for ThreadDragView {
 }
 
 impl SessionsSidebar {
-    /// Whether rows are listed by project, where they are neither dragged
-    /// nor moved: the project view orders them by activity alone.
-    fn in_project_view(&self, cx: &App) -> bool {
-        self.store.read(cx).sidebar_layout() == SidebarLayout::Grouped
-            && self.window_state.read(cx).destination() != Destination::ArrangeThreads
+    /// Whether rows are dragged and moved: not with arrangement turned off
+    /// in Settings, nor where they are listed by project, which orders them
+    /// by activity alone.
+    pub(super) fn arranges(&self, cx: &App) -> bool {
+        let store = self.store.read(cx);
+        store.thread_arrangement()
+            && (store.sidebar_layout() != SidebarLayout::Grouped
+                || self.window_state.read(cx).destination() == Destination::ArrangeThreads)
     }
 
     /// The project a list shows a thread under: the filter in the desktop's
@@ -262,8 +265,7 @@ impl SessionsSidebar {
         cx: &App,
     ) -> Option<DraggedThread> {
         let store = self.store.read(cx);
-        let draggable =
-            store.scope().is_full() && state.renaming.is_none() && !self.in_project_view(cx);
+        let draggable = store.scope().is_full() && state.renaming.is_none() && self.arranges(cx);
         draggable.then(|| DraggedThread {
             session_id: meta.id.clone(),
             from: thread_section(meta),
@@ -619,11 +621,11 @@ impl SessionsSidebar {
     }
 
     /// Whether a thread can move up and down within its section, or `None`
-    /// for a settled thread and in the project view.
+    /// for a settled thread and where rows are not arranged.
     pub(super) fn move_bounds(&self, id: &str, cx: &App) -> Option<(bool, bool)> {
         let meta = self.store.read(cx).thread_meta(id).cloned()?;
         let section = thread_section(&meta);
-        if section == ThreadSection::Settled || self.in_project_view(cx) {
+        if section == ThreadSection::Settled || !self.arranges(cx) {
             return None;
         }
         let scope = self.list_scope(cx);

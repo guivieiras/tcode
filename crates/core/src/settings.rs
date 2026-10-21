@@ -849,6 +849,7 @@ pub enum SettingsPatch {
     AutoOpenTaskPanel(bool),
     LiveCommandPanelDisabled(bool),
     SidebarProviderMarks(bool),
+    ThreadArrangementDisabled(bool),
     ProviderUpdateChecksDisabled(bool),
     InactiveFrameThrottleDisabled(bool),
     AbortOnModelFallback(bool),
@@ -1087,6 +1088,11 @@ pub struct Settings {
     /// default and absent in legacy files.
     #[serde(default)]
     pub sidebar_provider_marks: bool,
+    /// Whether arranging threads by hand is DISABLED: rows neither drag nor
+    /// move, and order keys already given are ignored. Stored inverted so
+    /// legacy settings keep arrangement on.
+    #[serde(default)]
+    pub thread_arrangement_disabled: bool,
     /// Whether the on-launch provider version check is DISABLED. Stored inverted
     /// so it remains enabled for legacy settings files that lack the field.
     #[serde(default)]
@@ -1233,6 +1239,7 @@ impl Default for Settings {
             auto_open_task_panel: false,
             live_command_panel_disabled: false,
             sidebar_provider_marks: false,
+            thread_arrangement_disabled: false,
             provider_update_checks_disabled: false,
             inactive_frame_throttle_disabled: false,
             abort_on_model_fallback: true,
@@ -1307,6 +1314,9 @@ impl Settings {
             }
             SettingsPatch::SidebarProviderMarks(value) => {
                 self.sidebar_provider_marks = value;
+            }
+            SettingsPatch::ThreadArrangementDisabled(value) => {
+                self.thread_arrangement_disabled = value;
             }
             SettingsPatch::ProviderUpdateChecksDisabled(value) => {
                 self.provider_update_checks_disabled = value;

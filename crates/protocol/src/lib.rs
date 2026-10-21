@@ -150,6 +150,8 @@ pub use wire::{
 // host then sends the text as an ordinary turn. Index subscriptions may carry
 // known_index; matching content receives IndexUnchanged instead of a snapshot.
 // ReadFilePreview rejects files larger than 512 KiB before transferring bytes.
+// Settings carries thread_arrangement_disabled, patched by
+// ThreadArrangementDisabled.
 pub const PROTOCOL_VERSION: u32 = 12;
 
 #[cfg(test)]

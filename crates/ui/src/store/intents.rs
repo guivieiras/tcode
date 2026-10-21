@@ -185,6 +185,9 @@ impl WorkspaceStore {
                 SettingsPatch::SidebarProviderMarks(value) => {
                     self.settings_replica.sidebar_provider_marks = value
                 }
+                SettingsPatch::ThreadArrangementDisabled(value) => {
+                    self.settings_replica.thread_arrangement_disabled = value
+                }
                 SettingsPatch::InactiveFrameThrottleDisabled(value) => {
                     self.settings_replica.inactive_frame_throttle_disabled = value
                 }
@@ -224,6 +227,9 @@ impl WorkspaceStore {
     }
     pub fn set_sidebar_provider_marks(&mut self, value: bool) {
         self.patch_settings(SettingsPatch::SidebarProviderMarks(value));
+    }
+    pub fn set_thread_arrangement_disabled(&mut self, value: bool) {
+        self.patch_settings(SettingsPatch::ThreadArrangementDisabled(value));
     }
     pub fn set_provider_update_checks_disabled(&mut self, value: bool) {
         self.patch_settings(SettingsPatch::ProviderUpdateChecksDisabled(value));
