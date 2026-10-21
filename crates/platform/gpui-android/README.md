@@ -87,7 +87,9 @@ Android `MotionEvent`s are forwarded as GPUI `TouchEvent`s, using every pointer,
 Android's per-gesture pointer ids, logical coordinates, pressure, and the
 corresponding started/moved/ended/cancelled phase. Pointer ids are paired with
 the motion stream's monotonic down time so a reused Android id cannot collide
-with an earlier GPUI touch.
+with an earlier GPUI touch. Of the moves read in one input batch, only the
+latest is forwarded: GPUI times velocity samples on arrival, so moves queued
+behind a slow frame would otherwise read as a fling at its velocity cap.
 
 Gesture interpretation lives in GPUI's portable gesture arena, the same
 path used by `gpui-ios`. Android supplies only platform tuning: a 450 ms long
