@@ -188,11 +188,7 @@ impl Panel {
         // Rows the output may use: the panel's budget, less the command line.
         let budget = MAX_ROWS.saturating_sub(command_rows).max(1);
 
-        let palette = TerminalPalette {
-            foreground: cx.theme().foreground,
-            background: cx.theme().background,
-            selection: cx.theme().primary.opacity(0.28),
-        };
+        let palette = cx.theme().terminal;
         let command = grid_element(command_model, command_rows, cols, palette);
         let (output, output_rows) =
             match screen.frame {
@@ -454,6 +450,8 @@ mod tests {
             foreground: rgb(0xffffff).into(),
             background: rgb(0x000000).into(),
             selection: rgb(0x333333).into(),
+            cursor: rgb(0xffffff).into(),
+            ansi: [rgb(0x808080).into(); 16],
         }
     }
 

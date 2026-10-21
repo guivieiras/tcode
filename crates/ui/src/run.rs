@@ -21,20 +21,6 @@ use crate::shell::{AppShell, ShellSetup, TogglePalette};
 use crate::theme;
 use crate::window_state::WindowState;
 
-/// The embedded palette every client renders with.
-pub const THEME_JSON: &str = include_str!("../../../themes/tcode.json");
-
-/// The palette with its translucent canvas flattened to solid RGB, for a client
-/// whose window is opaque. Over a native backdrop those colors composite with
-/// the material behind them; over black they just look muddy.
-pub fn flattened_theme_json() -> String {
-    let flattened = THEME_JSON
-        .replace("#F2F4F7C7", "#F2F4F7")
-        .replace("#15171CC7", "#15171C");
-    debug_assert_ne!(flattened, THEME_JSON, "canvas colors moved; update flatten");
-    flattened
-}
-
 /// Where a client should attach at launch: the host it used last, if that
 /// record still exists. A client with no such record opens on the hosts list.
 pub fn last_host_target(host: &dyn ClientHost) -> Option<AttachmentTarget> {
@@ -50,9 +36,10 @@ pub struct ShellOptions {
     /// The title the window carries until an attachment names one.
     pub title: SharedString,
     pub fonts: Vec<Cow<'static, [u8]>>,
-    /// The palette this client renders with. Clients whose window is opaque
-    /// hand over a theme with the translucent canvas already flattened.
-    pub theme_json: Cow<'static, str>,
+    /// Whether the platform window is opaque. Over a native backdrop a
+    /// translucent theme canvas composites with the material behind it; over
+    /// black it just looks muddy, so an opaque window flattens it.
+    pub opaque_canvas: bool,
     /// Whether this client should bring itself to the front on launch.
     pub activate: bool,
     /// The user's first OS-configured language when the platform has a more
@@ -71,7 +58,7 @@ impl Default for ShellOptions {
             window: WindowOptions::default(),
             title: crate::tr!("app.name").into(),
             fonts: vec![Cow::Borrowed(crate::assets::DM_SANS)],
-            theme_json: Cow::Borrowed(THEME_JSON),
+            opaque_canvas: false,
             activate: false,
             system_locale: None,
             lifecycle: None,
@@ -82,9 +69,8 @@ impl Default for ShellOptions {
 
 #[cfg(any(target_os = "android", target_os = "ios", target_family = "wasm"))]
 impl ShellOptions {
-    /// Supply monospace on platforms without a system monospace font.
-    /// Register the bundled family and select it anywhere the shared
-    /// theme asks for the desktop-only SF Mono family.
+    /// Supply monospace on platforms without a system monospace font: the
+    /// bundled family the theme names there.
     pub fn with_bundled_monospace(mut self) -> Self {
         self.fonts.extend([
             Cow::Borrowed(crate::assets::LILEX_REGULAR),
@@ -95,7 +81,6 @@ impl ShellOptions {
         #[cfg(target_family = "wasm")]
         self.fonts
             .push(Cow::Borrowed(crate::assets::TERMINAL_SYMBOLS));
-        self.theme_json = Cow::Owned(self.theme_json.replace("SF Mono", "Lilex"));
         self
     }
 }
@@ -124,15 +109,16 @@ pub fn init_client(cx: &mut App, host: &dyn ClientHost, options: &ShellOptions) 
         )));
     }
     crate::i18n::set_platform_system_locale(options.system_locale.as_deref());
-    let language = host.load_preferences().language;
-    crate::i18n::apply_locale(match language.as_deref() {
+    let preferences = host.load_preferences();
+    crate::i18n::apply_locale(match preferences.language.as_deref() {
         Some("system") | None => None,
         override_locale => override_locale,
     });
     cx.text_system()
         .add_fonts(options.fonts.clone())
         .expect("failed to register bundled application fonts");
-    theme::init_with_json(&options.theme_json, cx);
+    theme::init_with_options(options.opaque_canvas, cx);
+    theme::restore_preferences(preferences.theme, cx);
     crate::markdown::init(cx);
     crate::image_viewer::init(cx);
     crate::shortcut::init(cx);
