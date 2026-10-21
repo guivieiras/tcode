@@ -189,6 +189,8 @@ pub struct Composer {
     /// One cancellable one-second repaint loop, present only while the queue
     /// strip contains at least one scheduled row.
     scheduled_countdown_tick: Option<Task<()>>,
+    /// Repaints when the idle hint for the keyed due time (unix ms) comes due.
+    idle_hint_wake: Option<(u64, Task<()>)>,
     queued_refill: Option<(String, u64, String)>,
     /// Mic button + live dictation session (see `components::voice`).
     #[cfg(feature = "voice")]
@@ -353,6 +355,7 @@ impl Composer {
             image_load_generation: 0,
             pending_image_loads: 0,
             scheduled_countdown_tick: None,
+            idle_hint_wake: None,
             queued_refill: None,
             #[cfg(feature = "voice")]
             voice,
@@ -1365,7 +1368,10 @@ impl Render for Composer {
                     .child(
                         v_flex()
                             .w_full()
-                            .children(self.render_queue_strip(cx))
+                            .children(
+                                self.render_queue_strip(cx)
+                                    .or_else(|| self.render_idle_hint(cx)),
+                            )
                             .child(card)
                             .when(self.compact || (readonly && compact), |el| {
                                 el.child(
