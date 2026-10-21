@@ -242,6 +242,7 @@ impl AndroidPlatform {
                 break;
             }
         }
+        window.flush_pending_move();
     }
 
     fn process_host_events(&self) {

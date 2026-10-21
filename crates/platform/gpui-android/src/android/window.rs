@@ -112,6 +112,8 @@ pub(crate) struct AndroidWindowInner {
     after_frame: RefCell<Vec<Box<dyn FnOnce()>>>,
     reported_visibility: Cell<Option<WindowVisibility>>,
     keyboard_tap: Cell<Option<Point<Pixels>>>,
+    /// The latest move of the input batch being read; see [`AndroidWindow::handle_motion`].
+    pending_move: RefCell<Vec<TouchEvent>>,
     input_sync: RefCell<crate::text_input::InputSync>,
 }
 
@@ -169,6 +171,7 @@ impl AndroidWindow {
             after_frame: RefCell::new(Vec::new()),
             reported_visibility: Cell::new(None),
             keyboard_tap: Cell::new(None),
+            pending_move: RefCell::new(Vec::new()),
             input_sync: RefCell::new(Default::default()),
         })))
     }
@@ -512,6 +515,7 @@ impl AndroidWindow {
         let scale = self.scale_factor();
         let down_time = u64::try_from(event.down_time()).unwrap_or_default();
 
+        let mut touches = Vec::with_capacity(event.pointer_count());
         for pointer in event.pointers() {
             let phase = match action {
                 MotionAction::Down | MotionAction::PointerDown
@@ -543,15 +547,34 @@ impl AndroidWindow {
             let pointer_id = u64::try_from(pointer.pointer_id()).unwrap_or_default() & 0x3f;
             let id = TouchId(down_time.wrapping_mul(64).wrapping_add(pointer_id));
             let pressure = pointer.pressure();
-            self.dispatch_input(PlatformInput::Touch(TouchEvent {
+            touches.push(TouchEvent {
                 id,
                 phase,
                 position,
                 predicted_position: None,
                 force: pressure.is_finite().then(|| pressure.clamp(0.0, 1.0)),
-            }));
+            });
+        }
+        // GPUI's touch recognizer timestamps velocity samples on dispatch. Moves
+        // queued behind a slow frame would arrive microseconds apart and fling
+        // at its velocity cap, so only the batch's latest move is dispatched.
+        if matches!(action, MotionAction::Move) {
+            *self.0.pending_move.borrow_mut() = touches;
+            return true;
+        }
+        self.flush_pending_move();
+        for touch in touches {
+            self.dispatch_input(PlatformInput::Touch(touch));
         }
         true
+    }
+
+    /// Dispatch the move held back while the input batch was read.
+    pub(crate) fn flush_pending_move(&self) {
+        let touches = std::mem::take(&mut *self.0.pending_move.borrow_mut());
+        for touch in touches {
+            self.dispatch_input(PlatformInput::Touch(touch));
+        }
     }
 
     pub(crate) fn handle_key(&self, event: &android_activity::input::KeyEvent<'_>) -> KeyResult {
