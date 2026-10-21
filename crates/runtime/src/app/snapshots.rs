@@ -7,6 +7,7 @@ pub(crate) struct DomainDiff {
     index: IndexSnapshot,
     summary_revisions: [u64; 7],
     space_indexes: HashMap<String, IndexSnapshot>,
+    development: tcode_protocol::DevelopmentSnapshot,
     settings: Settings,
     providers: Option<ProvidersStatus>,
     git_status: HashMap<String, GitStatusStatus>,
@@ -29,6 +30,7 @@ impl DomainDiff {
             },
             summary_revisions: state.index_summary_revisions(),
             space_indexes: HashMap::new(),
+            development: state.development_snapshot(),
             settings: state.settings_snapshot(),
             providers: state
                 .subscriptions
@@ -45,6 +47,15 @@ impl DomainDiff {
             state.space_archives_revision = None;
         }
         state.refresh_space_archives();
+        let development = state.development_snapshot();
+        if self.development != development {
+            self.development = development.clone();
+            emit_replacement(
+                Topic::Development,
+                ServerEvent::DevelopmentStateReplaced(development),
+                cx,
+            );
+        }
         let settings_changed = self.settings != state.settings;
         let summary_revisions = state.index_summary_revisions();
         let sessions_changed = self.summary_revisions[0] != summary_revisions[0];
@@ -303,13 +314,15 @@ fn index_summary_changes(old: &IndexSummary, new: &IndexSummary) -> Vec<ServerEv
     let mut events = Vec::new();
     if old != new {
         let IndexSummary {
+            development,
             activity,
             title_generating,
             archived_counts,
             worktree_shared,
             archived_revision,
         } = new;
-        if old.title_generating == *title_generating
+        if old.development == *development
+            && old.title_generating == *title_generating
             && old.archived_counts == *archived_counts
             && old.worktree_shared == *worktree_shared
             && old.archived_revision == *archived_revision
@@ -526,6 +539,7 @@ impl AppState {
     fn build_index_summary(&self) -> IndexSummary {
         let activity = ActivityProjection::new(self);
         let mut summary = IndexSummary {
+            development: self.development_supported().then_some(true),
             title_generating: self.title_generating.clone(),
             archived_revision: self.archived_revision,
             ..IndexSummary::default()
@@ -900,6 +914,9 @@ impl AppState {
     ) -> Option<EventEnvelope> {
         let topic = &subscription.topic;
         let event = match topic {
+            Topic::Development => {
+                ServerEvent::DevelopmentStateReplaced(self.development_snapshot())
+            }
             Topic::Scope => ServerEvent::ScopeSnapshot(self.scope_snapshot(principal)),
             Topic::SpaceIndex { space_id } => {
                 ServerEvent::IndexSnapshot(self.space_index_snapshot(

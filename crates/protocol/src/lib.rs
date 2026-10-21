@@ -4,6 +4,8 @@
 //! Unknown data-carrying variants are decode errors; callers should use the
 //! wire helpers, which turn those errors into [`ProtocolError`] values.
 
+mod development;
+pub use development::*;
 mod command;
 mod event;
 mod index;
@@ -186,6 +188,10 @@ pub use wire::{
 // link on the host into a text, image or video preview, an image's bytes then
 // read as an explicit original, and ReadFileRange reads a bounded range of a
 // file whose size is unchanged, for media players.
+// Unreleased: the Development topic and DevelopmentStateReplaced event carry
+// host build state, IndexSummary.development says a host offers it, and the
+// StartDevelopmentBuild and RestartDevelopmentDesktop commands and the
+// DevelopmentCheckout settings patch drive it.
 pub const PROTOCOL_VERSION: u32 = 14;
 
 #[cfg(test)]

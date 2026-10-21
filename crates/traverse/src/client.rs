@@ -875,6 +875,9 @@ async fn connection_loop(
                 learn_addresses(&mut host, &established.connection);
                 live.authenticated(&host);
                 persist_addresses(&device, &host);
+                // Discard controls admitted just as the old connection failed,
+                // including those buffered while dialing.
+                outgoing.discard_retained_writes(&mut buffered);
                 // Tunnels are available by the time Syncing is observable.
                 // HostLink restores subscriptions from its latest applied cursors.
                 tunnels.set(Some(established.connection.clone()));

@@ -629,12 +629,23 @@ impl HostLink {
     ) -> Result<async_channel::Receiver<HostMessage>, ProtocolError> {
         let (sender, receiver) = async_channel::bounded(1);
         let query = matches!(payload, ClientPayload::Query(_));
-        let state_guard = query.then(|| self.inner.connection_state.lock().unwrap());
-        if state_guard.as_ref().is_some_and(|state| {
-            !matches!(
-                **state,
-                ConnectionState::Connected { .. } | ConnectionState::Syncing { .. }
+        let live_control = matches!(
+            &payload,
+            ClientPayload::Command(
+                Command::StartDevelopmentBuild { .. } | Command::RestartDevelopmentDesktop { .. }
             )
+        );
+        let state_guard =
+            (query || live_control).then(|| self.inner.connection_state.lock().unwrap());
+        if state_guard.as_ref().is_some_and(|state| {
+            if live_control {
+                !state.is_connected()
+            } else {
+                !matches!(
+                    **state,
+                    ConnectionState::Connected { .. } | ConnectionState::Syncing { .. }
+                )
+            }
         }) {
             return Err(error("disconnected", "Read requires a connection"));
         }
@@ -943,6 +954,10 @@ impl HostLink {
             let mut subscriptions = self.subscriptions();
             subscriptions.sort_by_key(|subscription| subscription.topic != Topic::Scope);
             for subscription in subscriptions {
+                // A fresh index baseline resubscribes when the host still offers Development.
+                if subscription.topic == Topic::Development {
+                    continue;
+                }
                 let _ = self.send_subscription(subscription);
             }
         }
