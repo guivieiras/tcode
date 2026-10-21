@@ -1059,6 +1059,30 @@ fn dispatch_query(
                     .map_err(io_protocol_error)
             })
         }
+        Query::PreviewFile { target, base_dir } => {
+            let task = cx
+                .unblock(move || tcode_services::file_preview::open(&target, base_dir.as_deref()));
+            cx.spawn_background(async move {
+                task.await
+                    .map(QueryResponse::FilePreview)
+                    .map_err(io_protocol_error)
+            })
+        }
+        Query::ReadFileRange {
+            path,
+            offset,
+            length,
+            expected_size,
+        } => {
+            let task = cx.unblock(move || {
+                tcode_services::file_preview::read_range(&path, offset, length, expected_size)
+            });
+            cx.spawn_background(async move {
+                task.await
+                    .map(QueryResponse::FileBytes)
+                    .map_err(io_protocol_error)
+            })
+        }
         Query::ReadFilePreview { path } => {
             let task = cx.unblock(move || {
                 tcode_services::user_files::read_bounded(

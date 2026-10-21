@@ -3300,6 +3300,76 @@ impl WorkspaceStore {
         )
     }
 
+    pub(crate) fn preview_file(
+        &self,
+        target: String,
+        base_dir: Option<PathBuf>,
+        cx: &mut App,
+    ) -> Task<Result<tcode_protocol::FilePreview, String>> {
+        let host = self.host.clone();
+        cx.spawn(
+            async move |_| match host.query(Query::PreviewFile { target, base_dir }).await {
+                Ok(QueryResponse::FilePreview(preview)) => Ok(preview),
+                Ok(_) => Err("Unexpected file preview response".into()),
+                Err(error) => Err(error.message),
+            },
+        )
+    }
+
+    #[cfg(all(
+        feature = "native-preview",
+        any(
+            target_os = "android",
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "windows"
+        )
+    ))]
+    pub(crate) fn video_stream(
+        &self,
+        path: PathBuf,
+        size: u64,
+        mime: String,
+    ) -> std::io::Result<tcode_traverse::file_stream::FileStream> {
+        tcode_traverse::file_stream::FileStream::new(self.host.clone(), path, size, mime)
+    }
+
+    /// Reads a whole host file as an explicit original, which no reply frame bounds.
+    /// `size` is the length the preview announced; a different length means the file changed.
+    pub(crate) fn read_file_original(
+        &self,
+        path: PathBuf,
+        size: u64,
+        cx: &mut App,
+    ) -> Task<std::io::Result<Vec<u8>>> {
+        let host = self.host.clone();
+        cx.spawn(async move |_| {
+            let mut transfer = host.read_original(tcode_protocol::OriginalTarget::File { path });
+            let changed = || tcode_client::original::error("The file changed; reopen its preview");
+            async {
+                if transfer.metadata().await?.len != size {
+                    return Err(changed());
+                }
+                let mut bytes = Vec::new();
+                bytes
+                    .try_reserve_exact(size as usize)
+                    .map_err(tcode_client::original::error)?;
+                while let Some(block) = transfer.read().await? {
+                    if (bytes.len() + block.len()) as u64 > size {
+                        return Err(changed());
+                    }
+                    bytes.extend_from_slice(&block);
+                }
+                if bytes.len() as u64 != size {
+                    return Err(changed());
+                }
+                Ok(bytes)
+            }
+            .await
+            .map_err(|error| protocol_io_error(error.message))
+        })
+    }
+
     pub fn read_file_preview(&self, path: PathBuf, cx: &mut App) -> Task<std::io::Result<Vec<u8>>> {
         let host = self.host.clone();
         cx.spawn(

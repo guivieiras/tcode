@@ -376,6 +376,17 @@ fn next_sidebar_overlay_visibility(
 }
 
 impl AppShell {
+    fn on_file_preview(
+        &mut self,
+        action: &crate::file_preview::OpenFilePreview,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(attachment) = &self.attachment {
+            crate::file_preview::open(attachment.link.store.clone(), action, window, cx);
+        }
+    }
+
     pub fn new(
         window_state: Entity<WindowState>,
         mut setup: ShellSetup,
@@ -2675,6 +2686,7 @@ impl AppShell {
             .on_action(cx.listener(Self::on_open_source_control))
             .key_context("TcodeShell")
             .on_action(cx.listener(Self::on_thread_undo))
+            .on_action(cx.listener(Self::on_file_preview))
             // Every compact page, settings included, is one entry of the same
             // stack: one nav bar, one Back, one transition.
             .child(stack)
@@ -2838,6 +2850,7 @@ impl AppShell {
                 .on_action(cx.listener(Self::on_open_source_control))
                 .key_context("TcodeShell")
                 .on_action(cx.listener(Self::on_thread_undo))
+                .on_action(cx.listener(Self::on_file_preview))
                 .child(
                     div()
                         .id("workspace")
@@ -2869,6 +2882,7 @@ impl AppShell {
                 .on_action(cx.listener(Self::on_open_source_control))
                 .key_context("TcodeShell")
                 .on_action(cx.listener(Self::on_thread_undo))
+                .on_action(cx.listener(Self::on_file_preview))
                 .child(
                     h_flex()
                         .id("workspace")
@@ -3279,6 +3293,7 @@ impl AppShell {
             .on_action(cx.listener(Self::on_open_source_control))
             .key_context("TcodeShell")
             .on_action(cx.listener(Self::on_thread_undo))
+            .on_action(cx.listener(Self::on_file_preview))
             .child(
                 div()
                     .id("workspace")

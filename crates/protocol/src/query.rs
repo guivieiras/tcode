@@ -50,6 +50,16 @@ pub enum Query {
         /// Physical display size, from 1 through 128 pixels.
         pixels: u32,
     },
+    PreviewFile {
+        target: String,
+        base_dir: Option<PathBuf>,
+    },
+    ReadFileRange {
+        path: PathBuf,
+        offset: u64,
+        length: u32,
+        expected_size: u64,
+    },
     /// Complete file contents; network bridges cap the optional read budget.
     ReadFileBytes {
         path: PathBuf,
@@ -151,6 +161,7 @@ pub enum QueryResponse {
     ExternalHistory(Vec<RecentDir>),
     CommitMessage(String),
     GitDiff(GitDiffResult),
+    FilePreview(FilePreview),
     FileBytes(#[serde(with = "crate::wire::base64_bytes")] Vec<u8>),
     SavedAttachment(PathBuf),
     UserFileRemoved,
@@ -524,4 +535,34 @@ impl PathInfo {
             },
         }
     }
+}
+
+/// An image preview is assembled in client memory before it is decoded, so this
+/// bounds memory; its bytes travel as an explicit original, outside query replies.
+pub const MAX_FILE_PREVIEW_BYTES: usize = 64 * 1024 * 1024;
+/// Keeps each ranged read well below the transport frame cap.
+pub const MAX_FILE_RANGE_BYTES: usize = 512 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FilePreview {
+    pub path: PathBuf,
+    pub content: FilePreviewContent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum FilePreviewContent {
+    Text {
+        text: String,
+        line: Option<u32>,
+    },
+    /// Read as an [`OriginalTarget::File`](crate::OriginalTarget) of the previewed path.
+    Image {
+        size: u64,
+    },
+    /// Streamed audio or video; the MIME type selects the media format.
+    Video {
+        size: u64,
+        mime: String,
+    },
 }

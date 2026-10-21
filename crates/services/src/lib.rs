@@ -5,6 +5,7 @@ pub mod azure;
 pub mod bitbucket;
 pub mod desktop;
 pub mod export;
+pub mod file_preview;
 pub mod forge;
 pub mod forgejo;
 pub mod fs_tree;

@@ -48,13 +48,13 @@ pub use event::{
     ThreadAttentionKind, Topic,
 };
 pub use query::{
-    DeviceAccess, ExternalThread, GitDiffResult, GitDiffScope, GitFileText, HostedDevice,
-    HostingAction, HostingState, IconImageEntry, MAX_SESSION_HISTORY_BYTES,
-    MAX_THREAD_EXPORT_BYTES, OUTPUT_PREVIEW_BYTES, PathEntry, PathInfo, PathKind, Query,
-    QueryResponse, RecentDir, SESSION_HISTORY_RECORDS, SESSION_WINDOW_BYTES, STORED_OUTPUT_COLS,
-    STORED_OUTPUT_ROWS, SessionSearchHit, SourceTool, SpaceAction, SpaceInfo, TraverseLookupState,
-    TraverseLookupStatus, TraverseManifestState, TraverseManifestStatus, TraverseRelayStatus,
-    TraverseSourceStatus,
+    DeviceAccess, ExternalThread, FilePreview, FilePreviewContent, GitDiffResult, GitDiffScope,
+    GitFileText, HostedDevice, HostingAction, HostingState, IconImageEntry, MAX_FILE_PREVIEW_BYTES,
+    MAX_FILE_RANGE_BYTES, MAX_SESSION_HISTORY_BYTES, MAX_THREAD_EXPORT_BYTES, OUTPUT_PREVIEW_BYTES,
+    PathEntry, PathInfo, PathKind, Query, QueryResponse, RecentDir, SESSION_HISTORY_RECORDS,
+    SESSION_WINDOW_BYTES, STORED_OUTPUT_COLS, STORED_OUTPUT_ROWS, SessionSearchHit, SourceTool,
+    SpaceAction, SpaceInfo, TraverseLookupState, TraverseLookupStatus, TraverseManifestState,
+    TraverseManifestStatus, TraverseRelayStatus, TraverseSourceStatus,
 };
 pub use terminal::{TerminalDelta, TerminalFrame};
 pub use wire::{
@@ -182,6 +182,10 @@ pub use wire::{
 // which asks a provider with a native compaction operation to compact now;
 // RuntimeNotification gains ThreadAttention, a thread's settled completion,
 // new question or new approval request.
+// Unreleased: the PreviewFile query and FilePreview response resolve a file
+// link on the host into a text, image or video preview, an image's bytes then
+// read as an explicit original, and ReadFileRange reads a bounded range of a
+// file whose size is unchanged, for media players.
 pub const PROTOCOL_VERSION: u32 = 14;
 
 #[cfg(test)]

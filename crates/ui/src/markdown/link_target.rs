@@ -1,8 +1,4 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum LinkTarget {
@@ -19,155 +15,108 @@ impl LinkTarget {
     }
 }
 
-#[derive(Default)]
-pub(super) struct LinkTargetCache {
-    entries: RefCell<HashMap<String, LinkTarget>>,
-}
-
-impl LinkTargetCache {
-    pub(super) fn resolve(&self, url: &str, base_dir: Option<&Path>) -> LinkTarget {
-        if let Some(target) = self.entries.borrow().get(url) {
-            return target.clone();
-        }
-        let target = resolve_link(url, base_dir);
-        self.entries
-            .borrow_mut()
-            .insert(url.to_string(), target.clone());
-        target
-    }
-
-    pub(super) fn clear(&mut self) {
-        self.entries.get_mut().clear();
-    }
-}
-
-pub(super) fn resolve_link(url: &str, base_dir: Option<&Path>) -> LinkTarget {
-    if let Some(path) = url.strip_prefix("file://") {
-        return LinkTarget::Local(PathBuf::from(path));
-    }
-    if url.contains("://") || url.starts_with("mailto:") {
-        return LinkTarget::Web(url.to_string());
-    }
-
-    let mut candidates = vec![url.to_string()];
-    let mut index = 0;
-    while index < candidates.len() {
-        let candidate = &candidates[index];
-        for stripped in [strip_line_suffix(candidate), strip_line_fragment(candidate)]
-            .into_iter()
-            .flatten()
-        {
-            if !candidates.contains(&stripped) {
-                candidates.push(stripped);
-            }
-        }
-        index += 1;
-    }
-
-    for candidate in candidates {
-        let candidate = expand_home(&candidate);
-        let resolved = if candidate.is_absolute() {
-            Some(candidate)
-        } else {
-            base_dir.map(|base_dir| base_dir.join(candidate))
-        };
-        if let Some(path) = resolved
-            && path.exists()
-        {
-            return LinkTarget::Local(path);
-        }
-    }
-
-    LinkTarget::Web(url.to_string())
-}
-
-fn expand_home(path: &str) -> PathBuf {
-    let Some(rest) = path.strip_prefix("~/") else {
-        return PathBuf::from(path);
-    };
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .map(|home| home.join(rest))
-        .unwrap_or_else(|| PathBuf::from(path))
-}
-
-fn strip_line_suffix(path: &str) -> Option<String> {
-    let (without_last, last) = path.rsplit_once(':')?;
-    if last.is_empty() || !last.bytes().all(|byte| byte.is_ascii_digit()) {
-        return None;
-    }
-    if let Some((without_line, line)) = without_last.rsplit_once(':')
-        && !line.is_empty()
-        && line.bytes().all(|byte| byte.is_ascii_digit())
+/// Classify syntax only. Existence, home expansion and path semantics belong to the host.
+pub(super) fn resolve_link(url: &str) -> LinkTarget {
+    let windows_path =
+        url.as_bytes().get(1) == Some(&b':') && matches!(url.as_bytes().get(2), Some(b'/' | b'\\'));
+    let line_suffix = url
+        .rsplit_once(':')
+        .is_some_and(|(path, line)| !path.is_empty() && line.parse::<u32>().is_ok());
+    if !windows_path
+        && !url.starts_with("file://")
+        && (url.contains("://")
+            || url.starts_with("mailto:")
+            || url.starts_with("tel:")
+            || (!line_suffix && url::Url::parse(url).is_ok()))
     {
-        return Some(without_line.to_string());
+        return LinkTarget::Web(url.to_owned());
     }
-    Some(without_last.to_string())
+    LinkTarget::Local(PathBuf::from(url))
 }
 
-fn strip_line_fragment(path: &str) -> Option<String> {
-    let (without_fragment, line) = path.rsplit_once("#L")?;
-    (!line.is_empty() && line.bytes().all(|byte| byte.is_ascii_digit()))
-        .then(|| without_fragment.to_string())
+/// The explicit desktop escape hatch resolves on the viewing machine, as the
+/// system opener did before host previews. Preserve literal names before
+/// interpreting a trailing source location.
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+pub(super) fn system_path(target: &str, base_dir: Option<&std::path::Path>) -> Option<PathBuf> {
+    let resolve = |target: &str| {
+        if target.starts_with("file://") {
+            return url::Url::parse(target).ok()?.to_file_path().ok();
+        }
+        let path = PathBuf::from(target);
+        let path = if let Some(rest) = target.strip_prefix("~/") {
+            let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+            PathBuf::from(home).join(rest)
+        } else if path.is_absolute() {
+            path
+        } else {
+            base_dir?.join(path)
+        };
+        path.exists().then_some(path)
+    };
+    if let Some(path) = resolve(target) {
+        return Some(path);
+    }
+    let mut target = target;
+    if let Some((path, line)) = target.rsplit_once("#L")
+        && line.parse::<u32>().is_ok()
+    {
+        target = path;
+    }
+    for _ in 0..2 {
+        if let Some((path, line)) = target.rsplit_once(':')
+            && line.parse::<u32>().is_ok()
+        {
+            target = path;
+        }
+    }
+    resolve(target)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn host_paths_do_not_depend_on_client_files() {
+        for path in [
+            "/host-only/src/main.rs:42",
+            "src/main.rs#L12",
+            "README.md:42",
+            "Makefile:5",
+            "file:///host-only/my%20file.txt",
+            "~/notes.md",
+            r"C:\work\main.rs:3",
+        ] {
+            assert_eq!(resolve_link(path), LinkTarget::Local(PathBuf::from(path)));
+        }
+        for url in [
+            "https://example.com",
+            "https://localhost:443",
+            "mailto:user@example.com",
+            "custom:resource",
+        ] {
+            assert_eq!(resolve_link(url), LinkTarget::Web(url.into()));
+        }
+    }
 
     #[test]
-    fn links_resolve_existing_files_and_locations_without_rewriting_web_targets() {
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "tcode-markdown-links-{}-{nonce}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(root.join("src")).unwrap();
-        let file = root.join("src/lib.rs");
-        std::fs::write(&file, "test").unwrap();
-
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+    fn system_open_resolves_workspace_paths_and_source_locations() {
+        let root = std::env::temp_dir().join(format!("tcode-system-link-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("my file.txt");
+        std::fs::write(&path, "hello").unwrap();
         for target in [
-            "https://example.com/docs#L12",
-            "custom://resource",
-            "mailto:hello@example.com",
-            "missing/file.rs:42",
-            "src/lib.rs:line",
-            "src/lib.rs#Lx",
+            "my file.txt".to_owned(),
+            "my file.txt:12:3".to_owned(),
+            "my file.txt#L12".to_owned(),
+            path.display().to_string(),
+            url::Url::from_file_path(&path).unwrap().to_string(),
         ] {
-            assert_eq!(
-                resolve_link(target, Some(&root)),
-                LinkTarget::Web(target.into()),
-                "{target}"
-            );
+            assert_eq!(system_path(&target, Some(&root)), Some(path.clone()));
         }
-        for target in [
-            "src/lib.rs",
-            "src/lib.rs:42",
-            "src/lib.rs:42:7",
-            "src/lib.rs#L12",
-            "src/lib.rs:42#L12",
-        ] {
-            assert_eq!(
-                resolve_link(target, Some(&root)),
-                LinkTarget::Local(file.clone()),
-                "{target}"
-            );
-        }
-        assert_eq!(
-            resolve_link(file.to_str().unwrap(), None),
-            LinkTarget::Local(file)
-        );
-        assert_eq!(
-            resolve_link("src/lib.rs", None),
-            LinkTarget::Web("src/lib.rs".into())
-        );
-        assert_eq!(
-            resolve_link("file:///does-not-need-to-exist", None),
-            LinkTarget::Local(PathBuf::from("/does-not-need-to-exist"))
-        );
+        assert_eq!(system_path("my file.txt", None), None);
+        assert_eq!(system_path("missing.txt", Some(&root)), None);
         std::fs::remove_dir_all(root).unwrap();
     }
 }

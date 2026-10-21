@@ -355,8 +355,17 @@ impl AppState {
                 Query::ReadFileBytes { path, .. }
                 | Query::ReadImagePreview { path, .. }
                 | Query::ReadFilePreview { path }
-                | Query::ReadIconImage { path } => {
+                | Query::ReadIconImage { path }
+                | Query::ReadFileRange { path, .. } => {
                     self.authorize_path(path, project_ids, PathAccess::Descendant, cx)
+                }
+                Query::PreviewFile { target, base_dir } => {
+                    let (target, base_dir) = (target.clone(), base_dir.clone());
+                    let (path, _) = smol::block_on(cx.unblock(move || {
+                        tcode_services::file_preview::resolve(&target, base_dir.as_deref())
+                    }))
+                    .map_err(|_| refusal("path"))?;
+                    self.authorize_path(&path, project_ids, PathAccess::Descendant, cx)
                 }
                 Query::RemoveUserFile { path } => {
                     self.authorize_path(path, project_ids, PathAccess::AttachmentDescendant, cx)

@@ -14,6 +14,7 @@ mod context_meter;
 mod conversation_ui;
 pub(crate) mod diff;
 mod edge_back;
+mod file_preview;
 #[doc(hidden)]
 pub mod gallery_support;
 pub(crate) mod git;
