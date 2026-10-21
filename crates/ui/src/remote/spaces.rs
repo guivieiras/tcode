@@ -16,7 +16,7 @@ use std::time::Duration;
 use gpui::{
     Action, AnyElement, App, AppContext as _, ClipboardItem, Context, Entity, EntityId, Global,
     InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Task, WeakEntity, Window, div, px,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Task, WeakEntity, Window, div,
 };
 use gpui_base::{h_flex, v_flex};
 use serde::Deserialize;
@@ -1513,7 +1513,12 @@ mod section {
             div()
                 .w_full()
                 .pl_3()
-                .child(div().w_full().h(px(1.)).bg(cx.theme().border.opacity(0.6)))
+                .child(
+                    div()
+                        .w_full()
+                        .h(gpui::px(1.))
+                        .bg(cx.theme().border.opacity(0.6)),
+                )
                 .into_any_element()
         }
     }
@@ -1704,7 +1709,7 @@ mod section {
             .max_w(design(160.))
             .gap_1()
             .px_2()
-            .py(px(1.))
+            .py(gpui::px(1.))
             .items_center()
             .rounded(crate::material::radius_chip(cx))
             .bg(cx.theme().muted)
@@ -1972,7 +1977,7 @@ mod tests {
             let probe = cx.new(|_| Probe(section));
             gpui_base::Root::new(probe, window, cx)
         });
-        cx.simulate_resize(gpui::size(px(900.), px(1400.)));
+        cx.simulate_resize(gpui::size(gpui::px(900.), gpui::px(1400.)));
         draw(cx);
 
         click(format!("space-row-{space_id}"), cx);
